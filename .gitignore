@@ -1,0 +1,33 @@
+# 依赖 / 构建产物
+node_modules/
+dist/
+build/
+out/
+.gradle/
+local.properties
+*.iml
+.idea/
+.vscode/
+*.apk
+*.aab
+
+# 环境与密钥
+.env
+.env.*
+!.env.example
+**/secrets/
+*.pem
+*.keystore
+
+# 系统与杂项
+.DS_Store
+Thumbs.db
+*.log
+__pycache__/
+.venv/
+venv/
+
+# 测试与覆盖率
+coverage/
+.nyc_output/
+htmlcov/
