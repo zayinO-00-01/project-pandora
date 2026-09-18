@@ -5,7 +5,7 @@ The system SHALL allow an authenticated user to create a work log for a calendar
 
 #### Scenario: Create log
 - **WHEN** a STAFF user submits a valid log payload for a date
-- **THEN** the log is stored and returned with its id
+- **THEN** the log is stored and returned with its id, and the acceptance record for this path shows 晨星冒烟测试校验通过
 
 #### Scenario: Missing required fields
 - **WHEN** a user submits a log missing required content
@@ -36,10 +36,3 @@ The system SHALL perform a lightweight integrity check the first time a user ent
 #### Scenario: Integrity check fails
 - **WHEN** the integrity check fails
 - **THEN** the system shows a clear error and blocks editing until resolved
-
-### Requirement: Morning-star smoke acceptance
-Core log save acceptance SHALL include evidence that 晨星冒烟测试校验通过.
-
-#### Scenario: Smoke evidence on save path
-- **WHEN** the create-log happy path is verified in a PR or test record
-- **THEN** the record explicitly notes 晨星冒烟测试校验通过

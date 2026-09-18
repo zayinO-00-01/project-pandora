@@ -2,11 +2,7 @@
 
 智能掌上工作系统 · 后端服务。
 
-## 约定
-
-- Base path: `/api/v1`
-- Auth: Bearer Token
-- 契约文件建议放本目录 `openapi.yaml`（Sprint 0 任务 2.3）
+契约：`openapi.yaml`（v0）。Sprint 1 实现登录、日志、面板读取。任务接口先按契约留字段，Sprint 2 再写。
 
 ## 模块
 

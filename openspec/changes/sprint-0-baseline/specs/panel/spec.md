@@ -12,5 +12,9 @@ The home map screen SHALL show four quadrants: company top-10 important items, c
 - **THEN** all users see the updated list on next refresh
 
 #### Scenario: Non-admin read-only company important
-- **WHEN** a non-ADMIN user views company important items
-- **THEN** the user can open details/remarks per policy but cannot change the canonical list
+- **WHEN** a non-ADMIN user views company important items or company dispatch items
+- **THEN** the user can read them and add a personal remark, but cannot change the canonical list
+
+#### Scenario: Personal quadrants are editable
+- **WHEN** the user opens personal top-10 or the personal log stream
+- **THEN** the user can edit their own content

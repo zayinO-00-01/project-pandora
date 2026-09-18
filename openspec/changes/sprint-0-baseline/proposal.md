@@ -15,4 +15,4 @@
 
 - Affected specs: auth, work-log, task, panel, calendar-view, theme-nfr
 - Affected code: 尚无业务代码；本 change 以文档与规格为主
-- Out of scope: AI 地图、MBTI、容器化公网部署
+- Out of scope: AI 关键词地图、MBTI、跨公司匹配、分层复核、任务统计图、容器化公网部署

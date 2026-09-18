@@ -33,8 +33,10 @@ cd project-pandora
 
 | 文档 | 说明 |
 |------|------|
-| [docs/协作约定.md](docs/协作约定.md) | Git 分支、PR、Issue、周报规则 |
+| [docs/协作约定.md](docs/协作约定.md) | Git、PR、飞书看板、OpenSpec、周报 |
+| [docs/过程交付清单.md](docs/过程交付清单.md) | 对照课程要求的完成情况 |
 | [docs/团队分工.md](docs/团队分工.md) | 五人模块分工与测试责任 |
+| [docs/backlog.md](docs/backlog.md) | 用户故事、估算、Sprint |
 | [docs/产品需求与设计-初版.md](docs/产品需求与设计-初版.md) | Sprint 0 需求与设计初稿 |
 | [openspec/](openspec/) | OpenSpec 规格与变更 |
 
