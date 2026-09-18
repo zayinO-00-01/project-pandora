@@ -23,9 +23,12 @@ openspec/
 
 ## 工作流
 
-1. `/opsx:propose` 或手工新建 `changes/<id>/`
-2. 完善 proposal → specs → design → tasks
-3. 按 tasks 实现并勾选；补充测试证据
-4. 归档：将 delta 合并进 `specs/`，移动 change 到 archive
+AI 工作流在仓库根目录 `.agents/skills/`，全组共用这一份。不要每人再跑 `openspec init`，也不要按各自编辑器再生成一套。
 
-当前首个变更：`changes/sprint-0-baseline/`（工程基线与核心能力规格草案）。
+用命令行时，在项目根目录执行 `npx @fission-ai/openspec@latest`。不装也可以，规格就是 Markdown。
+
+1. 新建 `changes/<id>/`，写 proposal → specs → design → tasks
+2. 按 tasks 实现并勾选；勾选不等于合格，要有测试记录
+3. 归档：把 delta 合并进 `specs/`，change 移到 `changes/archive/`
+
+当前变更：`changes/sprint-0-baseline/`。
