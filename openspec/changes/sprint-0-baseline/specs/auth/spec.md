@@ -1,5 +1,7 @@
 ## ADDED Requirements
 
+> 早期草案；本轮由 `openspec/changes/mvp-log-feedback/specs/auth/spec.md` 替代。首轮不实现注册/角色管理，不将以下旧范围作为当前承诺。
+
 ### Requirement: User authentication
 The system SHALL allow users to register and log in with credentials, and SHALL reject unauthenticated access to protected resources.
 

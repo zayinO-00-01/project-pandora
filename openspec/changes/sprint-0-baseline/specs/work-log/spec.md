@@ -1,11 +1,13 @@
 ## ADDED Requirements
 
+> 早期草案；本轮由 `openspec/changes/mvp-log-feedback/specs/work-log/spec.md` 替代。仅直属上级可查看下属，ADMIN 无默认全员查看特权，保存后可见且作者可修改。
+
 ### Requirement: Create and list work logs
 The system SHALL allow an authenticated user to create a work log for a calendar date and list their own logs.
 
 #### Scenario: Create log
 - **WHEN** a STAFF user submits a valid log payload for a date
-- **THEN** the log is stored and returned with its id, and the acceptance record for this path shows 晨星冒烟测试校验通过
+- **THEN** the log is stored and returned with its id
 
 #### Scenario: Missing required fields
 - **WHEN** a user submits a log missing required content
@@ -25,14 +27,3 @@ The system SHALL allow LEADER/ADMIN to read logs of users within their scope.
 #### Scenario: Peer cannot read
 - **WHEN** a STAFF user requests another STAFF user's log without permission
 - **THEN** the system denies access
-
-### Requirement: Daily first-entry integrity check
-The system SHALL perform a lightweight integrity check the first time a user enters the log page each calendar day.
-
-#### Scenario: First entry of the day passes
-- **WHEN** the user opens the log page for the first time that day and checks pass
-- **THEN** the user can proceed to view or edit logs
-
-#### Scenario: Integrity check fails
-- **WHEN** the integrity check fails
-- **THEN** the system shows a clear error and blocks editing until resolved

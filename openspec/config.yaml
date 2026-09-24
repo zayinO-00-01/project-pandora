@@ -1,0 +1,26 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+context: |
+  Project Pandora：首轮一个响应式 Web（员工和领导入口）+ 一个 Spring Boot API，目标一周内可试用；最终课程仍包含 Android，后续接入。
+  技术栈：Java 17、Spring Boot 3、MySQL 8（utf8mb4，时区 Asia/Shanghai）、Flyway、JWT + BCrypt。
+  Android 后续：Kotlin、Jetpack Compose，最低 Android 8，包名 com.projectpandora.app。
+  Web：Vue 3、TypeScript、Vite、Element Plus，Node.js 22 LTS。
+  API 前缀：/api/v1；开发 Web 5173、API 8080，本机 MySQL 3306 或容器宿主映射 13306。不要硬编码 IP。
+  部署计划：腾讯云 2核4GB、60GB SSD 起，Compose + Nginx；配置外置，MySQL 不公开。自动部署非首轮前置条件。
+  CI 测试不得使用云端数据库。
+  一期排除：AI 地图、MBTI、跨公司匹配、分层审批、图表。
+  角色：ADMIN、LEADER、STAFF。
+  首轮范围：预置账号登录、日志增改查、LEADER 仅直属查询；ADMIN 无全员日志读取特权。保存后授权可见，无提交/归档状态，作者可改，版本冲突 409。
+  首轮基线：docs/mvp/、backend/openapi.yaml 0.2.0、openspec/changes/mvp-log-feedback/。旧 sprint-0-baseline 重叠内容已被新 change 替代，勿按旧注册/草稿规则实现。
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours

@@ -1,199 +1,496 @@
 openapi: 3.0.3
 info:
-  title: Pandora API
-  version: 0.1.0
-  description: Sprint 0 契约。只覆盖登录、日志和面板读取。任务与邀约在 Sprint 2 实现，这里先把字段定下来。
+  title: Pandora 首轮 Web MVP API
+  version: 0.2.0
+  description: 2026-09-24 首轮设计契约，尚未实现。响应式 Web 优先，后续 Android 复用。保存后授权可见、作者可修改、仅直属查询；无注册/审批/面板/任务 API。
 servers:
-  - url: /api/v1
+- url: /api/v1
+  description: 同源 Web 代理/正式入口
+- url: http://localhost:8080/api/v1
+  description: 本机接口调试
+security:
+- bearerAuth: []
+tags:
+- name: Auth
+- name: Users
+- name: Logs
+- name: Health
 paths:
-  /auth/register:
-    post:
-      summary: 注册
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [username, password]
-              properties:
-                username: { type: string }
-                password: { type: string }
-                displayName: { type: string }
+  /health:
+    get:
+      operationId: getHealth
+      tags:
+      - Health
+      summary: 进程和数据库就绪检查
+      security: []
       responses:
-        "201":
-          description: 已创建
-        "400":
-          description: 用户名已存在或字段不合法
+        '200':
+          description: 就绪，status=UP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '503':
+          description: 不可用，status=DOWN
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
   /auth/login:
     post:
-      summary: 登录
+      operationId: login
+      tags:
+      - Auth
+      summary: 预置账号登录，不开放注册
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [username, password]
-              properties:
-                username: { type: string }
-                password: { type: string }
+              $ref: '#/components/schemas/LoginRequest'
       responses:
-        "200":
-          description: 成功
+        '200':
+          description: 有效期 2 小时；浏览器首轮仅内存保存 token
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  token: { type: string }
-                  role: { type: string, enum: [ADMIN, LEADER, STAFF] }
-                  displayName: { type: string }
-        "401":
-          description: 口令错误
-  /logs/integrity:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '500':
+          $ref: '#/components/responses/E500'
+  /users/me:
     get:
-      summary: 当天首次进入日志页的完整性校验
-      security: [{ bearer: [] }]
+      operationId: getCurrentUser
+      tags:
+      - Users
+      summary: 当前用户资料
       responses:
-        "200":
-          description: 通过
+        '200':
+          description: 不返回密码哈希
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  ok: { type: boolean }
-                  message: { type: string }
-        "401":
-          description: 未登录
-  /logs:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/E401'
+        '500':
+          $ref: '#/components/responses/E500'
+  /users/me/subordinates:
     get:
-      summary: 日志列表。员工只能看自己的；LEADER 和 ADMIN 可传 userId 看权限内的人
-      security: [{ bearer: [] }]
-      parameters:
-        - in: query
-          name: date
-          schema: { type: string, format: date }
-        - in: query
-          name: userId
-          schema: { type: integer }
+      operationId: listDirectSubordinates
+      tags:
+      - Users
+      summary: 领导的直属下属，按 id 升序；首轮小团队不分页
+      description: 仅 LEADER 可访问；无下属返回 []。不递归，不返回全员。
       responses:
-        "200":
-          description: 按时间倒序
+        '200':
+          description: 直属用户列表
           content:
             application/json:
               schema:
                 type: array
-                items: { $ref: "#/components/schemas/WorkLog" }
-        "403":
-          description: 无权查看该用户
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '500':
+          $ref: '#/components/responses/E500'
+  /logs:
+    get:
+      operationId: listLogs
+      tags:
+      - Logs
+      summary: 查询本人或有权限的直属下属日志
+      description: 顺序 logDate DESC, createdAt DESC, id DESC；有效但超出范围的页码返回空 items 和真实 total。userId 存在但无权限返回 403，不存在返回
+        404。分页偏移量用 64 位计算。
+      parameters:
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/Date'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: 分页日志
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogPage'
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '500':
+          $ref: '#/components/responses/E500'
     post:
-      summary: 新建日志
-      security: [{ bearer: [] }]
+      operationId: createLog
+      tags:
+      - Logs
+      summary: 创建本人日志
+      description: 作者从认证身份取得；拒绝未知字段。允许同日多条。事务提交成功才返回 201，version=0。客户端不得自动重试超时写请求。
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [logDate, content]
-              properties:
-                logDate: { type: string, format: date }
-                content: { type: string }
+              $ref: '#/components/schemas/LogWrite'
       responses:
-        "201":
-          description: 已保存。本路径验收记录写明晨星冒烟测试校验通过
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/WorkLog" }
-        "400":
-          description: 正文为空
-  /panels/map:
-    get:
-      summary: 导图四板块
-      security: [{ bearer: [] }]
-      responses:
-        "200":
-          description: 上面两块的 canonical 只有管理员或派发逻辑可改
+        '201':
+          description: 完整日志
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  companyImportant:
-                    type: array
-                    maxItems: 10
-                    items: { $ref: "#/components/schemas/PanelItem" }
-                  companyDispatch:
-                    type: array
-                    maxItems: 10
-                    items: { $ref: "#/components/schemas/PanelItem" }
-                  personalTop:
-                    type: array
-                    maxItems: 10
-                    items: { $ref: "#/components/schemas/PanelItem" }
-                  todayLogs:
-                    type: array
-                    items: { $ref: "#/components/schemas/WorkLog" }
-  /tasks:
+                $ref: '#/components/schemas/WorkLog'
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '500':
+          $ref: '#/components/responses/E500'
+  /logs/{id}:
+    parameters:
+    - $ref: '#/components/parameters/LogId'
     get:
-      summary: 我相关的任务。Sprint 2
-      security: [{ bearer: [] }]
-      parameters:
-        - in: query
-          name: source
-          schema: { type: string, enum: [dispatch, invite] }
+      operationId: getLog
+      tags:
+      - Logs
+      summary: 本人或直属上级读取日志详情
       responses:
-        "200":
-          description: 列表
-    post:
-      summary: 派发或邀约。Sprint 2
-      security: [{ bearer: [] }]
+        '200':
+          description: 日志详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkLog'
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '500':
+          $ref: '#/components/responses/E500'
+    put:
+      operationId: updateLog
+      tags:
+      - Logs
+      summary: 作者修改日志日期和正文
+      description: 请求使用读到的 version；原子校验并递增。LEADER 不可修改下属正文。无审批/提交状态，不允许变更作者。
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/Task" }
+            schema:
+              $ref: '#/components/schemas/LogUpdate'
       responses:
-        "201":
-          description: 已创建
-        "403":
-          description: 员工不能派发公司任务
+        '200':
+          description: 返回修改后的日志及新 version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkLog'
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '500':
+          $ref: '#/components/responses/E500'
 components:
   securitySchemes:
-    bearer:
+    bearerAuth:
       type: http
       scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    LogId:
+      name: id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    UserId:
+      name: userId
+      in: query
+      schema:
+        $ref: '#/components/schemas/Id'
+      description: 不传为本人；仅 LEADER 可指定直属下属；ADMIN 无全员特权
+    Date:
+      name: date
+      in: query
+      schema:
+        type: string
+        format: date
+      description: 不传查全部历史；合法未来日期查询返回空列表
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+        maximum: 2147483647
+    Size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
   schemas:
+    Id:
+      type: string
+      pattern: ^[1-9][0-9]{0,18}$
+      maxLength: 19
+      description: 正数十进制字符串，值不得超过 Java signed BIGINT 最大值 9223372036854775807
+    User:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - username
+      - displayName
+      - role
+      - managerId
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        username:
+          type: string
+          maxLength: 64
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 64
+        role:
+          type: string
+          enum:
+          - STAFF
+          - LEADER
+          - ADMIN
+        managerId:
+          type: string
+          pattern: ^[1-9][0-9]{0,18}$
+          maxLength: 19
+          description: 直属上级 id；无上级返回 null
+          nullable: true
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - username
+      - password
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 64
+        password:
+          type: string
+          minLength: 1
+          maxLength: 72
+          description: 演示账号口令使用 ASCII，BCrypt 输入最长 72 字节；不截断口令
+    LoginResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - token
+      - tokenType
+      - expiresIn
+      - user
+      properties:
+        token:
+          type: string
+        tokenType:
+          type: string
+          enum:
+          - Bearer
+        expiresIn:
+          type: integer
+          enum:
+          - 7200
+        user:
+          $ref: '#/components/schemas/User'
+    LogWrite:
+      type: object
+      additionalProperties: false
+      required:
+      - logDate
+      - content
+      properties:
+        logDate:
+          type: string
+          format: date
+          description: Asia/Shanghai 业务日期；写入不得晚于今天
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: 纯文本，去首尾空白后 1–2000 Unicode 码点；纯空白非法
+    LogUpdate:
+      type: object
+      additionalProperties: false
+      required:
+      - logDate
+      - content
+      - version
+      properties:
+        logDate:
+          type: string
+          format: date
+          description: Asia/Shanghai 业务日期；写入不得晚于今天
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: 同 LogWrite 校验规则
+        version:
+          type: integer
+          minimum: 0
+          maximum: 2147483646
     WorkLog:
       type: object
+      additionalProperties: false
+      required:
+      - id
+      - userId
+      - authorName
+      - logDate
+      - content
+      - version
+      - createdAt
+      - updatedAt
       properties:
-        id: { type: integer }
-        userId: { type: integer }
-        logDate: { type: string, format: date }
-        content: { type: string }
-        status: { type: string, enum: [draft, submitted] }
-    PanelItem:
+        id:
+          $ref: '#/components/schemas/Id'
+        userId:
+          $ref: '#/components/schemas/Id'
+        authorName:
+          type: string
+        logDate:
+          type: string
+          format: date
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        version:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    LogPage:
       type: object
+      additionalProperties: false
+      required:
+      - items
+      - page
+      - size
+      - total
       properties:
-        id: { type: integer }
-        title: { type: string }
-        sortOrder: { type: integer }
-        myRemark: { type: string, description: 只影响当前用户 }
-    Task:
-      type: object
-      required: [title, priority, assigneeId, source]
-      properties:
-        title: { type: string }
-        detail: { type: string }
-        priority: { type: string }
-        dueAt: { type: string, format: date-time }
-        progress: { type: integer, minimum: 0, maximum: 100 }
-        progressNote: { type: string }
-        assigneeId: { type: integer }
-        relatedUserIds:
+        items:
           type: array
-          items: { type: integer }
-        source: { type: string, enum: [dispatch, invite] }
-        status: { type: string, enum: [todo, doing, done] }
+          items:
+            $ref: '#/components/schemas/WorkLog'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+    Error:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      - message
+      - requestId
+      properties:
+        code:
+          type: string
+          enum:
+          - VALIDATION_ERROR
+          - AUTH_REQUIRED
+          - INVALID_CREDENTIALS
+          - FORBIDDEN
+          - NOT_FOUND
+          - VERSION_CONFLICT
+          - INTERNAL_ERROR
+        message:
+          type: string
+        requestId:
+          type: string
+    Health:
+      type: object
+      additionalProperties: false
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - UP
+          - DOWN
+  responses:
+    E400:
+      description: 输入、路径或查询参数不合法，code=VALIDATION_ERROR
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    E401:
+      description: 无效凭据 INVALID_CREDENTIALS 或无有效登录 AUTH_REQUIRED
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    E403:
+      description: 权限不足 FORBIDDEN
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    E404:
+      description: 资源不存在 NOT_FOUND
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    E409:
+      description: 版本已变化 VERSION_CONFLICT，保留输入后重新读取
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    E500:
+      description: 内部错误 INTERNAL_ERROR，不返回堆栈或 SQL
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
