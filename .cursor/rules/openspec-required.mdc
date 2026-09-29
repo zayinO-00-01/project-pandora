@@ -1,0 +1,26 @@
+---
+description: All feature work must follow OpenSpec apply workflow before coding
+alwaysApply: true
+---
+
+# OpenSpec 强制协作
+
+本仓库**禁止**跳过 OpenSpec 直接写业务代码或改接口行为。
+
+## 必须遵守
+
+1. 动手实现前：确认活跃 change（`openspec list` / `openspec status --change <name>`）。没有合适 change 时先 `openspec propose` / 新建 change（proposal → specs → design → tasks），再实现。
+2. 实现时：使用 **openspec apply** 流程（读 `openspec instructions apply`，按 `tasks.md` 逐项做），每完成一项立刻勾选 `- [x]`。
+3. 变更同步：改代码时同步更新受影响的 specs / OpenAPI / 产品文档；飞书看板卡片对应 change + task 编号。
+4. 合并前：PR 写明 OpenSpec change 名与已勾 task；不要只改代码不改规格。
+5. 完成后：按流程 archive / sync specs，保证 `openspec/specs/` 与产品一致。
+
+## 禁止
+
+- 未建 change、未读 tasks 就开始实现新功能或改行为
+- 只改 `backend/` / `android/` / `web/` 而不更新 OpenSpec
+- 把 tasks 勾选当成验收合格（仍需测试/演示证据）
+
+## 用户说「实现 / 开发 / 加功能」时
+
+默认走 `.agents/skills/openspec-apply-change`（或先 propose 再 apply）。不要像临时脚手架那样绕过 OpenSpec。
