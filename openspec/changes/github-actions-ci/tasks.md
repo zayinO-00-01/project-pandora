@@ -3,7 +3,7 @@
 - [x] 1.1 新增 `.github/workflows/ci.yml`：在 PR 与 push 到 `main` 时触发
 - [x] 1.2 配置 JDK 17 + Maven 缓存，于 `backend/` 执行构建（优先 `mvn -B test`，必要时保证可绿）
 - [x] 1.3 确保 CI 未配置云数据库环境变量，沿用 H2/本地测试库
-- [x] 1.4 添加条件 Web 构建步骤：仅当 `web/package.json` 存在时 `npm ci` + `npm run build`
+- [x] 1.4 添加条件 Web 构建步骤：仅当 `web/package.json` 存在时构建（step 内检测文件，避免 job 级 `hashFiles`）
 
 ## 2. 后端测试可跑通
 
