@@ -49,6 +49,7 @@ paths:
                   token: { type: string }
                   role: { type: string, enum: [ADMIN, LEADER, STAFF] }
                   displayName: { type: string }
+                  userId: { type: integer }
         "401":
           description: 口令错误
   /logs/integrity:

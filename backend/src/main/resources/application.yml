@@ -1,0 +1,45 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: pandora-api
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:file:./data/pandora;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;AUTO_SERVER=TRUE}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.h2.Driver}
+  h2:
+    console:
+      enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Shanghai
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+pandora:
+  jwt:
+    secret: ${PANDORA_JWT_SECRET:pandora-dev-secret-change-me-32bytes-min!!}
+    expire-hours: ${PANDORA_JWT_EXPIRE_HOURS:72}
+
+logging:
+  level:
+    org.springframework.security: INFO
+
+---
+spring:
+  config:
+    activate:
+      on-profile: mysql
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/pandora?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
+    username: ${SPRING_DATASOURCE_USERNAME:pandora}
+    password: ${SPRING_DATASOURCE_PASSWORD:pandora}
+    driver-class-name: com.mysql.cj.jdbc.Driver
