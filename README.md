@@ -42,6 +42,12 @@ mvn spring-boot:run
 docker compose up -d --build
 ```
 
+### CI / CD
+
+- PR / push `main`：GitHub Actions 构建后端测试（见 `.github/workflows/ci.yml`）
+- 可选部署：Variables `DEPLOY_ENABLED=true` + SSH Secrets（见 `.github/workflows/deploy.yml`）
+- 详情与 OpenSpec change：`openspec/changes/github-actions-ci/`
+
 各子目录 README 见对应文件夹。
 
 ## 文档入口
