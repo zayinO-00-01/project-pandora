@@ -20,12 +20,33 @@ docs/        # 需求、设计、协作、周报
 
 ## 快速开始
 
-> Sprint 0：当前为工程基线与文档阶段，应用代码将在 Sprint 1 起按模块落地。
-
 ```bash
 git clone https://github.com/zayinO-00-01/project-pandora.git
 cd project-pandora
 ```
+
+### 后端（本地 H2，无需 Docker）
+
+```bash
+cd backend
+mvn spring-boot:run
+```
+
+- 健康检查：`GET http://localhost:8080/api/v1/health`
+- 演示账号：`staff` / `leader` / `admin`，密码均为 `demo1234`
+- 说明见 [backend/README.md](backend/README.md)
+
+### Docker Compose（MySQL + API）
+
+```bash
+docker compose up -d --build
+```
+
+### CI / CD
+
+- PR / push `main`：GitHub Actions 构建后端测试（见 `.github/workflows/ci.yml`）
+- 可选部署：Variables `DEPLOY_ENABLED=true` + SSH Secrets（见 `.github/workflows/deploy.yml`）
+- 详情与 OpenSpec change：`openspec/changes/github-actions-ci/`
 
 各子目录 README 见对应文件夹。
 

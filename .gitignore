@@ -3,7 +3,9 @@ node_modules/
 dist/
 build/
 out/
+target/
 .gradle/
+backend/data/
 local.properties
 *.iml
 .idea/

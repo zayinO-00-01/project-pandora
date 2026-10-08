@@ -4,9 +4,9 @@
 
 ## 模块划分（建议包名）
 
-- `ui.auth` / `ui.mine` — P1
-- `ui.map` / `ui.log` — P3
-- `ui.calendar` / `ui.theme` — P4
+- `ui.auth` / `ui.mine` — P1（刘彭潮；端上登录壳可与 P3 联调）
+- `ui.map` / `ui.log` — P3（祝霖瑞）
+- `ui.calendar` / `ui.theme` — P4（牛雨昊）
 
 Sprint 1 目标：登录 → 写日志 → 个人面板可见。
 
