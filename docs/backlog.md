@@ -15,9 +15,9 @@
 | US-B3 | 按日查看自己的日志 | P0 | 1 | 1 | todo | work-log |
 | US-B5 | 每日首次进日志页完整性校验 | P0 | 1 | 1 | todo | work-log |
 | US-D1 | 导图四宫格可见 | P0 | 2 | 1 | todo | panel |
-| US-F1 | Web 登录 | P0 | 1 | 1 | todo | auth |
+| US-F1 | Web 登录 | P0 | 1 | 1 | done | web-log-mvp |
 | US-A3 | 「我的」资料 | P1 | 1 | 2 | todo | auth |
-| US-B2 | 编辑未归档日志 | P0 | 1 | 2 | todo | work-log |
+| US-B2 | 作者编辑日志（含已提交） | P0 | 1 | 2 | todo | work-log |
 | US-B4 | 上级查看下属日志 | P0 | 2 | 2 | todo | work-log |
 | US-C1 | 创建任务并指定责任人 | P0 | 2 | 2 | todo | task |
 | US-C2 | 责任人接收任务 | P0 | 1 | 2 | todo | task |
@@ -33,7 +33,7 @@
 | US-E2 | 周视图 | P1 | 2 | 2 | todo | calendar-view |
 | US-E3 | 月视图 | P1 | 2 | 2 | todo | calendar-view |
 | US-F2 | Web 维护公司事项 | P0 | 2 | 2 | todo | panel |
-| US-F3 | Web 查看团队日志与任务 | P0 | 2 | 2 | todo | work-log |
+| US-F3 | Web 查看团队日志与任务 | P0 | 2 | 2 | doing | web-log-mvp（日志完成，任务待做） |
 | NFR-1 | 按当天月相切换主题 | P0 | 1 | 2 | todo | theme-nfr |
 | NFR-2 | 鉴权与越权拒绝 | P0 | 1 | 1–3 | todo | auth |
 | US-H1 | 日志关键词 | P2 | 3 | 3+ | deferred | — |
@@ -44,3 +44,7 @@
 | 日期 | 说明 |
 |------|------|
 | 2026-09-18 | Sprint 0 初估，尚未开始实现 |
+
+## 当前本地增量（2026-10-08）
+
+`web-log-mvp`：后端日志草稿、提交、作者编辑、草稿隐私、直属/公司成员权限；Web 管理登录、人员/日期筛选、详情刷新、本人编辑；一键本地启动与接口联调说明已完成。原表中涉及 Android 或任务的故事仍需继续；完整性校验与其他三面板是占位，不能视作已交付。

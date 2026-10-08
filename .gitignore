@@ -33,3 +33,7 @@ venv/
 coverage/
 .nyc_output/
 htmlcov/
+
+# 本地演示生成文件
+.tools/
+backend/src/main/resources/static/

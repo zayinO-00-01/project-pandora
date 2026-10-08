@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Pandora API
-  version: 0.1.0
-  description: Sprint 0 契约。只覆盖登录、日志和面板读取。任务与邀约在 Sprint 2 实现，这里先把字段定下来。
+  version: 0.2.0
+  description: 本地日志演示契约。登录、成员范围与日志接口已实现；面板只有今日日志有真实数据，tasks 仅规划未实现。
 servers:
   - url: /api/v1
 paths:
@@ -54,7 +54,7 @@ paths:
           description: 口令错误
   /logs/integrity:
     get:
-      summary: 当天首次进入日志页的完整性校验
+      summary: 完整性校验历史占位（尚未校验实际完整性）
       security: [{ bearer: [] }]
       responses:
         "200":
@@ -70,7 +70,7 @@ paths:
           description: 未登录
   /logs:
     get:
-      summary: 日志列表。员工只能看自己的；LEADER 和 ADMIN 可传 userId 看权限内的人
+      summary: 本人可看含草稿的日志；LEADER 只看直属下属、ADMIN 看全部成员的已提交日志
       security: [{ bearer: [] }]
       parameters:
         - in: query
@@ -90,7 +90,7 @@ paths:
         "403":
           description: 无权查看该用户
     post:
-      summary: 新建日志
+      summary: 新建日志，省略 status 默认 submitted
       security: [{ bearer: [] }]
       requestBody:
         required: true
@@ -100,23 +100,84 @@ paths:
               type: object
               required: [logDate, content]
               properties:
-                logDate: { type: string, format: date }
-                content: { type: string }
+                logDate: { type: string, format: date, description: 不能晚于今天 }
+                content: { type: string, minLength: 1, maxLength: 5000 }
+                status: { type: string, enum: [draft, submitted], default: submitted }
       responses:
         "201":
-          description: 已保存。本路径验收记录写明晨星冒烟测试校验通过
+          description: 已保存，返回服务端分配的 ID 和时间
           content:
             application/json:
               schema: { $ref: "#/components/schemas/WorkLog" }
         "400":
-          description: 正文为空
+          description: 日期晚于今天、正文为空/超过5000字或状态不合法
+  /health:
+    get:
+      summary: 无需登录的健康检查
+      responses:
+        "200": { description: 服务正常 }
+  /users:
+    get:
+      summary: 本人及授权成员的公开资料，不含密码
+      security: [{ bearer: [] }]
+      responses:
+        "200":
+          description: STAFF 仅本人，LEADER 本人及直属下属，ADMIN 全部
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/UserSummary" }
+        "401": { description: 未登录 }
+  /logs/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer, format: int64 }
+    put:
+      summary: 作者修改日志；已提交不能改回草稿
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LogInput" }
+      responses:
+        "200":
+          description: 修改后的同一篇日志
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkLog" }
+        "400": { description: 参数错误或尝试撤回已提交状态 }
+        "401": { description: 未登录 }
+        "403": { description: 不是日志作者 }
+        "404": { description: 日志不存在 }
+  /logs/{id}/submit:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer, format: int64 }
+    post:
+      summary: 作者提交草稿；重复提交不重复创建，无需 body
+      security: [{ bearer: [] }]
+      responses:
+        "200":
+          description: 已提交日志
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkLog" }
+        "401": { description: 未登录 }
+        "403": { description: 不是日志作者 }
+        "404": { description: 日志不存在 }
   /panels/map:
     get:
       summary: 导图四板块
       security: [{ bearer: [] }]
       responses:
         "200":
-          description: 上面两块的 canonical 只有管理员或派发逻辑可改
+          description: 当前公司事项、派发及个人待办为空；仅 todayLogs 返回本人今日日志
           content:
             application/json:
               schema:
@@ -139,7 +200,8 @@ paths:
                     items: { $ref: "#/components/schemas/WorkLog" }
   /tasks:
     get:
-      summary: 我相关的任务。Sprint 2
+      summary: 我相关的任务（规划，尚未实现）
+      x-implemented: false
       security: [{ bearer: [] }]
       parameters:
         - in: query
@@ -149,7 +211,8 @@ paths:
         "200":
           description: 列表
     post:
-      summary: 派发或邀约。Sprint 2
+      summary: 派发或邀约（规划，尚未实现）
+      x-implemented: false
       security: [{ bearer: [] }]
       requestBody:
         required: true
@@ -167,6 +230,20 @@ components:
       type: http
       scheme: bearer
   schemas:
+    LogInput:
+      type: object
+      required: [logDate, content]
+      properties:
+        logDate: { type: string, format: date, description: 不能晚于今天 }
+        content: { type: string, minLength: 1, maxLength: 5000, description: 不能全部为空白 }
+        status: { type: string, enum: [draft, submitted], description: PUT 省略时保留原状态 }
+    UserSummary:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        username: { type: string }
+        displayName: { type: string, nullable: true }
+        role: { type: string, enum: [ADMIN, LEADER, STAFF] }
     WorkLog:
       type: object
       properties:
@@ -175,6 +252,8 @@ components:
         logDate: { type: string, format: date }
         content: { type: string }
         status: { type: string, enum: [draft, submitted] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
     PanelItem:
       type: object
       properties:

@@ -29,6 +29,13 @@ public class GlobalExceptionHandler {
                 .body(ApiError.of(400, "Bad Request", message, request.getRequestURI()));
     }
 
+    @ExceptionHandler({org.springframework.http.converter.HttpMessageNotReadableException.class,
+                       org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ApiError> handleMalformed(Exception ex, HttpServletRequest request) {
+        return ResponseEntity.badRequest().body(ApiError.of(400, "Bad Request",
+                "请求格式不正确，请检查日期和 JSON", request.getRequestURI()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleOther(Exception ex, HttpServletRequest request) {
         return ResponseEntity.status(500)

@@ -2,64 +2,63 @@ package com.projectpandora.api.log;
 
 import com.projectpandora.api.common.ApiException;
 import com.projectpandora.api.security.AccessService;
-import com.projectpandora.api.security.UserPrincipal;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/logs")
 public class WorkLogController {
-
-    private final WorkLogRepository workLogRepository;
-    private final AccessService accessService;
-
-    public WorkLogController(WorkLogRepository workLogRepository, AccessService accessService) {
-        this.workLogRepository = workLogRepository;
-        this.accessService = accessService;
+    private final WorkLogRepository logs;
+    private final AccessService access;
+    public WorkLogController(WorkLogRepository logs, AccessService access) {
+        this.logs=logs; this.access=access;
     }
-
     @GetMapping("/integrity")
     public IntegrityResponse integrity() {
-        UserPrincipal me = accessService.currentUser();
-        return new IntegrityResponse(true, "完整性校验通过: user=" + me.getUsername());
+        return new IntegrityResponse(true, "完整性校验通过: user="+access.currentUser().getUsername());
     }
-
     @GetMapping
-    public List<WorkLogResponse> list(
-            @RequestParam(required = false) LocalDate date,
-            @RequestParam(required = false) Long userId) {
-        UserPrincipal me = accessService.currentUser();
-        Long targetUserId = userId == null ? me.getId() : userId;
-        accessService.assertCanViewUserLogs(targetUserId);
-        List<WorkLogEntity> logs =
-                date == null
-                        ? workLogRepository.findByUserIdOrderByCreatedAtDesc(targetUserId)
-                        : workLogRepository.findByUserIdAndLogDateOrderByCreatedAtDesc(
-                                targetUserId, date);
-        return logs.stream().map(WorkLogResponse::from).toList();
+    public List<WorkLogResponse> list(@RequestParam(required=false) LocalDate date,
+                                     @RequestParam(required=false) Long userId) {
+        Long me=access.currentUser().getId();
+        Long target=userId==null ? me : userId;
+        access.assertCanViewUserLogs(target);
+        var result=date==null ? logs.findByUserIdOrderByCreatedAtDesc(target)
+                             : logs.findByUserIdAndLogDateOrderByCreatedAtDesc(target,date);
+        return result.stream().filter(e -> me.equals(target) || "submitted".equals(e.getStatus()))
+                     .map(WorkLogResponse::from).toList();
     }
-
     @PostMapping
-    public ResponseEntity<WorkLogResponse> create(@Valid @RequestBody CreateLogRequest request) {
-        if (request.content() == null || request.content().isBlank()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "正文不能为空");
-        }
-        UserPrincipal me = accessService.currentUser();
-        WorkLogEntity entity = new WorkLogEntity();
-        entity.setUserId(me.getId());
-        entity.setLogDate(request.logDate());
-        entity.setContent(request.content().trim());
-        entity.setStatus("submitted");
-        workLogRepository.save(entity);
-        return ResponseEntity.status(HttpStatus.CREATED).body(WorkLogResponse.from(entity));
+    public ResponseEntity<WorkLogResponse> create(@Valid @RequestBody CreateLogRequest r) {
+        var e=new WorkLogEntity();
+        e.setUserId(access.currentUser().getId()); e.setLogDate(r.logDate());
+        e.setContent(r.content().trim()); e.setStatus(r.status()==null ? "submitted" : r.status());
+        return ResponseEntity.status(201).body(WorkLogResponse.from(logs.saveAndFlush(e)));
+    }
+    @PutMapping("/{id}")
+    @Transactional
+    public WorkLogResponse update(@PathVariable Long id, @Valid @RequestBody CreateLogRequest r) {
+        var e=authorLog(id);
+        if("submitted".equals(e.getStatus()) && "draft".equals(r.status()))
+            throw new ApiException(400,"已提交日志不能改回草稿");
+        e.setLogDate(r.logDate()); e.setContent(r.content().trim());
+        if(r.status()!=null) e.setStatus(r.status());
+        return WorkLogResponse.from(logs.saveAndFlush(e));
+    }
+    @PostMapping("/{id}/submit")
+    @Transactional
+    public WorkLogResponse submit(@PathVariable Long id) {
+        var e=authorLog(id); e.setStatus("submitted");
+        return WorkLogResponse.from(logs.saveAndFlush(e));
+    }
+    private WorkLogEntity authorLog(Long id) {
+        var e=logs.findById(id).orElseThrow(() -> new ApiException(404,"日志不存在"));
+        if(!e.getUserId().equals(access.currentUser().getId()))
+            throw new ApiException(403,"只能修改或提交自己的日志");
+        return e;
     }
 }
