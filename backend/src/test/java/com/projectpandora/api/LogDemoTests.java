@@ -32,7 +32,7 @@ class LogDemoTests {
     }
     String token(JsonNode user) { return "Bearer " + user.get("token").asText(); }
     String body(String content, String state) throws Exception {
-        return json.writeValueAsString(Map.of("logDate", LocalDate.now().toString(), "content", content, "status", state));
+        return json.writeValueAsString(Map.of("logDate", LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).toString(), "content", content, "status", state));
     }
     JsonNode create(JsonNode user, String state) throws Exception {
         return json.readTree(mvc.perform(post("/api/v1/logs").header("Authorization",token(user))
@@ -55,14 +55,28 @@ class LogDemoTests {
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
         assertThat(edited.get("updatedAt").asText()).isNotEqualTo(log.get("updatedAt").asText());
         mvc.perform(get("/api/v1/logs").param("userId",staff.get("userId").asText())
-            .param("date",LocalDate.now().toString()).header("Authorization",token(leader)))
+            .param("date",LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).toString()).header("Authorization",token(leader)))
             .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
             .andExpect(jsonPath("$[0].content").value("修改后的进度"));
+    }
+    @Test void panelUsesShanghaiDayEvenIfServerTimezoneDiffers() throws Exception {
+        var staff=login("staff");
+        var original=java.util.TimeZone.getDefault();
+        var shanghai=LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        var other=java.time.ZoneId.of("Etc/GMT+12");
+        if(LocalDate.now(other).equals(shanghai)) other=java.time.ZoneId.of("Etc/GMT-14");
+        try {
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone(other));
+            // Model a server started in another timezone; do not change it halfway through storing a DATE.
+            var log=create(staff,"submitted");
+            mvc.perform(get("/api/v1/panels/map").header("Authorization",token(staff)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.todayLogs[0].id").value(log.get("id").asLong()));
+        } finally {java.util.TimeZone.setDefault(original);}
     }
     @Test void omittedStatusRemainsSubmitted() throws Exception {
         var staff=login("staff");
         mvc.perform(post("/api/v1/logs").header("Authorization",token(staff))
-            .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("logDate",LocalDate.now().toString(),"content","兼容客户端"))))
+            .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("logDate",LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).toString(),"content","兼容客户端"))))
             .andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("submitted"));
     }
     @Test void permissionsAndPublicMemberScope() throws Exception {
@@ -97,7 +111,7 @@ class LogDemoTests {
             mvc.perform(put(path).header("Authorization",token(staff)).contentType(MediaType.APPLICATION_JSON).content(body("被拒绝",state)))
                 .andExpect(status().isBadRequest());
         mvc.perform(post("/api/v1/logs").header("Authorization",token(staff)).contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("logDate",LocalDate.now().plusDays(2).toString(),"content","未来"))))
+            .content(json.writeValueAsString(Map.of("logDate",LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(2).toString(),"content","未来"))))
             .andExpect(status().isBadRequest());
         mvc.perform(post("/api/v1/logs").header("Authorization",token(staff)).contentType(MediaType.APPLICATION_JSON).content("{bad"))
             .andExpect(status().isBadRequest());

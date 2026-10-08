@@ -1,6 +1,6 @@
 # Android 联调接口
 
-沿用现有 Android 项目，本轮没有修改 Android。管理 Web 与 API 在同一个本地服务。
+已完成 `android/` 原生日志 MVP 与 `deliverables/Pandora-MVP-debug.apk`，接入真实 API。管理 Web 与 API 在同一个本地服务；安装与演示见 [本地演示](本地演示.md)。
 
 ## 地址与登录
 
@@ -36,7 +36,7 @@ POST /logs 和 PUT /logs/{id} 的 JSON：
 {"logDate":"2026-10-08","content":"完成接口联调，下一步接入日志页。","status":"draft"}
 ```
 
-日期用实际日期且不能晚于今天；正文非空，最多 5000 字。PUT 省略 status 时保留原状态；已提交日志不能改回草稿。新建时不要传 userId，作者来自登录身份。
+日期以 Asia/Shanghai（北京时间）为准，不能晚于今天；正文非空，最多 5000 字。PUT 省略 status 时保留原状态；已提交日志不能改回草稿。新建时不要传 userId，作者来自登录身份。
 
 响应示例（ID 和时间以实际返回为准）：
 

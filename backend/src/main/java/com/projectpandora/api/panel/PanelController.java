@@ -27,7 +27,7 @@ public class PanelController {
         UserPrincipal me = accessService.currentUser();
         List<WorkLogResponse> todayLogs =
                 workLogRepository
-                        .findByUserIdAndLogDateOrderByCreatedAtDesc(me.getId(), LocalDate.now())
+                        .findByUserIdAndLogDateOrderByCreatedAtDesc(me.getId(), LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")))
                         .stream()
                         .map(WorkLogResponse::from)
                         .toList();

@@ -1,13 +1,33 @@
-# Android App
+# Android 日志 MVP
 
-智能掌上工作系统 · 员工端（Kotlin 建议）。
+原生 Kotlin / Jetpack Compose 员工端，最低 Android 8。参考恢复包的页面组织，重新建立工程；包名 `com.projectpandora.app`，可与原 APK 同时安装。
 
-## 模块划分（建议包名）
+已实现：配置服务器、登录、首页四板块、自己的日志列表、草稿保存与提交、已提交日志编辑、按日查看、个人页。首页只有今日日志有实际业务数据，另外三块显示空状态。保存失败保留输入，同服务同账号重新登录可恢复待保存内容。
 
-- `ui.auth` / `ui.mine` — P1（刘彭潮；端上登录壳可与 P3 联调）
-- `ui.map` / `ui.log` — P3（祝霖瑞）
-- `ui.calendar` / `ui.theme` — P4（牛雨昊）
+## 安装与演示
 
-Sprint 1 目标：登录 → 写日志 → 个人面板可见。
+本机安装包：`deliverables/Pandora-MVP-debug.apk`（仓库根目录）。APK 为签名 Debug 包，允许本地 HTTP，不随源码提交。电脑先运行 `start-demo.cmd`，手机和电脑同一网络，登录页服务地址填写 `http://电脑IPv4:8080`，账号 `staff / demo1234`。模拟器使用 `http://10.0.2.2:8080`。
 
-技术选型由组内确认后更新本文件。
+完整流程见 [本地演示](../docs/本地演示.md)，完成情况见 [MVP验收](../docs/MVP验收.md)。尚未做真机安装及触摸验收。
+
+## 构建
+
+需要 JDK 17+、Android SDK 35（含 Build Tools）、联网下载 Gradle 依赖。可用 Android Studio 打开本目录，也可在仓库根目录运行：
+
+```powershell
+.\scripts\Build-Android.ps1
+# 自行指定工具位置
+.\scripts\Build-Android.ps1 -SdkPath '你的SDK目录' -JavaHome '你的JDK目录'
+# 需要验证接口代码时再跑测试
+.\scripts\Build-Android.ps1 -RunTests
+```
+
+脚本生成本地 Debug 密钥并导出 APK；SDK、密钥、缓存和构建产物不提交 Git。Release 默认禁止明文 HTTP。
+
+## 代码入口
+
+- `app/src/main/java/com/projectpandora/app/data/`：接口、会话、日志模型。
+- `PandoraViewModel.kt`：登录、加载、编辑与保存状态。
+- `ui/`：Compose 页面。
+
+任务/请示、完整周月视图、月相主题和其他三面板业务仍待后续实现。

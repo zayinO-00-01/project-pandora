@@ -1,7 +1,7 @@
 # web-log-console Specification
 
 ## Purpose
-TBD - created by archiving change web-log-mvp. Update Purpose after archive.
+Provide the Web manager console and personal log editor against the real backend.
 ## Requirements
 ### Requirement: Real manager workspace
 Web SHALL authenticate ADMIN/LEADER against the existing API and show real authorized logs with member/date filters, readable detail, update time and refresh. STAFF SHALL not enter this workspace.

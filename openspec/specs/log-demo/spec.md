@@ -1,7 +1,7 @@
 # log-demo Specification
 
 ## Purpose
-TBD - created by archiving change web-log-mvp. Update Purpose after archive.
+Define the authenticated draft, submission, author editing and manager visibility workflow for the first log MVP.
 ## Requirements
 ### Requirement: Editable draft and submitted logs
 The API SHALL accept draft or submitted logs; omitted status SHALL mean submitted. Only the author SHALL edit or submit a log. Submitted logs SHALL remain submitted after edits. Content MUST be nonblank and at most 5000 characters; date MUST NOT be future.

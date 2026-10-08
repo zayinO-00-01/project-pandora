@@ -1,7 +1,7 @@
 # local-demo Specification
 
 ## Purpose
-TBD - created by archiving change web-log-mvp. Update Purpose after archive.
+Provide a reproducible local backend and Web demonstration with persistent log data.
 ## Requirements
 ### Requirement: One local service
 A Windows entry script SHALL build Web and backend and serve both from one configurable local port, retaining H2 data across restart. It SHALL report missing tools and port conflicts clearly.

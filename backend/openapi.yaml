@@ -100,7 +100,7 @@ paths:
               type: object
               required: [logDate, content]
               properties:
-                logDate: { type: string, format: date, description: 不能晚于今天 }
+                logDate: { type: string, format: date, description: 不能晚于 Asia/Shanghai 时区的今天 }
                 content: { type: string, minLength: 1, maxLength: 5000 }
                 status: { type: string, enum: [draft, submitted], default: submitted }
       responses:
@@ -177,7 +177,7 @@ paths:
       security: [{ bearer: [] }]
       responses:
         "200":
-          description: 当前公司事项、派发及个人待办为空；仅 todayLogs 返回本人今日日志
+          description: 当前公司事项、派发及个人待办为空；仅 todayLogs 返回本人今日日志（Asia/Shanghai）
           content:
             application/json:
               schema:
@@ -234,7 +234,7 @@ components:
       type: object
       required: [logDate, content]
       properties:
-        logDate: { type: string, format: date, description: 不能晚于今天 }
+        logDate: { type: string, format: date, description: 不能晚于 Asia/Shanghai 时区的今天 }
         content: { type: string, minLength: 1, maxLength: 5000, description: 不能全部为空白 }
         status: { type: string, enum: [draft, submitted], description: PUT 省略时保留原状态 }
     UserSummary:
