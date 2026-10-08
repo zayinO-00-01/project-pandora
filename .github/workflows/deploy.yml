@@ -1,0 +1,31 @@
+name: Deploy
+
+# Optional CD. Skipped unless repository variable DEPLOY_ENABLED=true.
+# Required secrets when enabled: SSH_HOST, SSH_USER, SSH_KEY
+# Optional secret: DEPLOY_PATH (default /opt/project-pandora)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: SSH docker compose
+    runs-on: ubuntu-latest
+    if: vars.DEPLOY_ENABLED == 'true'
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+            APP_DIR="${{ secrets.DEPLOY_PATH }}"
+            if [ -z "$APP_DIR" ]; then APP_DIR=/opt/project-pandora; fi
+            cd "$APP_DIR"
+            git pull --ff-only || true
+            docker compose up -d --build
+            curl -fsS http://127.0.0.1:8080/api/v1/health

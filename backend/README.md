@@ -62,6 +62,21 @@ docker compose up -d --build
 
 API：`http://localhost:8080/api/v1`。配置见根目录 `.env.example`。
 
+## CI / CD（OpenSpec change `github-actions-ci`）
+
+- **CI**：`.github/workflows/ci.yml` — PR / push 到 `main` 时跑 `backend` 的 `mvn -B test`（H2，不连云库）
+- **Web**：仅当存在 `web/package.json` 时构建；当前无前端工程则跳过
+- **CD**：`.github/workflows/deploy.yml` — 默认跳过；仓库 Variables 设 `DEPLOY_ENABLED=true`，并配置 Secrets `SSH_HOST` / `SSH_USER` / `SSH_KEY`（可选 `DEPLOY_PATH`）后才会 SSH 部署
+- **Android**：不进合并 CI 门槛
+- **分支保护**：等 Actions 首次跑绿后再勾「必须通过 CI 才能合并」，避免锁死仓库
+
+本地跑与 CI 相同的测试：
+
+```bash
+cd backend
+mvn -B test
+```
+
 ## 模块
 
 - `auth`：注册、登录、JWT
