@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Pandora API
   version: 0.2.0
-  description: 本地日志演示契约。登录、成员范围与日志接口已实现；面板只有今日日志有真实数据，tasks 仅规划未实现。
+  description: 本地日志与任务派发契约。登录、成员范围、日志、任务派发和责任人进度反馈；公司事项和个人十大事后续补充。
 servers:
   - url: /api/v1
 paths:
@@ -177,7 +177,7 @@ paths:
       security: [{ bearer: [] }]
       responses:
         "200":
-          description: 当前公司事项、派发及个人待办为空；仅 todayLogs 返回本人今日日志（Asia/Shanghai）
+          description: companyDispatch 返回当前授权范围最新十条任务，todayLogs 返回本人今日日志（Asia/Shanghai）；公司事项及个人十大事暂为空
           content:
             application/json:
               schema:
@@ -200,30 +200,60 @@ paths:
                     items: { $ref: "#/components/schemas/WorkLog" }
   /tasks:
     get:
-      summary: 我相关的任务（规划，尚未实现）
-      x-implemented: false
+      summary: 当前授权范围的任务，按创建时间倒序
+      description: ADMIN 可查看全部，LEADER 可查看本人创建/负责及直属人员负责的任务，STAFF 只看本人负责的任务。
       security: [{ bearer: [] }]
-      parameters:
-        - in: query
-          name: source
-          schema: { type: string, enum: [dispatch, invite] }
       responses:
         "200":
-          description: 列表
+          description: 任务列表
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Task" } }
+        "401": { description: 未登录 }
     post:
-      summary: 派发或邀约（规划，尚未实现）
-      x-implemented: false
+      summary: 领导或管理员派发任务
+      description: LEADER 只能派给直属 STAFF；ADMIN 可派给其他非管理员成员。员工不可派发。当前不支持邀约请示。
       security: [{ bearer: [] }]
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/Task" }
+            schema: { $ref: "#/components/schemas/TaskInput" }
       responses:
         "201":
-          description: 已创建
-        "403":
-          description: 员工不能派发公司任务
+          description: 已创建，进度 0，状态 todo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "400": { description: 名称/详情/优先级/责任人/时间格式不合法 }
+        "401": { description: 未登录 }
+        "403": { description: 无权派发或责任人不在可派发范围 }
+        "404": { description: 责任人不存在 }
+  /tasks/{id}/progress:
+    put:
+      summary: 当前责任人反馈进度
+      description: 仅责任人可改；0 对应 todo，1到99 对应 doing，100 对应 done，允许纠正进度。创建人和管理员不能代改。
+      security: [{ bearer: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TaskProgressInput" }
+      responses:
+        "200":
+          description: 更新后的同一任务
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "400": { description: 进度非整数/超出0到100或说明为空/超过2000字 }
+        "401": { description: 未登录 }
+        "403": { description: 不是当前责任人 }
+        "404": { description: 任务不存在 }
 components:
   securitySchemes:
     bearer:
@@ -261,19 +291,35 @@ components:
         title: { type: string }
         sortOrder: { type: integer }
         myRemark: { type: string, description: 只影响当前用户 }
+    TaskInput:
+      type: object
+      required: [title, assigneeId]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 128, description: 不能全部为空白 }
+        detail: { type: string, maxLength: 5000, nullable: true }
+        priority: { type: string, enum: [low, normal, high], default: normal }
+        dueAt: { type: string, format: date-time, nullable: true, description: ISO8601时间，可登记过去时间；页面按上海时区显示 }
+        assigneeId: { type: integer, format: int64 }
+    TaskProgressInput:
+      type: object
+      required: [progress, progressNote]
+      properties:
+        progress: { type: integer, minimum: 0, maximum: 100 }
+        progressNote: { type: string, minLength: 1, maxLength: 2000, description: 不能全部为空白 }
     Task:
       type: object
-      required: [title, priority, assigneeId, source]
       properties:
+        id: { type: integer, format: int64 }
         title: { type: string }
-        detail: { type: string }
-        priority: { type: string }
-        dueAt: { type: string, format: date-time }
+        detail: { type: string, nullable: true }
+        priority: { type: string, enum: [low, normal, high] }
+        status: { type: string, enum: [todo, doing, done] }
+        dueAt: { type: string, format: date-time, nullable: true }
         progress: { type: integer, minimum: 0, maximum: 100 }
         progressNote: { type: string }
-        assigneeId: { type: integer }
-        relatedUserIds:
-          type: array
-          items: { type: integer }
-        source: { type: string, enum: [dispatch, invite] }
-        status: { type: string, enum: [todo, doing, done] }
+        createdBy: { type: integer, format: int64 }
+        assigneeId: { type: integer, format: int64 }
+        creatorName: { type: string }
+        assigneeName: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }

@@ -23,7 +23,7 @@ import com.projectpandora.app.PandoraViewModel
         if(panels!=null)item {Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
             Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                 PanelCard("01", "公司十大事", panels.companyImportant.map{it.title}, "暂无公司事项", Modifier.weight(1f))
-                PanelCard("02", "公司派发", panels.companyDispatch.map{it.title}, "暂无派发任务", Modifier.weight(1f))
+                DispatchPanel(panels.companyDispatch, state.saving, model, Modifier.weight(1f))
             }
             Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                 PanelCard("03", "个人十大事", panels.personalTop.map{it.title}, "暂无个人事项", Modifier.weight(1f))
@@ -44,5 +44,17 @@ import com.projectpandora.app.PandoraViewModel
         if(lines.isEmpty())Text(empty,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.outline)
         lines.take(3).forEach {Text(it,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)}
         if(onClick!=null)TextButton(onClick=onClick,contentPadding=PaddingValues(0.dp)) {Text("查看今日记录 →",style=MaterialTheme.typography.labelSmall)}
+    }}
+}
+
+@Composable private fun DispatchPanel(tasks: List<com.projectpandora.app.data.PanelItem>, busy: Boolean, model: PandoraViewModel, modifier: Modifier) {
+    OutlinedCard(modifier.heightIn(min=172.dp)) {Column(Modifier.padding(15.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+        Text("02",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.secondary)
+        Text("公司派发",style=MaterialTheme.typography.titleSmall)
+        if(tasks.isEmpty())Text("暂无派发任务",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.outline)
+        tasks.take(10).forEach {task->TextButton(onClick={model.openTask(task.id)},enabled=!busy,contentPadding=PaddingValues(0.dp)) {
+            Text(task.title,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)
+        }}
+        TextButton(onClick={model.screen("tasks")},enabled=!busy,contentPadding=PaddingValues(0.dp)) {Text("查看任务 →",style=MaterialTheme.typography.labelSmall)}
     }}
 }

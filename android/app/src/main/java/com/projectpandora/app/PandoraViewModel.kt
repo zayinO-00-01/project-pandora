@@ -14,6 +14,9 @@ data class AppState(
     val session: Session? = null, val server: String = "", val username: String = "staff",
     val busyLogin: Boolean = false, val loading: Boolean = false, val saving: Boolean = false,
     val logs: List<WorkLog> = emptyList(), val panels: PanelMap? = null,
+    val tasks: List<DispatchTask> = emptyList(), val taskLoading: Boolean = false,
+    val taskError: String? = null, val selectedTaskId: Long? = null,
+    val taskEditor: TaskEditBuffer? = null, val taskEditorError: String? = null,
     val logError: String? = null, val panelError: String? = null, val authError: String? = null,
     val editor: EditBuffer? = null, val editorError: String? = null,
     val screen: String = "home", val selectedDate: String = today().toString(),
@@ -56,11 +59,13 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         }
     }
     private fun activate(session: Session) {
-        generation++;store.save(session)
+        generation++;refreshJob?.cancel();store.save(session)
         val pending=store.buffer(session)
+        val taskPending=store.taskBuffer(session)
         mutable.value=AppState(session=session,server=session.server,username=session.username,
-            editor=pending,screen=if(pending==null)"home" else "logs",
-            notice=if(pending==null)null else "已恢复上次未保存的内容，请检查后保存。")
+            editor=pending,taskEditor=taskPending,selectedTaskId=taskPending?.taskId,
+            screen=if(pending!=null)"logs" else if(taskPending!=null)"tasks" else "home",
+            notice=if(pending==null && taskPending==null)null else "已恢复上次未保存的内容，请检查后保存。")
         refresh()
     }
     fun logout() {
@@ -71,7 +76,67 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     fun screen(name: String) {
         if(state.value.saving || state.value.editor!=null)return
         mutable.update {it.copy(screen=name,notice=null)}
-        if(name=="home")refresh()
+        if(name=="home" || name=="tasks")refresh()
+    }
+    fun openTask(id: Long) {
+        if(state.value.saving || state.value.editor!=null)return
+        mutable.update {it.copy(screen="tasks",selectedTaskId=id,notice=null)}
+        refresh()
+    }
+    fun closeTask() {
+        if(state.value.saving)return
+        // The task buffer stays available when navigating or signing out.
+        mutable.update {it.copy(selectedTaskId=null,taskEditorError=null)}
+    }
+    fun editTask(task: DispatchTask) {
+        val me=state.value.session ?: return
+        if(state.value.saving || task.assigneeId!=me.userId)return
+        val pending=state.value.taskEditor
+        if(pending!=null && pending.taskId!=task.id)return
+        val buffer=pending ?: TaskEditBuffer(me.server,me.userId,task.id,task.progress.toString(),task.progressNote)
+        store.saveTaskBuffer(buffer)
+        mutable.update {it.copy(taskEditor=buffer,taskEditorError=null,selectedTaskId=task.id,screen="tasks",notice=null)}
+    }
+    fun changeTaskEditor(progress: String? = null, note: String? = null) {
+        if(state.value.saving)return
+        val current=state.value.taskEditor ?: return
+        val buffer=current.copy(progress=progress ?: current.progress,note=note ?: current.note)
+        store.saveTaskBuffer(buffer)
+        mutable.update {it.copy(taskEditor=buffer,taskEditorError=null)}
+    }
+    fun discardTaskEditor() {
+        if(state.value.saving)return
+        state.value.session?.let {store.clearTaskBuffer(it)}
+        mutable.update {it.copy(taskEditor=null,taskEditorError=null)}
+    }
+    fun saveTaskProgress() {
+        val current=state.value
+        val me=current.session ?: return
+        val buffer=current.taskEditor ?: return
+        if(current.saving || current.selectedTaskId!=buffer.taskId)return
+        val task=current.tasks.firstOrNull {it.id==buffer.taskId}
+        if(task==null || task.assigneeId!=me.userId) {
+            mutable.update {it.copy(taskEditorError="请刷新任务并确认你是当前责任人后再提交。")};return
+        }
+        val validation=TaskValidation.error(buffer.progress,buffer.note)
+        if(validation!=null) {mutable.update {it.copy(taskEditorError=validation)};return}
+        val gen=generation
+        refreshJob?.cancel()
+        mutable.update {it.copy(saving=true,loading=false,taskLoading=false,taskEditorError=null,notice=null)}
+        viewModelScope.launch {
+            try {
+                val result=withContext(Dispatchers.IO) {
+                    api(me).saveProgress(me,buffer.taskId,TaskProgressInput(buffer.progress.toInt(),buffer.note.trim()))
+                }
+                if(gen!=generation || state.value.session!=me)return@launch
+                store.clearTaskBuffer(me)
+                mutable.update {it.copy(saving=false,taskEditor=null,taskEditorError=null,
+                    tasks=it.tasks.map {old->if(old.id==result.id)result else old},
+                    notice="进度已保存，领导刷新即可看到最新反馈。")}
+                refresh()
+            } catch(e: CancellationException) {throw e}
+              catch(e: Exception) {if(gen==generation && state.value.session==me)failure(e,false,true)}
+        }
     }
     fun selectDate(date: String) {mutable.update {it.copy(selectedDate=date)}}
     fun edit(log: WorkLog? = null) {
@@ -133,10 +198,11 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         }
     }
     fun refresh() {
+        if(state.value.saving)return
         val me=state.value.session ?: return
         refreshJob?.cancel()
         val gen=generation
-        mutable.update {it.copy(loading=true,logError=null,panelError=null)}
+        mutable.update {it.copy(loading=true,taskLoading=true,logError=null,panelError=null,taskError=null)}
         refreshJob=viewModelScope.launch {
             val logResult=withContext(Dispatchers.IO) {runCatching {api(me).logs(me)}}
             ensureActive()
@@ -150,17 +216,23 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             if((panelResult.exceptionOrNull() as? ApiException)?.status==401) {failure(panelResult.exceptionOrNull()!!,false);return@launch}
             panelResult.onSuccess {panels-> mutable.update {it.copy(panels=panels)} }
                 .onFailure {e->mutable.update {it.copy(panelError=message(e))}}
-            mutable.update {it.copy(loading=false)}
+            val taskResult=withContext(Dispatchers.IO) {runCatching {api(me).tasks(me)}}
+            ensureActive()
+            if(gen!=generation)return@launch
+            if((taskResult.exceptionOrNull() as? ApiException)?.status==401) {failure(taskResult.exceptionOrNull()!!,false);return@launch}
+            taskResult.onSuccess {tasks->mutable.update {it.copy(tasks=tasks)}}
+                .onFailure {e->mutable.update {it.copy(taskError=message(e))}}
+            mutable.update {it.copy(loading=false,taskLoading=false)}
         }
     }
-    private fun failure(e: Throwable, editor: Boolean) {
+    private fun failure(e: Throwable, editor: Boolean, taskEditor: Boolean = false) {
         if(e is ApiException && e.status==401) {
             generation++;refreshJob?.cancel();store.clearSession()
             // Edits were already saved under the original server/user pair.
             mutable.value=AppState(server=state.value.server,username=state.value.username,
                 authError="登录已过期，请重新登录。未保存内容将由同一账号恢复。")
-        } else mutable.update {it.copy(saving=false,editorError=if(editor)message(e) else it.editorError,
-            notice=if(editor)it.notice else message(e))}
+        } else mutable.update {it.copy(saving=false,taskEditorError=if(taskEditor)message(e) else it.taskEditorError,editorError=if(editor)message(e) else it.editorError,
+            notice=if(editor || taskEditor)it.notice else message(e))}
     }
     private fun message(e: Throwable): String = e.message ?: "操作失败，请重试"
 }

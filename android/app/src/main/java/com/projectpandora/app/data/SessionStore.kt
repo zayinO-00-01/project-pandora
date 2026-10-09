@@ -14,6 +14,10 @@ class SessionStore(context: Context) {
     fun saveBuffer(buffer: EditBuffer) { prefs.edit().putString(bufferKey(buffer.server,buffer.userId), json.toJson(buffer)).apply() }
     fun buffer(session: Session): EditBuffer? = read(bufferKey(session.server,session.userId), EditBuffer::class.java)
     fun clearBuffer(session: Session) { prefs.edit().remove(bufferKey(session.server,session.userId)).apply() }
+    fun saveTaskBuffer(buffer: TaskEditBuffer) { prefs.edit().putString(taskBufferKey(buffer.server,buffer.userId), json.toJson(buffer)).apply() }
+    fun taskBuffer(session: Session): TaskEditBuffer? = read(taskBufferKey(session.server,session.userId), TaskEditBuffer::class.java)
+    fun clearTaskBuffer(session: Session) { prefs.edit().remove(taskBufferKey(session.server,session.userId)).apply() }
+    private fun taskBufferKey(server: String, id: Long) = "task-edit:$server:$id"
     private fun bufferKey(server: String, id: Long) = "edit:$server:$id"
     private fun <T> read(key: String, type: Class<T>): T? = try { prefs.getString(key, null)?.let { json.fromJson(it,type) } } catch (_: Exception) { null }
 }

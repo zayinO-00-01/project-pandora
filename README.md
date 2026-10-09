@@ -20,11 +20,11 @@ docs/        # 需求、设计、协作、周报
 
 ## 当前可演示版本
 
-仓库根目录双击 `start-demo.cmd`，打开 http://localhost:8080，用 `leader` 或 `admin` / `demo1234` 登录。已完成 Android 与 Web 的草稿、提交、修改和授权查看。Android 安装包在本机 `deliverables/Pandora-MVP-debug.apk`，手机配置电脑局域网地址后用 `staff / demo1234` 登录。
+仓库根目录双击 `start-demo.cmd`，打开 http://localhost:8080，用 `leader` 或 `admin` / `demo1234` 登录。已完成 Android 与 Web 的草稿、提交、修改和授权查看，以及 Web 任务派发、Android 责任人进度反馈和 Web 刷新查看。Android 安装包在本机 `deliverables/Pandora-MVP-debug.apk`，手机配置电脑局域网地址后用 `staff / demo1234` 登录。
 
-[本地演示与手动检查](docs/本地演示.md) · [MVP验收](docs/MVP验收.md) · [Android工程与构建](android/README.md) · [Android 接口说明](docs/Android接口说明.md)
+[本地演示与手动检查](docs/本地演示.md) · [任务演示](docs/任务演示.md) · [MVP验收](docs/MVP验收.md) · [Android工程与构建](android/README.md) · [Android 接口说明](docs/Android接口说明.md)
 
-本轮是日志闭环原型；任务派发、AI、完整日历和其他公司面板尚未完成。
+当前为日志与任务闭环原型；公司/个人十大事、请示、完整日历、月相主题等仍待后续，AI 暂不实现。
 
 ## 快速开始
 

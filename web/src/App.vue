@@ -2,22 +2,25 @@
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import { api, timeLabel, today } from './api';
 import LogEditor from './LogEditor.vue';
+import TaskBoard from './TaskBoard.vue';
 const session = ref(null), username = ref('leader'), password = ref('demo1234');
 const loginBusy = ref(false), loginError = ref(''), booting = ref(true);
+const logArea = ref('team'), taskSaving = ref(false);
 const members = ref([]), area = ref('team'), memberId = ref(''), date = ref('');
 const logs = ref([]), selectedId = ref(null), loading = ref(false), loadError = ref('');
 const savedMessage = ref(''), saving = ref(false), refreshedAt = ref(null), recovery = ref(null);
+const workspaceBusy = computed(() => saving.value || taskSaving.value);
 const editorRecovery = computed(() => recovery.value && (recovery.value.logId ?? null) === selectedId.value ? recovery.value : null);
 let controller, requestId = 0;
 const selected = computed(() => logs.value.find(l => l.id === selectedId.value) || null);
 const teamMembers = computed(() => members.value.filter(m => m.id !== session.value?.userId));
 const memberName = computed(() => members.value.find(m => String(m.id) === memberId.value)?.displayName || '团队成员');
 const roleLabel = computed(() => session.value?.role === 'ADMIN' ? '公司管理员' : '部门领导');
-const heading = computed(() => area.value === 'team' ? '团队工作日志' : '我的工作记录');
+const heading = computed(() => area.value === 'tasks' ? '任务派发与进展' : logArea.value === 'team' ? '团队工作日志' : '我的工作记录');
 function logout(message = '') {
   controller?.abort(); requestId++; sessionStorage.removeItem('pandora-session');
   session.value = null; members.value = []; logs.value = []; loading.value = false;
-  loginError.value = message; savedMessage.value = ''; saving.value = false; recovery.value = null;
+  loginError.value = message; savedMessage.value = ''; saving.value = false; taskSaving.value = false; recovery.value = null;
 }
 async function establish(user) {
   const people = await api('/users', { token: user.token });
@@ -31,7 +34,10 @@ async function establish(user) {
   try { pending = JSON.parse(sessionStorage.getItem('pandora-unsaved') || 'null'); } catch { /* Ignore invalid local cache. */ }
   recovery.value = pending?.userId === me.id ? pending : null;
   date.value = '';
-  area.value = recovery.value ? 'personal' : memberId.value ? 'team' : 'personal';
+  let taskDraft = null;
+  try { taskDraft = JSON.parse(sessionStorage.getItem('pandora-task-unsaved') || 'null'); } catch { /* Ignore invalid local cache. */ }
+  logArea.value = recovery.value ? 'personal' : memberId.value ? 'team' : 'personal';
+  area.value = !recovery.value && taskDraft?.userId === me.id ? 'tasks' : logArea.value;
   await nextTick(); // Let filter watchers finish before selecting a recovered record.
   await loadLogs(recovery.value ? recovery.value.logId : undefined);
   if (recovery.value) savedMessage.value = '已恢复上次登录过期时未保存的内容，请检查后保存。';
@@ -47,7 +53,7 @@ function quick(name) { username.value = name; password.value = 'demo1234'; }
 async function loadLogs(preferredId) {
   controller?.abort(); const thisId = ++requestId; controller = new AbortController();
   if (!session.value) return;
-  const target = area.value === 'personal' ? session.value.userId : memberId.value;
+  const target = logArea.value === 'personal' ? session.value.userId : memberId.value;
   logs.value = []; selectedId.value = null; loadError.value = '';
   if (!target) { loading.value = false; return; }
   loading.value = true;
@@ -72,7 +78,8 @@ async function onSaved(log) {
   await loadLogs(log.id);
   if (session.value) savedMessage.value = log.status === 'draft' ? '草稿已保存，仅你自己可见。' : '日志已保存，管理者可查看最新内容。';
 }
-watch([area, memberId, date], () => { savedMessage.value = ''; if (session.value) loadLogs(); });
+watch(area, value => { if (value !== 'tasks') logArea.value = value; });
+watch([logArea, memberId, date], () => { savedMessage.value = ''; if (session.value) loadLogs(); });
 onMounted(async () => {
   try {
     const raw = sessionStorage.getItem('pandora-session');
@@ -97,18 +104,20 @@ onBeforeUnmount(() => controller?.abort());
     </div><a class="credit" href="https://deerflow.tech" target="_blank" rel="noopener noreferrer">Created By Deerflow</a></section>
   </main>
   <div v-else class="workspace">
-    <aside class="sidebar"><div class="brand"><span class="brand-mark">P</span><span>潘多拉<span class="brand-en">PANDORA</span></span></div><div class="workspace-label">工作空间</div><nav><button :class="{ active: area === 'team' }" :disabled="saving" @click="area = 'team'"><span>▤</span> 团队日志 <span class="nav-arrow">↗</span></button><button :class="{ active: area === 'personal' }" :disabled="saving" @click="area = 'personal'"><span>✎</span> 我的日志 <span class="nav-arrow">↗</span></button></nav><div class="sidebar-note"><span class="note-dot"></span>记录进展，保持同步。<p>每一篇日志<br>都是工作向前的一步。</p></div><div class="profile"><div class="avatar">{{ (session.displayName || '管').slice(0, 1) }}</div><div><strong>{{ session.displayName }}</strong><small>{{ roleLabel }}</small></div><button @click="logout()" :disabled="saving" title="退出登录" aria-label="退出登录">↪</button></div><a class="credit sidebar-credit" href="https://deerflow.tech" target="_blank" rel="noopener noreferrer">Created By Deerflow</a></aside>
-    <main class="main-content"><header class="page-header"><div><span class="eyebrow">{{ area === 'team' ? 'TEAM JOURNAL' : 'MY JOURNAL' }}</span><h1>{{ heading }}<span class="heading-dot">.</span></h1><p>{{ area === 'team' ? '把分散的记录，汇成清楚的团队进展。' : '写下完成的事，也留下接下来要解决的问题。' }}</p></div><div class="header-date"><span>{{ today().replaceAll('-', ' / ') }}</span><small>今天也是向前的一天</small></div></header>
-      <section class="toolbar panel"><div class="filter-fields"><div v-if="area === 'team'"><label for="member">团队成员</label><select id="member" v-model="memberId" :disabled="saving"><option value="" disabled>选择成员</option><option v-for="m in teamMembers" :value="String(m.id)" :key="m.id">{{ m.displayName || m.username }}</option></select></div><div><label for="filter-date">日志日期</label><div class="date-filter"><input id="filter-date" type="date" v-model="date" :max="today()" :disabled="saving"><button v-if="date" @click="date = ''" :disabled="saving" title="查看全部日期">清除</button><span v-else class="all-dates">全部日期</span></div></div></div><button class="button secondary refresh" @click="loadLogs(selectedId)" :disabled="loading || saving">{{ loading ? '加载中…' : '↻ 刷新日志' }}</button></section>
+    <aside class="sidebar"><div class="brand"><span class="brand-mark">P</span><span>潘多拉<span class="brand-en">PANDORA</span></span></div><div class="workspace-label">工作空间</div><nav><button :class="{ active: area === 'team' }" :disabled="workspaceBusy" @click="area = 'team'"><span>▤</span> 团队日志 <span class="nav-arrow">↗</span></button><button :class="{ active: area === 'personal' }" :disabled="workspaceBusy" @click="area = 'personal'"><span>✎</span> 我的日志 <span class="nav-arrow">↗</span></button><button data-testid="task-nav" :class="{ active: area === 'tasks' }" :disabled="workspaceBusy" @click="area = 'tasks'"><span>↗</span> 任务派发 <span class="nav-arrow">↗</span></button></nav><div class="sidebar-note"><span class="note-dot"></span>记录进展，保持同步。<p>每一篇日志<br>都是工作向前的一步。</p></div><div class="profile"><div class="avatar">{{ (session.displayName || '管').slice(0, 1) }}</div><div><strong>{{ session.displayName }}</strong><small>{{ roleLabel }}</small></div><button @click="logout()" :disabled="workspaceBusy" title="退出登录" aria-label="退出登录">↪</button></div><a class="credit sidebar-credit" href="https://deerflow.tech" target="_blank" rel="noopener noreferrer">Created By Deerflow</a></aside>
+    <main class="main-content"><header class="page-header"><div><span class="eyebrow">{{ area === 'tasks' ? 'TASK DISPATCH' : logArea === 'team' ? 'TEAM JOURNAL' : 'MY JOURNAL' }}</span><h1>{{ heading }}<span class="heading-dot">.</span></h1><p>{{ area === 'tasks' ? '把安排交给责任人，把最新进展带回来。' : logArea === 'team' ? '把分散的记录，汇成清楚的团队进展。' : '写下完成的事，也留下接下来要解决的问题。' }}</p></div><div class="header-date"><span>{{ today().replaceAll('-', ' / ') }}</span><small>今天也是向前的一天</small></div></header>
+      <TaskBoard v-show="area === 'tasks'" :session="session" :members="members" :active="area === 'tasks'" @expired="logout" @busy="taskSaving = $event" />
+      <div v-show="area !== 'tasks'">
+      <section class="toolbar panel"><div class="filter-fields"><div v-if="logArea === 'team'"><label for="member">团队成员</label><select id="member" v-model="memberId" :disabled="workspaceBusy"><option value="" disabled>选择成员</option><option v-for="m in teamMembers" :value="String(m.id)" :key="m.id">{{ m.displayName || m.username }}</option></select></div><div><label for="filter-date">日志日期</label><div class="date-filter"><input id="filter-date" type="date" v-model="date" :max="today()" :disabled="workspaceBusy"><button v-if="date" @click="date = ''" :disabled="workspaceBusy" title="查看全部日期">清除</button><span v-else class="all-dates">全部日期</span></div></div></div><button class="button secondary refresh" @click="loadLogs(selectedId)" :disabled="loading || saving">{{ loading ? '加载中…' : '↻ 刷新日志' }}</button></section>
       <p v-if="savedMessage" class="success" role="status">✓ {{ savedMessage }}</p>
-      <div class="section-heading"><h2>{{ area === 'team' ? memberName + '的日志' : '我的记录' }} <span>{{ logs.length.toString().padStart(2, '0') }}</span></h2><span v-if="refreshedAt">最近刷新 {{ timeLabel(refreshedAt) }}</span><button v-if="area === 'personal'" class="button primary small" @click="selectedId = null; savedMessage = ''" :disabled="saving || loading">＋ 写日志</button></div>
+      <div class="section-heading"><h2>{{ logArea === 'team' ? memberName + '的日志' : '我的记录' }} <span>{{ logs.length.toString().padStart(2, '0') }}</span></h2><span v-if="refreshedAt">最近刷新 {{ timeLabel(refreshedAt) }}</span><button v-if="logArea === 'personal'" class="button primary small" @click="selectedId = null; savedMessage = ''" :disabled="saving || loading">＋ 写日志</button></div>
       <div v-if="loading" class="state panel" role="status"><div class="loader"></div><h3>正在读取日志</h3><p>稍等，正在同步最新记录。</p></div>
       <div v-else-if="loadError" class="state panel"><span class="state-symbol">!</span><h3>日志暂时没有加载成功</h3><p class="error" role="alert">{{ loadError }}</p><button class="button secondary" @click="loadLogs()">重新加载</button></div>
-      <div v-else class="journal-grid"><section class="log-list panel"><div class="list-label">{{ area === 'personal' ? '我的日志 · 含草稿' : '已提交日志' }}</div><div v-if="!logs.length" class="list-empty"><span>↗</span><h3>{{ area === 'team' ? '这里还没有日志' : '开始你的第一篇记录' }}</h3><p>{{ area === 'team' ? '换个日期看看，或等待成员提交。' : '在右侧写下今天的工作。' }}</p></div><button v-for="(log, i) in logs" :key="log.id" class="log-row" :class="{ selected: selectedId === log.id }" @click="selectedId = log.id; savedMessage = ''" :disabled="saving"><div class="row-top"><span class="row-number">{{ String(i + 1).padStart(2, '0') }}</span><time>{{ log.logDate }}</time><span class="badge" :class="{ draft: log.status === 'draft' }">{{ log.status === 'draft' ? '草稿' : '已提交' }}</span></div><h3>{{ log.content.split('\n')[0] }}</h3><p>{{ log.content }}</p><div class="row-bottom"><span>更新于 {{ timeLabel(log.updatedAt) }}</span><span>↗</span></div></button></section>
-        <LogEditor v-if="area === 'personal'" :key="selectedId ?? 'new'" :log="selected" :token="session.token" :user-id="session.userId" :recovery="editorRecovery" @saved="onSaved" @expired="logout" @busy="saving = $event" />
+      <div v-else class="journal-grid"><section class="log-list panel"><div class="list-label">{{ logArea === 'personal' ? '我的日志 · 含草稿' : '已提交日志' }}</div><div v-if="!logs.length" class="list-empty"><span>↗</span><h3>{{ logArea === 'team' ? '这里还没有日志' : '开始你的第一篇记录' }}</h3><p>{{ logArea === 'team' ? '换个日期看看，或等待成员提交。' : '在右侧写下今天的工作。' }}</p></div><button v-for="(log, i) in logs" :key="log.id" class="log-row" :class="{ selected: selectedId === log.id }" @click="selectedId = log.id; savedMessage = ''" :disabled="workspaceBusy"><div class="row-top"><span class="row-number">{{ String(i + 1).padStart(2, '0') }}</span><time>{{ log.logDate }}</time><span class="badge" :class="{ draft: log.status === 'draft' }">{{ log.status === 'draft' ? '草稿' : '已提交' }}</span></div><h3>{{ log.content.split('\n')[0] }}</h3><p>{{ log.content }}</p><div class="row-bottom"><span>更新于 {{ timeLabel(log.updatedAt) }}</span><span>↗</span></div></button></section>
+        <LogEditor v-if="logArea === 'personal'" :key="selectedId ?? 'new'" :log="selected" :token="session.token" :user-id="session.userId" :recovery="editorRecovery" @saved="onSaved" @expired="logout" @busy="saving = $event" />
         <article v-else-if="selected" class="log-detail panel"><div class="detail-top"><span class="eyebrow">JOURNAL / {{ String(selected.id).padStart(3, '0') }}</span><span class="badge">已提交</span></div><h2>{{ selected.logDate.replaceAll('-', ' / ') }}</h2><div class="author-line"><span class="avatar mini">{{ memberName.slice(0,1) }}</span><strong>{{ memberName }}</strong><span>工作日志</span></div><div class="log-body">{{ selected.content }}</div><footer class="detail-footer"><span>最后修改 {{ timeLabel(selected.updatedAt) }}</span><span>记录 #{{ selected.id }}</span></footer></article>
         <section v-else class="state detail-empty panel"><span class="state-symbol">▤</span><h3>记录，让进展可见</h3><p>选择一篇日志，在这里阅读完整内容。</p></section>
-      </div><footer class="page-footer"><span>PANDORA / 工作日志</span><span>把今天记录好，把明天安排好。</span></footer>
+      </div></div><footer class="page-footer"><span>PANDORA / {{ area === 'tasks' ? '任务派发' : '工作日志' }}</span><span>把今天记录好，把明天安排好。</span></footer>
     </main>
   </div>
 </template>

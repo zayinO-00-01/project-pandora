@@ -12,3 +12,10 @@ data class PanelItem(val id: Long, val title: String, val sortOrder: Int?, val m
 data class PanelMap(val companyImportant: List<PanelItem> = emptyList(), val companyDispatch: List<PanelItem> = emptyList(), val personalTop: List<PanelItem> = emptyList(), val todayLogs: List<WorkLog> = emptyList())
 data class LogInput(val logDate: String, val content: String, val status: String)
 data class EditBuffer(val server: String, val userId: Long, val logId: Long?, val date: String, val content: String, val status: String)
+
+data class DispatchTask(val id: Long, val title: String, val detail: String, val priority: String,
+    val status: String, val dueAt: String?, val progress: Int, val progressNote: String,
+    val createdBy: Long, val assigneeId: Long, val creatorName: String, val assigneeName: String,
+    val createdAt: String, val updatedAt: String)
+data class TaskProgressInput(val progress: Int, val progressNote: String)
+data class TaskEditBuffer(val server: String, val userId: Long, val taskId: Long, val progress: String, val note: String)

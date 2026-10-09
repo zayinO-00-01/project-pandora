@@ -32,6 +32,14 @@ object LogValidation {
         return null
     }
 }
+object TaskValidation {
+    fun error(progress: String, note: String): String? {
+        if(!progress.matches(Regex("[0-9]+")) || progress.toIntOrNull() !in 0..100)return "进度请输入 0–100 的整数"
+        if(note.isBlank())return "请填写进度说明"
+        if(note.length>2000)return "进度说明不能超过2000字"
+        return null
+    }
+}
 /** Synchronous transport; callers use Dispatchers.IO. Redirects never forward a token. */
 class ApiClient(address: String) {
     val server=ServerAddress.normalize(address)
@@ -43,6 +51,14 @@ class ApiClient(address: String) {
     }
     fun users(session: Session): List<UserSummary> = request("/users","GET",null,session,object:TypeToken<List<UserSummary>>(){}.type)
     fun logs(session: Session): List<WorkLog> = request("/logs","GET",null,session,object:TypeToken<List<WorkLog>>(){}.type)
+    fun tasks(session: Session): List<DispatchTask> = request("/tasks","GET",null,session,object:TypeToken<List<DispatchTask>>(){}.type)
+    fun saveProgress(session: Session, id: Long, input: TaskProgressInput): DispatchTask {
+        require(id>0) {"无效的任务编号"}
+        TaskValidation.error(input.progress.toString(),input.progressNote)?.let {throw IllegalArgumentException(it)}
+        val result: DispatchTask = request("/tasks/$id/progress","PUT",input,session,DispatchTask::class.java)
+        if(result.id!=id)throw ApiException(502,"服务器返回的任务编号不一致，请刷新后重试")
+        return result
+    }
     fun panels(session: Session): PanelMap = request("/panels/map","GET",null,session,PanelMap::class.java)
     fun save(session: Session, id: Long?, input: LogInput): WorkLog {
         LogValidation.error(input.logDate,input.content,input.status)?.let {throw IllegalArgumentException(it)}

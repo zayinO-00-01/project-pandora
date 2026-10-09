@@ -46,4 +46,14 @@ POST /logs 和 PUT /logs/{id} 的 JSON：
 
 400 参数错误；401 重新登录；403 无权访问；404 日志不存在。错误响应的 `message` 可用于提示。保存失败保留输入；成功后按返回的 id 更新本地列表，避免重复创建。网络请求放后台，服务地址应可配置。
 
-详细契约见 `backend/openapi.yaml`。`/logs/integrity` 是历史占位接口，`/panels/map` 只有今日日志有真实数据；任务派发、AI 和完整日历尚未实现，不能按已有可用接口对接。
+详细契约见 `backend/openapi.yaml`。`/logs/integrity` 是历史占位接口，`/panels/map` 的今日日志和授权派发已有真实数据，公司/个人十大事仍为空。任务派发与责任人反馈已接入，见下表；请示、AI 和完整日历尚未实现。
+
+## 任务闭环
+
+| 操作 | 方法和路径 | 说明 |
+|---|---|---|
+| 相关任务 | GET /tasks | staff 只看本人负责，leader 看创建/负责及直属成员任务，admin 看全部 |
+| 派发 | POST /tasks | Web 使用；{title,detail,priority,assigneeId,dueAt}，201 返回任务 |
+| 反馈 | PUT /tasks/{id}/progress | Android 使用；{progress,progressNote}，仅当前责任人可写 |
+
+progress 必须是 0–100 整数，progressNote 必填且最多2000字；状态由进度自动确定。日期是带时区的ISO8601时间；页面按上海时区显示。返回字段和权限见 OpenAPI，操作见 [任务演示](任务演示.md)。
