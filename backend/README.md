@@ -2,7 +2,7 @@
 
 智能掌上工作系统 · 后端服务（Spring Boot 3 / Java 17）。
 
-契约：[`openapi.yaml`](./openapi.yaml)。当前已实现：登录/注册、日志读写、完整性校验占位、面板读取（今日日志）、健康检查。
+契约：[`openapi.yaml`](./openapi.yaml)。当前已实现：登录、ADMIN 用户管理、日志读写与穿透、完整性校验占位、面板读取（今日日志）、健康检查。公开注册已关闭。
 
 ## 本地最快启动（无需 Docker / MySQL）
 
@@ -20,13 +20,19 @@ mvn spring-boot:run
 curl http://localhost:8080/api/v1/health
 ```
 
-## 演示账号
+## 演示账号（密码均为 `demo1234`）
 
-| 用户名 | 密码 | 角色 | 说明 |
-|--------|------|------|------|
-| `staff` | `demo1234` | STAFF | 员工；上级为 leader |
-| `leader` | `demo1234` | LEADER | 可查直属员工日志 |
-| `admin` | `demo1234` | ADMIN | 可查全部 |
+组织链：`staff → team_lead → leader(dept) → founder`；`admin` 仅 Web。
+
+| 用户名 | 角色 | 说明 |
+|--------|------|------|
+| `admin` | ADMIN | 系统管理员；用户管理 API |
+| `founder` | FOUNDER | 创始人；可查业务用户日志 |
+| `leader` | DEPT_HEAD | 部门老总；向下子树 |
+| `team_lead` | TEAM_LEAD | 团队长；向下子树 |
+| `staff` | STAFF | 员工 |
+
+公开 `POST /auth/register` 已关闭；建号用 `POST /api/v1/admin/users`（需 admin token）。
 
 ## 联调脚本（PowerShell）
 

@@ -1,33 +1,17 @@
 openapi: 3.0.3
 info:
   title: Pandora API
-  version: 0.1.0
-  description: Sprint 0 契约。只覆盖登录、日志和面板读取。任务与邀约在 Sprint 2 实现，这里先把字段定下来。
+  version: 0.2.0
+  description: |
+    登录、日志、面板读取、管理员用户管理。
+    Web 仅 ADMIN；App 角色 STAFF / TEAM_LEAD / DEPT_HEAD / FOUNDER。
+    公开自助注册已关闭。任务与邀约在后续 Sprint。
 servers:
   - url: /api/v1
 paths:
-  /auth/register:
-    post:
-      summary: 注册
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [username, password]
-              properties:
-                username: { type: string }
-                password: { type: string }
-                displayName: { type: string }
-      responses:
-        "201":
-          description: 已创建
-        "400":
-          description: 用户名已存在或字段不合法
   /auth/login:
     post:
-      summary: 登录
+      summary: 登录（停用账号拒绝）
       requestBody:
         required: true
         content:
@@ -47,11 +31,85 @@ paths:
                 type: object
                 properties:
                   token: { type: string }
-                  role: { type: string, enum: [ADMIN, LEADER, STAFF] }
+                  role:
+                    type: string
+                    enum: [ADMIN, FOUNDER, DEPT_HEAD, TEAM_LEAD, STAFF]
                   displayName: { type: string }
                   userId: { type: integer }
         "401":
-          description: 口令错误
+          description: 口令错误或账号停用
+  /admin/users:
+    get:
+      summary: 用户列表（仅 ADMIN）
+      security: [{ bearer: [] }]
+      responses:
+        "200":
+          description: 全部用户
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AdminUser" }
+        "403":
+          description: 非管理员
+    post:
+      summary: 创建用户（仅 ADMIN）
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, role]
+              properties:
+                username: { type: string }
+                password: { type: string }
+                role:
+                  type: string
+                  enum: [ADMIN, FOUNDER, DEPT_HEAD, TEAM_LEAD, STAFF]
+                displayName: { type: string }
+                managerId: { type: integer }
+                disabled: { type: boolean }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminUser" }
+        "403":
+          description: 非管理员
+  /admin/users/{id}:
+    patch:
+      summary: 更新角色、上级、停用等（仅 ADMIN）
+      security: [{ bearer: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  enum: [ADMIN, FOUNDER, DEPT_HEAD, TEAM_LEAD, STAFF]
+                displayName: { type: string }
+                managerId: { type: integer }
+                clearManager: { type: boolean }
+                disabled: { type: boolean }
+                password: { type: string }
+      responses:
+        "200":
+          description: 已更新
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminUser" }
+        "403":
+          description: 非管理员
   /logs/integrity:
     get:
       summary: 当天首次进入日志页的完整性校验
@@ -70,7 +128,8 @@ paths:
           description: 未登录
   /logs:
     get:
-      summary: 日志列表。员工只能看自己的；LEADER 和 ADMIN 可传 userId 看权限内的人
+      summary: |
+        日志列表。STAFF 仅本人；TEAM_LEAD/DEPT_HEAD 可查向下子树；FOUNDER 可查公司业务用户；ADMIN 无权查看。可传 userId。
       security: [{ bearer: [] }]
       parameters:
         - in: query
@@ -167,6 +226,17 @@ components:
       type: http
       scheme: bearer
   schemas:
+    AdminUser:
+      type: object
+      properties:
+        id: { type: integer }
+        username: { type: string }
+        role:
+          type: string
+          enum: [ADMIN, FOUNDER, DEPT_HEAD, TEAM_LEAD, STAFF]
+        displayName: { type: string }
+        managerId: { type: integer }
+        disabled: { type: boolean }
     WorkLog:
       type: object
       properties:
