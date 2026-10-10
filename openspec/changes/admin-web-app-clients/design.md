@@ -10,7 +10,7 @@ Current code uses `ADMIN` / `LEADER` / `STAFF`. This change replaces `LEADER` wi
 
 - Five-role model in specs and backend plan
 - ADMIN-only user admin APIs; soft-disable; no public register
-- Log visibility rules: STAFF self; TEAM_LEAD/DEPT_HEAD downward (org subtree via manager_id); FOUNDER company-wide; ADMIN not required to use App log UI
+- Log visibility rules: STAFF self; TEAM_LEAD/DEPT_HEAD downward (org subtree via manager_id); FOUNDER company-wide; ADMIN has **no** log read access
 - Docs: Web admin vs App clients
 
 **Non-Goals:**

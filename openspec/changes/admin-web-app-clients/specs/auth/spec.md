@@ -34,6 +34,14 @@ The system SHALL support roles: ADMIN (Web system administrator), FOUNDER, DEPT_
 - **WHEN** a FOUNDER requests logs for any business user in the company
 - **THEN** the system returns those logs
 
+#### Scenario: Admin cannot view work logs
+- **WHEN** an ADMIN requests logs for self or any userId
+- **THEN** the system responds with 403 Forbidden
+
+#### Scenario: Admin cannot read work logs
+- **WHEN** an ADMIN requests logs for any userId (including self)
+- **THEN** the system responds with 403 Forbidden
+
 #### Scenario: Upward invite reserved for leads
 - **WHEN** task/invite features are enabled in a later iteration
 - **THEN** TEAM_LEAD, DEPT_HEAD, and FOUNDER SHALL be allowed to form upward invite/request flows; STAFF uses basic functions only unless later specified

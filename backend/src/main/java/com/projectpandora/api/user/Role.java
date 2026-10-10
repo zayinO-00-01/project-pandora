@@ -2,6 +2,8 @@ package com.projectpandora.api.user;
 
 public enum Role {
     ADMIN,
-    LEADER,
+    FOUNDER,
+    DEPT_HEAD,
+    TEAM_LEAD,
     STAFF
 }
