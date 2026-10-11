@@ -1,0 +1,23 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+context: |
+  Project Pandora：Android + Web + 一个 Spring Boot API。
+  技术栈：Java 17、Spring Boot 3、MySQL 8（utf8mb4，时区 Asia/Shanghai）、Flyway、JWT + BCrypt。
+  Android：Kotlin、Jetpack Compose，最低 Android 8，包名 com.projectpandora.app。
+  Web：Vue 3、Vite、Element Plus。
+  API 前缀：https://<domain>/api/v1。本地与服务器使用同一套 Docker Compose，不要硬编码 IP。
+  CI 测试不得使用云端数据库。
+  一期排除：AI 地图、MBTI、跨公司匹配、分层审批、图表。
+  角色：ADMIN、LEADER、STAFF。
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours

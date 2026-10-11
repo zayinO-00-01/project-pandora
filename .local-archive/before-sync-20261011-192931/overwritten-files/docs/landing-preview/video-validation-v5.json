@@ -1,0 +1,21 @@
+{
+  "technique": "Generated keyframes; continuous camera and painterly dissolves. No AI object deformation.",
+  "frames": 271,
+  "fps": 30,
+  "seams": [
+    {
+      "between": [
+        1,
+        2
+      ],
+      "pixelIdentical": true
+    },
+    {
+      "between": [
+        2,
+        3
+      ],
+      "pixelIdentical": true
+    }
+  ]
+}

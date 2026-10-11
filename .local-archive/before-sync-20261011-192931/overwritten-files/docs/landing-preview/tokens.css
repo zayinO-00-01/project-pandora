@@ -1,0 +1,19 @@
+/* Hallmark · pre-emit critique: P4 H4 E4 S5 R5 V4 */
+:root {
+  color-scheme: light;
+  --color-paper: #f3efe5;
+  --color-white: #fafcfa;
+  --color-ink: #19313a;
+  --color-muted: #566a70;
+  --color-line: #c3d0d0;
+  --color-copper: #aa4929;
+  --color-error: #b32635;
+  --font-body: 'Pandora Sans', sans-serif;
+  --font-display: 'Pandora Serif', serif;
+  --space-sm: 4px;
+  --space-md: 12px;
+  --space-lg: 24px;
+  --radius-small: 4px;
+  --ease-out: cubic-bezier(.4,0,.2,1);
+  --dur-entry: 800ms;
+}
