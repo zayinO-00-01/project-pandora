@@ -1,0 +1,22 @@
+{
+  "landing": {
+    "initial": true,
+    "middle": true,
+    "finalEntry": true,
+    "reverseScroll": true,
+    "loginForm": true
+  },
+  "light": {
+    "monthDates": 31,
+    "nextMonthDates": 30,
+    "selectedDay": true,
+    "previewOnly": true
+  },
+  "dark": {
+    "monthDates": 31,
+    "nextMonthDates": 30,
+    "selectedDay": true,
+    "previewOnly": true
+  },
+  "previewLogout": true
+}

@@ -29,6 +29,18 @@ public class GlobalExceptionHandler {
                 .body(ApiError.of(400, "Bad Request", message, request.getRequestURI()));
     }
 
+    @ExceptionHandler({org.springframework.http.converter.HttpMessageNotReadableException.class,
+                       org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ApiError> handleMalformed(Exception ex, HttpServletRequest request) {
+        return ResponseEntity.badRequest().body(ApiError.of(400, "Bad Request",
+                "请求格式不正确，请检查日期和 JSON", request.getRequestURI()));
+    }
+
+    @ExceptionHandler({org.springframework.orm.ObjectOptimisticLockingFailureException.class,org.springframework.dao.DataIntegrityViolationException.class})
+    public ResponseEntity<ApiError> handleConflict(Exception ex,HttpServletRequest request) {
+        return ResponseEntity.status(409).body(ApiError.of(409,"Conflict","状态已变化，请刷新后重试",request.getRequestURI()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleOther(Exception ex, HttpServletRequest request) {
         return ResponseEntity.status(500)

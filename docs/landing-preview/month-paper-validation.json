@@ -1,0 +1,17 @@
+{
+  "浅色": {
+    "october_dates": 31,
+    "november_dates": 30,
+    "selection_preserves_month": true,
+    "scope_switches_removed": true,
+    "help_verified": true
+  },
+  "深色": {
+    "october_dates": 31,
+    "november_dates": 30,
+    "selection_preserves_month": true,
+    "scope_switches_removed": true,
+    "help_verified": true
+  },
+  "login_fixed_background": true
+}

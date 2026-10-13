@@ -1,0 +1,16 @@
+{
+  "fps": 60,
+  "frames": 541,
+  "durationSeconds": 9.016666666666667,
+  "method": "Imagegen paintings; 60 fps composited pigment dissolves, procedural ink-bird flight and subtle camera drift. Not AI-generated object motion.",
+  "seams": [
+    {
+      "afterSegment": 1,
+      "pixelIdentical": true
+    },
+    {
+      "afterSegment": 2,
+      "pixelIdentical": true
+    }
+  ]
+}

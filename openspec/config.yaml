@@ -10,7 +10,8 @@ context: |
   API 前缀：https://<domain>/api/v1。本地与服务器使用同一套 Docker Compose，不要硬编码 IP。
   CI 测试不得使用云端数据库。
   一期排除：AI 地图、MBTI、跨公司匹配、分层审批、图表。
-  角色：ADMIN、LEADER、STAFF。
+  本分支后端基于 zayin，角色为 ADMIN、LEADER、STAFF。
+  安卓设计按 main 2026-10-09 文档接受 STAFF、TEAM_LEAD、DEPT_HEAD、FOUNDER，并兼容旧 LEADER；ADMIN 仅 Web。
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.

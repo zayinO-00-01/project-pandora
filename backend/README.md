@@ -2,7 +2,7 @@
 
 智能掌上工作系统 · 后端服务（Spring Boot 3 / Java 17）。
 
-契约：[`openapi.yaml`](./openapi.yaml)。当前已实现：登录、ADMIN 用户管理、日志读写与穿透、完整性校验占位、面板读取（今日日志）、健康检查。公开注册已关闭。
+契约：[`openapi.yaml`](./openapi.yaml)。当前已实现：登录/注册、日志草稿/提交/修改与授权成员查询、完整性校验占位、任务派发/责任人进度反馈、面板读取（授权派发与今日日志）、健康检查。
 
 ## 本地最快启动（无需 Docker / MySQL）
 
@@ -20,19 +20,15 @@ mvn spring-boot:run
 curl http://localhost:8080/api/v1/health
 ```
 
-## 演示账号（密码均为 `demo1234`）
+## 演示账号
 
-组织链：`staff → team_lead → leader(dept) → founder`；`admin` 仅 Web。
+| 用户名 | 密码 | 角色 | 说明 |
+|--------|------|------|------|
+| `staff` | `demo1234` | STAFF | 员工；上级为 leader |
+| `leader` | `demo1234` | LEADER | 可查直属员工日志 |
+| `admin` | `demo1234` | ADMIN | 可查全部 |
 
-| 用户名 | 角色 | 说明 |
-|--------|------|------|
-| `admin` | ADMIN | 系统管理员；用户管理 API |
-| `founder` | FOUNDER | 创始人；可查业务用户日志 |
-| `leader` | DEPT_HEAD | 部门老总；向下子树 |
-| `team_lead` | TEAM_LEAD | 团队长；向下子树 |
-| `staff` | STAFF | 员工 |
-
-公开 `POST /auth/register` 已关闭；建号用 `POST /api/v1/admin/users`（需 admin token）。
+完整演示使用根目录 `start-demo.cmd`；员工脚本与步骤见 [本地演示](../docs/本地演示.md)，手机对接见 [Android接口说明](../docs/Android接口说明.md)。
 
 ## 联调脚本（PowerShell）
 
@@ -71,7 +67,7 @@ API：`http://localhost:8080/api/v1`。配置见根目录 `.env.example`。
 ## CI / CD（OpenSpec change `github-actions-ci`）
 
 - **CI**：`.github/workflows/ci.yml` — PR / push 到 `main` 时跑 `backend` 的 `mvn -B test`（H2，不连云库）
-- **Web**：仅当存在 `web/package.json` 时构建；当前无前端工程则跳过
+- **Web**：仅当存在 `web/package.json` 时构建；当前 Vue 前端已提供
 - **CD**：`.github/workflows/deploy.yml` — 默认跳过；仓库 Variables 设 `DEPLOY_ENABLED=true`，并配置 Secrets `SSH_HOST` / `SSH_USER` / `SSH_KEY`（可选 `DEPLOY_PATH`）后才会 SSH 部署
 - **Android**：不进合并 CI 门槛
 - **分支保护**：等 Actions 首次跑绿后再勾「必须通过 CI 才能合并」，避免锁死仓库
@@ -86,6 +82,7 @@ mvn -B test
 ## 模块
 
 - `auth`：注册、登录、JWT
-- `log`：日志新建/列表、完整性校验
-- `panel`：四板块读取（公司事项后续补；今日日志已通）
+- `log`：日志新建/列表/草稿/提交/作者更新、完整性校验占位
+- `panel`：四板块读取（授权派发与今日日志已通，公司/个人十大事后续补）
+- `task`：派发与权限范围查询、责任人反馈进度；进度决定状态；Flyway V3 建立 dispatch_tasks 表
 - `user`：用户实体与 `manager_id` 组织关系
