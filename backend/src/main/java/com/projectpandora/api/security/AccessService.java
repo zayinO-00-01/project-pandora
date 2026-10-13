@@ -4,8 +4,8 @@ import com.projectpandora.api.common.ApiException;
 import com.projectpandora.api.user.Role;
 import com.projectpandora.api.user.UserEntity;
 import com.projectpandora.api.user.UserRepository;
-import java.util.HashSet;
-import java.util.Set;
+import com.projectpandora.api.user.ViewRequestRepository;
+import java.util.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,9 +15,11 @@ import org.springframework.stereotype.Component;
 public class AccessService {
 
     private final UserRepository userRepository;
+    private final ViewRequestRepository requests;
 
-    public AccessService(UserRepository userRepository) {
+    public AccessService(UserRepository userRepository, ViewRequestRepository requests) {
         this.userRepository = userRepository;
+        this.requests = requests;
     }
 
     public UserPrincipal currentUser() {
@@ -28,58 +30,36 @@ public class AccessService {
         return principal;
     }
 
-    public void assertAdmin() {
-        if (currentUser().getRole() != Role.ADMIN) {
-            throw new ApiException(HttpStatus.FORBIDDEN.value(), "仅系统管理员可操作");
-        }
-    }
-
     public void assertCanViewUserLogs(Long targetUserId) {
-        UserPrincipal me = currentUser();
-        Role role = me.getRole();
-        // Web system admin has no business log access (App-only capability).
-        if (role == Role.ADMIN) {
-            throw new ApiException(HttpStatus.FORBIDDEN.value(), "系统管理员无权查看工作日志");
-        }
-        if (me.getId().equals(targetUserId)) {
-            return;
-        }
-        UserEntity target =
-                userRepository
-                        .findById(targetUserId)
-                        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND.value(), "用户不存在"));
-        if (target.getRole() == Role.ADMIN) {
-            throw new ApiException(HttpStatus.FORBIDDEN.value(), "无权查看该用户日志");
-        }
-        if (role == Role.FOUNDER) {
-            return;
-        }
-        if (role == Role.TEAM_LEAD || role == Role.DEPT_HEAD) {
-            if (isAncestor(me.getId(), targetUserId)) {
-                return;
-            }
-        }
+        var me=currentUser();
+        if(canViewDown(targetUserId))return;
+        var target=userRepository.findById(targetUserId).orElseThrow(() -> new ApiException(404,"用户不存在"));
+        if(isDirectManager(target) && requests.existsByRequesterIdAndTargetIdAndStatus(me.getId(),targetUserId,"approved"))return;
         throw new ApiException(HttpStatus.FORBIDDEN.value(), "无权查看该用户日志");
     }
 
-    /** True when viewerId appears in target's manager_id chain (viewer is above target). */
-    boolean isAncestor(Long viewerId, Long targetUserId) {
-        Long current = targetUserId;
-        Set<Long> seen = new HashSet<>();
-        while (current != null && seen.add(current)) {
-            UserEntity user =
-                    userRepository
-                            .findById(current)
-                            .orElse(null);
-            if (user == null) {
-                return false;
-            }
-            Long managerId = user.getManagerId();
-            if (viewerId.equals(managerId)) {
-                return true;
-            }
-            current = managerId;
+    public boolean isDirectManager(UserEntity target) {
+        var me=currentUser();
+        return target.getRole()!=Role.ADMIN && me.getManagerId()!=null && me.getManagerId().equals(target.getId())
+                && me.getRole().level()<target.getRole().level();
+    }
+
+    public boolean canViewDown(Long id) {
+        var me=currentUser();
+        if(me.getId().equals(id) || me.getRole()==Role.ADMIN)return true;
+        var target=userRepository.findById(id).orElse(null);
+        if(target==null || target.getRole()==Role.ADMIN || target.getRole().level()>=me.getRole().level())return false;
+        if(me.getRole()==Role.LEADER)return me.getId().equals(target.getManagerId());
+        var seen=new HashSet<Long>();
+        while(target.getManagerId()!=null && seen.add(target.getId())) {
+            if(me.getId().equals(target.getManagerId()))return true;
+            target=userRepository.findById(target.getManagerId()).orElse(null);
+            if(target==null)return false;
         }
         return false;
+    }
+
+    public List<UserEntity> downwardUsers() {
+        return userRepository.findAll().stream().filter(u->canViewDown(u.getId())).toList();
     }
 }

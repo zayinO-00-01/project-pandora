@@ -1,0 +1,199 @@
+openapi: 3.0.3
+info:
+  title: Pandora API
+  version: 0.1.0
+  description: Sprint 0 契约。只覆盖登录、日志和面板读取。任务与邀约在 Sprint 2 实现，这里先把字段定下来。
+servers:
+  - url: /api/v1
+paths:
+  /auth/register:
+    post:
+      summary: 注册
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+                displayName: { type: string }
+      responses:
+        "201":
+          description: 已创建
+        "400":
+          description: 用户名已存在或字段不合法
+  /auth/login:
+    post:
+      summary: 登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  role: { type: string, enum: [ADMIN, LEADER, STAFF] }
+                  displayName: { type: string }
+        "401":
+          description: 口令错误
+  /logs/integrity:
+    get:
+      summary: 当天首次进入日志页的完整性校验
+      security: [{ bearer: [] }]
+      responses:
+        "200":
+          description: 通过
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  message: { type: string }
+        "401":
+          description: 未登录
+  /logs:
+    get:
+      summary: 日志列表。员工只能看自己的；LEADER 和 ADMIN 可传 userId 看权限内的人
+      security: [{ bearer: [] }]
+      parameters:
+        - in: query
+          name: date
+          schema: { type: string, format: date }
+        - in: query
+          name: userId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: 按时间倒序
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WorkLog" }
+        "403":
+          description: 无权查看该用户
+    post:
+      summary: 新建日志
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [logDate, content]
+              properties:
+                logDate: { type: string, format: date }
+                content: { type: string }
+      responses:
+        "201":
+          description: 已保存。本路径验收记录写明晨星冒烟测试校验通过
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkLog" }
+        "400":
+          description: 正文为空
+  /panels/map:
+    get:
+      summary: 导图四板块
+      security: [{ bearer: [] }]
+      responses:
+        "200":
+          description: 上面两块的 canonical 只有管理员或派发逻辑可改
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  companyImportant:
+                    type: array
+                    maxItems: 10
+                    items: { $ref: "#/components/schemas/PanelItem" }
+                  companyDispatch:
+                    type: array
+                    maxItems: 10
+                    items: { $ref: "#/components/schemas/PanelItem" }
+                  personalTop:
+                    type: array
+                    maxItems: 10
+                    items: { $ref: "#/components/schemas/PanelItem" }
+                  todayLogs:
+                    type: array
+                    items: { $ref: "#/components/schemas/WorkLog" }
+  /tasks:
+    get:
+      summary: 我相关的任务。Sprint 2
+      security: [{ bearer: [] }]
+      parameters:
+        - in: query
+          name: source
+          schema: { type: string, enum: [dispatch, invite] }
+      responses:
+        "200":
+          description: 列表
+    post:
+      summary: 派发或邀约。Sprint 2
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Task" }
+      responses:
+        "201":
+          description: 已创建
+        "403":
+          description: 员工不能派发公司任务
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+  schemas:
+    WorkLog:
+      type: object
+      properties:
+        id: { type: integer }
+        userId: { type: integer }
+        logDate: { type: string, format: date }
+        content: { type: string }
+        status: { type: string, enum: [draft, submitted] }
+    PanelItem:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        sortOrder: { type: integer }
+        myRemark: { type: string, description: 只影响当前用户 }
+    Task:
+      type: object
+      required: [title, priority, assigneeId, source]
+      properties:
+        title: { type: string }
+        detail: { type: string }
+        priority: { type: string }
+        dueAt: { type: string, format: date-time }
+        progress: { type: integer, minimum: 0, maximum: 100 }
+        progressNote: { type: string }
+        assigneeId: { type: integer }
+        relatedUserIds:
+          type: array
+          items: { type: integer }
+        source: { type: string, enum: [dispatch, invite] }
+        status: { type: string, enum: [todo, doing, done] }

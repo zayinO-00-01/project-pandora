@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>潘多拉 · 落地页动态验证</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+/* Hallmark · macrostructure: single entry · tone: tactile editorial · anchor hue: copper */
+@font-face{font-family:'Pandora Sans';src:url('/android/app/src/main/res/font/noto_sans_sc.ttf');font-weight:100 900;font-display:swap}
+*{box-sizing:border-box}html,body{margin:0;overflow-x:clip;background:var(--color-paper);color:var(--color-ink);font-family:var(--font-body)}
+main{max-width:528px;margin:auto;padding:16px var(--space-lg) 32px;display:flex;flex-direction:column;gap:var(--space-md);min-width:0}
+header{padding-bottom:0}h1{font-size:20px;line-height:28px;font-weight:600;margin:0;overflow-wrap:anywhere}p{font-size:12px;line-height:20px;color:var(--color-muted);margin:4px 0 0}
+.art{height:220px;display:flex;justify-content:center;align-items:center;perspective:800px}.art img{width:220px;height:220px;object-fit:contain;max-width:100%;will-change:transform,opacity}
+h2{font-size:20px;line-height:28px;margin:0;font-weight:600;overflow-wrap:anywhere}form{display:flex;flex-direction:column;gap:12px;min-width:0}
+button{font:inherit;font-size:14px;min-height:48px;border-radius:var(--radius-small);cursor:pointer;white-space:nowrap;padding:8px 16px;border:1px solid var(--color-line);background:var(--color-paper);color:var(--color-ink)}button:focus-visible,input:focus-visible{outline:2px solid var(--color-copper);outline-offset:3px}button:active{transform:translateY(1px)}button:disabled{opacity:.55;cursor:default}
+.connection{color:var(--color-muted);border:0;text-align:left;padding-left:0;align-self:start}.primary{background:var(--color-copper);color:var(--color-white);border-color:var(--color-copper)}.primary:hover{filter:brightness(.94)}
+label{position:relative;display:block;color:var(--color-muted);font-size:12px}label span{position:absolute;top:-9px;left:12px;background:var(--color-paper);padding:0 4px}input{width:100%;height:56px;border:1px solid var(--color-muted);border-radius:var(--radius-small);background:transparent;color:var(--color-ink);padding:16px;font:inherit;font-size:16px;min-width:0}
+#password{padding-right:68px}.field{position:relative}.visibility{position:absolute;right:4px;top:4px;border:0;color:var(--color-copper);padding:0 12px}.error{color:var(--color-error)}hr{border:0;border-top:1px solid var(--color-line);width:100%;margin:0}.preview-note{margin-top:24px;border-top:1px solid var(--color-line);padding-top:12px}a{color:var(--color-copper)}
+@media(prefers-reduced-motion:reduce){.art img{will-change:auto}}
+</style></head><body><main>
+<header><h1>潘多拉</h1><p>记录工作 · 接收派发 · 同步进展</p></header>
+<div class="art"><img id="artwork" src="pandora_paper_box.png" alt="潘多拉纸盒中展开的工作纸页"></div>
+<section><h2>进入工作空间</h2><p>使用公司分配的账号登录。</p></section>
+<form id="entry"><button class="connection" type="button" aria-expanded="false" id="connection">连接设置</button>
+<div id="server-group" hidden><label><span>服务器地址</span><input type="url" placeholder="https://公司服务地址"></label></div>
+<label><span>账号</span><input id="account" autocomplete="username" required></label>
+<div class="field"><label><span>密码</span><input id="password" type="password" autocomplete="current-password" required></label><button class="visibility" id="visibility" type="button">显示</button></div>
+<p id="status" role="status" hidden></p><button class="primary" type="submit">进入工作空间</button>
+</form><hr><p>账号由管理员创建，无自助注册。管理员账号请使用 Web 管理端。</p>
+<div class="preview-note"><p>浏览器动态验证页：使用与 Android 相同的生成图片和 800 毫秒入场动作；此页不连接账号服务。</p><label style="margin-top:16px"><span>动画时刻（毫秒）</span><input id="frame" type="number" min="0" max="800" step="1" value="800"></label></div>
+</main><script>
+const artwork=document.querySelector('#artwork');
+const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+let animation;
+function start(){animation?.cancel();animation=artwork.animate([{transform:'translateY(8px) rotateY(-5deg) rotateX(4deg)',opacity:.65},{transform:'translateY(0) rotateY(0deg) rotateX(0deg)',opacity:1}],{duration:reduced.matches?0:800,easing:'cubic-bezier(.4,0,.2,1)',fill:'both'});return animation}
+artwork.addEventListener('load',start,{once:true});if(artwork.complete)start();reduced.addEventListener('change',start);
+window.seekLandingFrame=t=>{if(!animation)start();animation.pause();animation.currentTime=t;return {time:animation.currentTime,transform:getComputedStyle(artwork).transform,opacity:getComputedStyle(artwork).opacity}};
+document.querySelector('#frame').oninput=e=>window.seekLandingFrame(Math.max(0,Math.min(800,Number(e.target.value))));
+document.querySelector('#connection').onclick=e=>{const group=document.querySelector('#server-group');group.hidden=!group.hidden;e.currentTarget.textContent=group.hidden?'连接设置':'收起连接设置';e.currentTarget.setAttribute('aria-expanded',String(!group.hidden))};
+document.querySelector('#visibility').onclick=e=>{const p=document.querySelector('#password');p.type=p.type==='password'?'text':'password';e.currentTarget.textContent=p.type==='password'?'显示':'隐藏'};
+document.querySelector('#entry').onsubmit=e=>{e.preventDefault();const status=document.querySelector('#status');status.hidden=false;status.textContent='表单验证通过。此验证页不会发送账号或密码。'};
+</script></body></html>

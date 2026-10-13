@@ -1,0 +1,17 @@
+{
+  "fps": 60,
+  "frames": 541,
+  "durationSeconds": 9.016666666666667,
+  "bytes": 2639618,
+  "originalBytes": 11599339,
+  "interpolation": "Offline motion-compensated 120 fps intermediate, two-frame temporal filtering, delivered at constant 60 fps.",
+  "encoding": "H.264 Constrained Baseline level 3.2, 60-frame GOP, no B frames, 3Mbps VBV cap, faststart",
+  "everyTimestampContinuous": true,
+  "maxFrameIntervalSeconds": 0.0166670000000001,
+  "maximumAdjacentMeanChange": 0.9720138888888888,
+  "segmentBoundaryMeanChanges": [
+    0.43027777777777776,
+    0.5321527777777778
+  ],
+  "zeroChangeIntervals": 0
+}

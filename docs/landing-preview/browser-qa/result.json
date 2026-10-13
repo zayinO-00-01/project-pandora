@@ -1,0 +1,19 @@
+{
+  "framesDecoded": 271,
+  "seamFramesPixelIdentical": true,
+  "scrollFrames": [
+    0,
+    135,
+    270,
+    0
+  ],
+  "widths": [
+    320,
+    375,
+    414,
+    768
+  ],
+  "horizontalOverflow": false,
+  "staticFallback": true,
+  "directLogin": true
+}

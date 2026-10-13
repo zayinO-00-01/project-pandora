@@ -1,0 +1,28 @@
+{
+  "hardwareGpu": "NVIDIA GeForce RTX 5060 Laptop GPU; emulator -gpu host",
+  "codec": "c2.goldfish.h264.decoder",
+  "requestedFps": 60,
+  "samples": [
+    {
+      "run": 1,
+      "decodedFrames": 542,
+      "decoderDroppedFrames": 14,
+      "dropRatio": 0.025830258302583026
+    },
+    {
+      "run": 2,
+      "decodedFrames": 542,
+      "decoderDroppedFrames": 11,
+      "dropRatio": 0.02029520295202952
+    },
+    {
+      "run": 3,
+      "decodedFrames": 542,
+      "decoderDroppedFrames": 5,
+      "dropRatio": 0.00922509225092251
+    }
+  ],
+  "noUIAutomationDuringPlayback": true,
+  "apkSha256": "8EAF169A83435489F4A84AC6619531F8CA5FCA5897D2F84EA98955679AF951D2",
+  "version": "0.4.29-smooth-login / 32"
+}

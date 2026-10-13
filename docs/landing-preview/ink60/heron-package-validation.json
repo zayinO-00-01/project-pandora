@@ -1,0 +1,10 @@
+{
+  "version": "0.4.30-ink-herons",
+  "versionCode": 33,
+  "apkBytes": 30205570,
+  "apkSha256": "1410DAA74F68F19A3CE9CBBE63351002E6ACA4ED81349D51CFD4183AD0B7FC83",
+  "videoBytes": 1926563,
+  "videoSha256": "69D499728E54A682588DA3BD99716C21DB1249D14FFF25106B9045EC31DF0FA3",
+  "packagedVideoIdenticalToPreview": true,
+  "androidTestsPassed": 13
+}

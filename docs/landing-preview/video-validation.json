@@ -1,0 +1,39 @@
+{
+  "technique": "Image-generated first frame, deterministic camera film; not AI object animation",
+  "fps": 30,
+  "frames": 271,
+  "durationSeconds": 9.033333333333333,
+  "segments": [
+    {
+      "clip": "transition-1-v2.mp4",
+      "startFrame": 0,
+      "endFrame": 90
+    },
+    {
+      "clip": "transition-2-v2.mp4",
+      "startFrame": 90,
+      "endFrame": 180
+    },
+    {
+      "clip": "transition-3-v2.mp4",
+      "startFrame": 180,
+      "endFrame": 270
+    }
+  ],
+  "seams": [
+    {
+      "between": [
+        1,
+        2
+      ],
+      "pixelIdentical": true
+    },
+    {
+      "between": [
+        2,
+        3
+      ],
+      "pixelIdentical": true
+    }
+  ]
+}

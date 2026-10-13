@@ -2,7 +2,7 @@
 
 企业内部 **工作日志 + 任务分发 + 信息面板 + 数据分析** 系统。
 
-- **Android App**：员工日常日志、任务接收、月/周/日视图
+- **Android App**：工作日志、任务接收、月历、四种业务角色与手动浅色/深色模式
 - **Web 管理端**：公司事项/派发、向下穿透查看、数据看板
 - **Backend API**：账号权限、日志、任务、面板聚合
 
@@ -17,6 +17,16 @@ backend/     # 后端 API
 openspec/    # OpenSpec 规范驱动开发
 docs/        # 需求、设计、协作、周报
 ```
+
+## 当前可演示版本
+
+仓库根目录双击 `start-demo.cmd`，打开 http://localhost:8080，用 `leader` 或 `admin` / `demo1234` 登录。已完成 Android 与 Web 的草稿、提交、修改和授权查看，以及 Web 任务派发、Android 责任人进度反馈和 Web 刷新查看。Android 安装包在本机 `deliverables/Pandora-MVP-debug.apk`，手机配置电脑局域网地址后用 `staff / demo1234` 登录。
+
+[本地演示与手动检查](docs/本地演示.md) · [任务演示](docs/任务演示.md) · [MVP验收](docs/MVP验收.md) · [Android工程与构建](android/README.md) · [Android 接口说明](docs/Android接口说明.md)
+
+当前 Android 版本为 `0.4.30-ink-herons`（versionCode 33）。日历只保留月历；四种业务角色分别展示个人、团队、部门和公司工作入口。向下查看受组织关系限制，向上只能申请查看直属上级，由被查看者审批；草稿仅本人可见。主题仅有手动浅色/深色，登录背景固定。日志可查看任意历史日期，仅能写入七天前至当天；需要同步升级后端，详见 [日志七天修改规则](docs/日志七天修改规则.md)。AI 暂不实现。
+
+[代码交付与 PR 指引](docs/代码交付与PR.md) · [角色权限与申请](docs/角色权限与申请.md)
 
 ## 快速开始
 

@@ -1,0 +1,22 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>潘多拉 · 水墨登录</title>
+<style>
+[hidden]{display:none!important}
+:root{color-scheme:light;--paper:#f3efe5;--ink:#19313a}*{box-sizing:border-box}html,body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,'Microsoft YaHei',sans-serif}.painting{position:fixed;inset:0;pointer-events:none}.painting img,.painting video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.painting video{opacity:0}.painting.ready video{opacity:1}.login{position:relative;min-height:100svh;max-width:480px;margin:auto;padding:26px 24px;display:flex;flex-direction:column;justify-content:center;gap:16px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity 1.6s ease}.wordmark{display:block;width:196px;height:78px;object-fit:contain;align-self:center;padding-bottom:12px}.login.revealed{opacity:1;visibility:visible;pointer-events:auto}.banner{padding:26px;background:#142f3b;border-radius:12px;color:#faf7ef}.banner small{color:#89d5c5;letter-spacing:2px}.banner h1{font-family:serif;font-size:28px;font-weight:500;line-height:1.4;margin:14px 0}.login h2{font-family:serif;font-size:25px;font-weight:500;margin:28px 0 12px}.login p{font-size:14px;line-height:1.8;color:#566a70;background:rgba(243,239,229,.90)}form{display:grid;gap:16px;margin-top:0}label{display:grid;gap:8px;font-size:14px}input{width:100%;min-height:52px;background:rgba(250,247,239,.94);color:var(--ink);border:1px solid #566a70;border-radius:4px;padding:12px 14px;font-size:16px}button{min-height:52px;background:#aa4929;color:#faf7ef;border:0;border-radius:4px;font-size:16px;cursor:pointer}input:focus-visible,button:focus-visible{outline:2px solid #17655f;outline-offset:3px}@media(prefers-reduced-motion:reduce){.login{transition:none}}
+</style>
+<div class="painting" aria-hidden="true"><img src="initial.png" alt=""><video id="film" autoplay muted playsinline preload="auto" poster="initial.png" src="ink-journey-60.mp4"></video></div>
+<section class="login" inert aria-hidden="true"><img class="wordmark" src="pandora-ink-wordmark.png" alt="潘多拉"><button id="connection" type="button">连接设置</button><label id="server" hidden>服务器地址<input type="url" autocomplete="url"></label><form><label>账号<input autocomplete="username" required></label><label>密码<input type="password" autocomplete="current-password" required></label><button>进入工作空间</button><p id="status" role="status" hidden></p></form></section>
+<script>
+const video=document.querySelector('video'),painting=document.querySelector('.painting'),login=document.querySelector('.login'),reduce=matchMedia('(prefers-reduced-motion:reduce)');
+let scheduled=false,failed=false;
+function reveal(){login.classList.add('revealed');login.inert=false;login.setAttribute('aria-hidden','false')}
+function begin(){if(reduce.matches){video.pause();reveal();return}painting.classList.add('ready');if(!scheduled){scheduled=true;setTimeout(reveal,1000)}}
+video.addEventListener('playing',begin);video.addEventListener('error',()=>{failed=true;painting.classList.remove('ready');reveal()});
+video.addEventListener('loadeddata',()=>{if(reduce.matches){reveal();return}video.play().catch(()=>{failed=true;painting.classList.remove('ready');reveal()})});
+setTimeout(()=>{if(!scheduled)reveal()},5000);
+reduce.addEventListener('change',()=>{if(reduce.matches){video.pause();painting.classList.remove('ready');reveal()}else if(!failed&&!video.ended)video.play().catch(reveal)});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)video.pause();else if(!reduce.matches&&!failed&&!video.ended)video.play().catch(reveal)});
+document.querySelector('form').onsubmit=e=>{e.preventDefault();const status=document.querySelector('#status');status.hidden=false;status.textContent='此浏览器预览不发送账号；安装包使用已有登录服务。'};
+document.querySelector('#connection').onclick=e=>{const field=document.querySelector('#server');field.hidden=!field.hidden;e.currentTarget.textContent=field.hidden?'连接设置':'收起连接设置'};
+if(reduce.matches)reveal();
+window.autoplayState=()=>({time:video.currentTime,paused:video.paused,ended:video.ended,revealed:login.classList.contains('revealed'),opacity:Number(getComputedStyle(login).opacity),failed});
+</script></html>

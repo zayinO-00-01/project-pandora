@@ -1,0 +1,34 @@
+{
+  "浅色总览": {
+    "same_size": true,
+    "identical_app_pixels": true
+  },
+  "浅色日志": {
+    "same_size": true,
+    "identical_app_pixels": true
+  },
+  "浅色视图": {
+    "same_size": true,
+    "identical_app_pixels": true
+  },
+  "浅色我的": {
+    "same_size": true,
+    "identical_app_pixels": true
+  },
+  "深色总览": {
+    "same_size": true,
+    "identical_app_pixels": true
+  },
+  "深色日志": {
+    "same_size": true,
+    "identical_app_pixels": true
+  },
+  "深色视图": {
+    "same_size": true,
+    "identical_app_pixels": true
+  },
+  "深色我的": {
+    "same_size": true,
+    "identical_app_pixels": true
+  }
+}

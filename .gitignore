@@ -33,3 +33,28 @@ venv/
 coverage/
 .nyc_output/
 htmlcov/
+
+# 本地演示生成文件
+.tools/
+backend/src/main/resources/static/
+
+# Local packages and historical design evidence (keep source assets tracked)
+/deliverables/
+/.local-archive/
+/docs/landing-preview/*
+!/docs/landing-preview/*.html
+!/docs/landing-preview/*.css
+!/docs/landing-preview/*.md
+!/docs/landing-preview/*validation*.json
+!/docs/landing-preview/ink60/
+/docs/landing-preview/ink60/*.mp4
+/docs/landing-preview/ink60/browser-*.png
+/docs/原型/安卓控制台/*
+!/docs/原型/安卓控制台/角色权限-*.png
+!/docs/原型/安卓控制台/水墨入场-*.png
+!/docs/原型/安卓控制台/纸墨平衡-*最终.png
+!/docs/原型/安卓控制台/自动水墨登录-*.png
+
+!/docs/原型/安卓控制台/日志窗口-*.png
+
+!/docs/原型/安卓控制台/流畅水墨-*.png
