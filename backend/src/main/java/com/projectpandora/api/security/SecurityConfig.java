@@ -34,7 +34,9 @@ public class SecurityConfig {
                 .exceptionHandling(eh -> eh.authenticationEntryPoint(authEntryPoint))
                 .authorizeHttpRequests(
                         auth ->
-                                auth.requestMatchers("/api/v1/health")
+                                auth.requestMatchers(org.springframework.http.HttpMethod.GET, "/", "/index.html", "/assets/**", "/favicon.svg")
+                                        .permitAll()
+                                        .requestMatchers("/api/v1/health")
                                         .permitAll()
                                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login")
                                         .permitAll()

@@ -2,143 +2,99 @@ package com.projectpandora.api.admin;
 
 import com.projectpandora.api.common.ApiException;
 import com.projectpandora.api.security.AccessService;
-import com.projectpandora.api.user.Role;
-import com.projectpandora.api.user.UserEntity;
-import com.projectpandora.api.user.UserRepository;
+import com.projectpandora.api.user.*;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import java.time.Instant;
-import java.util.List;
-import org.springframework.http.HttpStatus;
+import java.util.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/admin/users")
 public class AdminUserController {
-
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final AccessService accessService;
-
-    public AdminUserController(
-            UserRepository userRepository,
-            PasswordEncoder passwordEncoder,
-            AccessService accessService) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.accessService = accessService;
+    private final UserRepository users;
+    private final PasswordEncoder passwords;
+    private final AccessService access;
+    private final OrganizationGuard organization;
+    private final ViewRequestRepository requests;
+    public AdminUserController(UserRepository users,PasswordEncoder passwords,AccessService access,
+            OrganizationGuard organization,ViewRequestRepository requests) {
+        this.users=users;this.passwords=passwords;this.access=access;this.organization=organization;this.requests=requests;
     }
-
     @GetMapping
     public List<AdminUserResponse> list() {
-        accessService.assertAdmin();
-        return userRepository.findAll().stream().map(AdminUserResponse::from).toList();
+        access.assertAdmin();return users.findAll().stream().sorted(Comparator.comparing(UserEntity::getId)).map(AdminUserResponse::from).toList();
     }
-
     @PostMapping
+    @Transactional
     public ResponseEntity<AdminUserResponse> create(@Valid @RequestBody CreateUserRequest request) {
-        accessService.assertAdmin();
-        if (userRepository.findByUsername(request.username()).isPresent()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "用户名已存在");
-        }
-        validateManager(request.managerId());
-        UserEntity user = new UserEntity();
-        user.setUsername(request.username().trim());
-        user.setPasswordHash(passwordEncoder.encode(request.password()));
-        user.setRole(request.role());
-        user.setDisplayName(
-                request.displayName() == null || request.displayName().isBlank()
-                        ? request.username().trim()
-                        : request.displayName().trim());
-        user.setManagerId(request.managerId());
-        user.setDisabled(Boolean.TRUE.equals(request.disabled()));
-        user.setCreatedAt(Instant.now());
-        userRepository.save(user);
-        return ResponseEntity.status(HttpStatus.CREATED).body(AdminUserResponse.from(user));
+        access.assertAdmin();organization.lock();access.assertAdmin();
+        String username=request.username().trim();
+        if(username.length()<3 || username.length()>64) throw new ApiException(400,"用户名须为3至64字");
+        if(users.findByUsername(username).isPresent()) throw new ApiException(400,"用户名已存在");
+        assertAssignableManager(request.managerId());
+        UserEntity user=new UserEntity();user.setUsername(username);user.setPasswordHash(passwords.encode(request.password()));
+        user.setRole(request.role());user.setDisplayName(request.displayName()==null || request.displayName().isBlank() ? username : request.displayName().trim());
+        user.setManagerId(request.managerId());user.setDisabled(Boolean.TRUE.equals(request.disabled()));user.setCreatedAt(Instant.now());
+        var all=new ArrayList<>(users.findAll());all.add(user);validateHierarchy(all);
+        return ResponseEntity.status(201).body(AdminUserResponse.from(users.saveAndFlush(user)));
     }
-
     @PatchMapping("/{id}")
-    public AdminUserResponse update(
-            @PathVariable Long id, @Valid @RequestBody UpdateUserRequest request) {
-        accessService.assertAdmin();
-        UserEntity user =
-                userRepository
-                        .findById(id)
-                        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND.value(), "用户不存在"));
-        if (request.role() != null) {
-            user.setRole(request.role());
+    @Transactional
+    public AdminUserResponse update(@PathVariable Long id,@Valid @RequestBody UpdateUserRequest request) {
+        access.assertAdmin();organization.lock();access.assertAdmin();
+        var user=users.findById(id).orElseThrow(()->new ApiException(404,"用户不存在"));
+        Role oldRole=user.getRole();Long oldManager=user.getManagerId();boolean oldDisabled=user.isDisabled();
+        if(request.role()!=null) user.setRole(request.role());
+        if(request.displayName()!=null) user.setDisplayName(request.displayName().trim());
+        if(request.managerId()!=null || Boolean.TRUE.equals(request.clearManager())) {
+            Long manager=Boolean.TRUE.equals(request.clearManager()) ? null : request.managerId();
+            assertAssignableManager(manager);user.setManagerId(manager);
         }
-        if (request.displayName() != null) {
-            user.setDisplayName(request.displayName().trim());
-        }
-        if (request.managerId() != null || Boolean.TRUE.equals(request.clearManager())) {
-            Long managerId = Boolean.TRUE.equals(request.clearManager()) ? null : request.managerId();
-            if (managerId != null && managerId.equals(id)) {
-                throw new ApiException(HttpStatus.BAD_REQUEST.value(), "不能将自己设为上级");
+        if(request.disabled()!=null) user.setDisabled(request.disabled());
+        if(request.password()!=null && !request.password().isBlank()) user.setPasswordHash(passwords.encode(request.password()));
+        validateHierarchy(users.findAll());
+        if(oldRole!=user.getRole() || !Objects.equals(oldManager,user.getManagerId()) || oldDisabled!=user.isDisabled()) {
+            for(var r:requests.findByRequesterIdOrTargetIdOrderByUpdatedAtDesc(id,id)) {
+                if("pending".equals(r.status) || "approved".equals(r.status)) {
+                    r.status="revoked";r.updatedAt=Instant.now();requests.save(r);
+                }
             }
-            validateManager(managerId);
-            user.setManagerId(managerId);
         }
-        if (request.disabled() != null) {
-            user.setDisabled(request.disabled());
-        }
-        if (request.password() != null && !request.password().isBlank()) {
-            user.setPasswordHash(passwordEncoder.encode(request.password()));
-        }
-        userRepository.save(user);
-        return AdminUserResponse.from(user);
+        return AdminUserResponse.from(users.saveAndFlush(user));
     }
-
-    private void validateManager(Long managerId) {
-        if (managerId == null) {
-            return;
-        }
-        if (!userRepository.existsById(managerId)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "上级用户不存在");
+    private void assertAssignableManager(Long id) {
+        if(id==null) return;
+        var manager=users.findById(id).orElseThrow(()->new ApiException(400,"上级用户不存在"));
+        if(manager.isDisabled() || !AccessService.isLeader(manager.getRole())) throw new ApiException(400,"上级必须是启用的业务领导");
+    }
+    private void validateHierarchy(List<UserEntity> all) {
+        Map<Long,UserEntity> byId=new HashMap<>();all.forEach(u->{if(u.getId()!=null) byId.put(u.getId(),u);});
+        for(var user:all) {
+            Long managerId=user.getManagerId();
+            if(managerId==null) continue;
+            var manager=byId.get(managerId);
+            if(user.getRole()==Role.ADMIN || user.getRole()==Role.FOUNDER || manager==null
+                || !AccessService.isLeader(manager.getRole()) || AccessService.rank(manager.getRole())<=AccessService.rank(user.getRole()))
+                throw new ApiException(400,"角色与上下级层级不匹配");
+            Set<Long> seen=new HashSet<>();if(user.getId()!=null) seen.add(user.getId());
+            Long current=managerId;
+            while(current!=null) {
+                if(!seen.add(current)) throw new ApiException(400,"上下级不能形成循环");
+                var ancestor=byId.get(current);current=ancestor==null ? null : ancestor.getManagerId();
+            }
         }
     }
-
-    public record CreateUserRequest(
-            @NotBlank @Size(min = 3, max = 64) String username,
-            @NotBlank @Size(min = 6, max = 72) String password,
-            @NotNull Role role,
-            @Size(max = 64) String displayName,
-            Long managerId,
-            Boolean disabled) {}
-
-    public record UpdateUserRequest(
-            Role role,
-            @Size(max = 64) String displayName,
-            Long managerId,
-            Boolean clearManager,
-            Boolean disabled,
-            @Size(min = 6, max = 72) String password) {}
-
-    public record AdminUserResponse(
-            Long id,
-            String username,
-            String role,
-            String displayName,
-            Long managerId,
-            boolean disabled) {
+    public record CreateUserRequest(@NotBlank @Size(min=3,max=64) String username,
+        @NotBlank @Size(min=6,max=72) String password,@NotNull Role role,@Size(max=64) String displayName,Long managerId,Boolean disabled) {}
+    public record UpdateUserRequest(Role role,@Size(max=64) String displayName,Long managerId,Boolean clearManager,Boolean disabled,
+        @Size(min=6,max=72) String password) {}
+    public record AdminUserResponse(Long id,String username,String role,String displayName,Long managerId,boolean disabled) {
         static AdminUserResponse from(UserEntity u) {
-            return new AdminUserResponse(
-                    u.getId(),
-                    u.getUsername(),
-                    u.getRole().name(),
-                    u.getDisplayName(),
-                    u.getManagerId(),
-                    u.isDisabled());
+            return new AdminUserResponse(u.getId(),u.getUsername(),u.getRole().name(),u.getDisplayName(),u.getManagerId(),u.isDisabled());
         }
     }
 }
