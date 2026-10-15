@@ -38,6 +38,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                         .findById(userId)
                         .ifPresent(
                                 user -> {
+                                    if (user.isDisabled()) {
+                                        SecurityContextHolder.clearContext();
+                                        return;
+                                    }
                                     UserPrincipal principal =
                                             new UserPrincipal(
                                                     user.getId(),

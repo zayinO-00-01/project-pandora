@@ -25,7 +25,7 @@ public class UserEntity {
     private String passwordHash;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 16)
+    @Column(nullable = false, length = 32)
     private Role role;
 
     @Column(name = "display_name", length = 64)
@@ -33,6 +33,9 @@ public class UserEntity {
 
     @Column(name = "manager_id")
     private Long managerId;
+
+    @Column(nullable = false)
+    private Boolean disabled = false;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
@@ -79,6 +82,18 @@ public class UserEntity {
 
     public void setManagerId(Long managerId) {
         this.managerId = managerId;
+    }
+
+    public Boolean getDisabled() {
+        return disabled;
+    }
+
+    public void setDisabled(Boolean disabled) {
+        this.disabled = disabled;
+    }
+
+    public boolean isDisabled() {
+        return Boolean.TRUE.equals(disabled);
     }
 
     public Instant getCreatedAt() {
