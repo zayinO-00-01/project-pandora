@@ -3,9 +3,12 @@ package com.projectpandora.api.common;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
@@ -27,6 +30,16 @@ public class GlobalExceptionHandler {
                         .orElse("请求参数不合法");
         return ResponseEntity.badRequest()
                 .body(ApiError.of(400, "Bad Request", message, request.getRequestURI()));
+    }
+
+    @ExceptionHandler({
+        HttpMessageNotReadableException.class,
+        MethodArgumentTypeMismatchException.class,
+        MissingServletRequestParameterException.class
+    })
+    public ResponseEntity<ApiError> handleMalformedRequest(Exception ex, HttpServletRequest request) {
+        return ResponseEntity.badRequest()
+                .body(ApiError.of(400, "Bad Request", "请求格式或参数类型不合法", request.getRequestURI()));
     }
 
     @ExceptionHandler(Exception.class)

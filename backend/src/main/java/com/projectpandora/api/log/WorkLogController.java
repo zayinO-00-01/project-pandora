@@ -30,6 +30,7 @@ public class WorkLogController {
     @GetMapping("/integrity")
     public IntegrityResponse integrity() {
         UserPrincipal me = accessService.currentUser();
+        workLogRepository.findByUserIdAndLogDateOrderByCreatedAtDesc(me.getId(), LocalDate.now());
         return new IntegrityResponse(true, "完整性校验通过: user=" + me.getUsername());
     }
 

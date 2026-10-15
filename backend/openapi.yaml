@@ -1,11 +1,19 @@
 openapi: 3.0.3
 info:
   title: Pandora API
-  version: 0.2.0
+  version: 0.2.1
   description: |
     登录、日志、面板读取、管理员用户管理。
     Web 仅 ADMIN；App 角色 STAFF / TEAM_LEAD / DEPT_HEAD / FOUNDER。
+    ADMIN 不可访问日志 GET/POST、日志完整性校验及 App 个人面板；四级 App 角色不可调用用户管理 API。
     公开自助注册已关闭。任务与邀约在后续 Sprint。
+    受保护接口缺少、无效、过期或已停用用户的 token 返回 401；角色越权返回 403。
+    格式错误、无效日期/角色、必填项缺失返回 400；错误体为 ApiError。
+    用户名 trim 后判重；组织关系拒绝不存在上级、自引用、环路和 ADMIN 参与业务上下级。
+    修改业务用户为 ADMIN 前须解除其上级及下属关联；失败更新不会部分保存。
+    日志允许同日多条，创建即 submitted，userId 取当前认证用户；本轮不提供草稿或编辑接口。
+    完整性校验检查权限并实际读取当日日志，空列表有效，读取失败返回错误；每日首次调用由 App 控制。
+    停用立即拒绝旧 token，角色调整按数据库当前角色授权；改密码不自动吊销已签发 token。
 servers:
   - url: /api/v1
 paths:
@@ -116,7 +124,7 @@ paths:
       security: [{ bearer: [] }]
       responses:
         "200":
-          description: 通过
+          description: 通过（校验当前用户权限并读取当日日志）
           content:
             application/json:
               schema:
@@ -226,6 +234,15 @@ components:
       type: http
       scheme: bearer
   schemas:
+    ApiError:
+      type: object
+      required: [timestamp, status, error, message, path]
+      properties:
+        timestamp: { type: string, format: date-time }
+        status: { type: integer }
+        error: { type: string }
+        message: { type: string }
+        path: { type: string }
     AdminUser:
       type: object
       properties:

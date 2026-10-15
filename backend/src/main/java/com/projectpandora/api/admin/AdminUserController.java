@@ -10,10 +10,13 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -46,14 +49,19 @@ public class AdminUserController {
     }
 
     @PostMapping
+    @Transactional
     public ResponseEntity<AdminUserResponse> create(@Valid @RequestBody CreateUserRequest request) {
         accessService.assertAdmin();
-        if (userRepository.findByUsername(request.username()).isPresent()) {
+        String username = request.username().trim();
+        if (username.length() < 3) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "用户名至少 3 个字符");
+        }
+        if (userRepository.findByUsername(username).isPresent()) {
             throw new ApiException(HttpStatus.BAD_REQUEST.value(), "用户名已存在");
         }
-        validateManager(request.managerId());
+        validateOrganization(null, request.role(), request.managerId());
         UserEntity user = new UserEntity();
-        user.setUsername(request.username().trim());
+        user.setUsername(username);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRole(request.role());
         user.setDisplayName(
@@ -68,6 +76,7 @@ public class AdminUserController {
     }
 
     @PatchMapping("/{id}")
+    @Transactional
     public AdminUserResponse update(
             @PathVariable Long id, @Valid @RequestBody UpdateUserRequest request) {
         accessService.assertAdmin();
@@ -75,19 +84,16 @@ public class AdminUserController {
                 userRepository
                         .findById(id)
                         .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND.value(), "用户不存在"));
-        if (request.role() != null) {
-            user.setRole(request.role());
-        }
+        Role role = request.role() == null ? user.getRole() : request.role();
+        Long managerId =
+                Boolean.TRUE.equals(request.clearManager())
+                        ? null
+                        : request.managerId() == null ? user.getManagerId() : request.managerId();
+        validateOrganization(id, role, managerId);
+        user.setRole(role);
+        user.setManagerId(managerId);
         if (request.displayName() != null) {
             user.setDisplayName(request.displayName().trim());
-        }
-        if (request.managerId() != null || Boolean.TRUE.equals(request.clearManager())) {
-            Long managerId = Boolean.TRUE.equals(request.clearManager()) ? null : request.managerId();
-            if (managerId != null && managerId.equals(id)) {
-                throw new ApiException(HttpStatus.BAD_REQUEST.value(), "不能将自己设为上级");
-            }
-            validateManager(managerId);
-            user.setManagerId(managerId);
         }
         if (request.disabled() != null) {
             user.setDisabled(request.disabled());
@@ -99,12 +105,28 @@ public class AdminUserController {
         return AdminUserResponse.from(user);
     }
 
-    private void validateManager(Long managerId) {
-        if (managerId == null) {
-            return;
+    private void validateOrganization(Long userId, Role role, Long managerId) {
+        if (role == Role.ADMIN) {
+            if (managerId != null
+                    || (userId != null && !userRepository.findByManagerId(userId).isEmpty())) {
+                throw new ApiException(HttpStatus.BAD_REQUEST.value(), "管理员不能参与业务上下级关系，请先解除关联");
+            }
         }
-        if (!userRepository.existsById(managerId)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST.value(), "上级用户不存在");
+        Long currentId = managerId;
+        Set<Long> seen = new HashSet<>();
+        while (currentId != null) {
+            if (currentId.equals(userId) || !seen.add(currentId)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST.value(), "组织关系不能形成环路");
+            }
+            UserEntity manager =
+                    userRepository
+                            .findById(currentId)
+                            .orElseThrow(
+                                    () -> new ApiException(HttpStatus.BAD_REQUEST.value(), "上级用户不存在"));
+            if (manager.getRole() == Role.ADMIN) {
+                throw new ApiException(HttpStatus.BAD_REQUEST.value(), "管理员不能作为业务用户上级");
+            }
+            currentId = manager.getManagerId();
         }
     }
 

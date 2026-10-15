@@ -32,6 +32,8 @@ public class DemoOrgBootstrap implements ApplicationRunner {
                         .map(UserEntity::getPasswordHash)
                         .orElseGet(() -> passwordEncoder.encode("demo1234"));
 
+        boolean initializeFounderLink = userRepository.findByUsername("founder").isEmpty();
+        boolean initializeTeamLink = userRepository.findByUsername("team_lead").isEmpty();
         UserEntity founder =
                 ensureUser("founder", hash, Role.FOUNDER, "创始人", null);
         UserEntity deptHead =
@@ -39,10 +41,11 @@ public class DemoOrgBootstrap implements ApplicationRunner {
                         .findByUsername("leader")
                         .map(
                                 u -> {
-                                    u.setRole(Role.DEPT_HEAD);
-                                    u.setDisplayName("部门老总");
-                                    u.setManagerId(founder.getId());
-                                    return userRepository.save(u);
+                                    if (initializeFounderLink && u.getManagerId() == null) {
+                                        u.setManagerId(founder.getId());
+                                        return userRepository.save(u);
+                                    }
+                                    return u;
                                 })
                         .orElseGet(
                                 () ->
@@ -60,9 +63,10 @@ public class DemoOrgBootstrap implements ApplicationRunner {
                 .findByUsername("staff")
                 .ifPresent(
                         staff -> {
-                            staff.setManagerId(teamLead.getId());
-                            staff.setRole(Role.STAFF);
-                            userRepository.save(staff);
+                            if (initializeTeamLink && staff.getRole() != Role.ADMIN) {
+                                staff.setManagerId(teamLead.getId());
+                                userRepository.save(staff);
+                            }
                         });
     }
 
@@ -70,14 +74,7 @@ public class DemoOrgBootstrap implements ApplicationRunner {
             String username, String hash, Role role, String displayName, Long managerId) {
         Optional<UserEntity> existing = userRepository.findByUsername(username);
         if (existing.isPresent()) {
-            UserEntity u = existing.get();
-            u.setRole(role);
-            u.setDisplayName(displayName);
-            u.setManagerId(managerId);
-            if (u.getDisabled() == null) {
-                u.setDisabled(false);
-            }
-            return userRepository.save(u);
+            return existing.get();
         }
         UserEntity u = new UserEntity();
         u.setUsername(username);

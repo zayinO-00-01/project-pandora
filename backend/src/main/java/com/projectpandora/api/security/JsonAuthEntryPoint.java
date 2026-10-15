@@ -7,11 +7,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
 
 @Component
-public class JsonAuthEntryPoint implements AuthenticationEntryPoint {
+public class JsonAuthEntryPoint implements AuthenticationEntryPoint, AccessDeniedHandler {
 
     private final ObjectMapper objectMapper;
 
@@ -30,5 +32,18 @@ public class JsonAuthEntryPoint implements AuthenticationEntryPoint {
         objectMapper.writeValue(
                 response.getOutputStream(),
                 ApiError.of(401, "Unauthorized", "未登录", request.getRequestURI()));
+    }
+
+    @Override
+    public void handle(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            AccessDeniedException accessDeniedException)
+            throws IOException {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        objectMapper.writeValue(
+                response.getOutputStream(),
+                ApiError.of(403, "Forbidden", "无权访问该接口", request.getRequestURI()));
     }
 }
