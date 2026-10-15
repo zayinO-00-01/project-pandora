@@ -34,12 +34,19 @@ object LogValidation {
     }
 }
 object TaskValidation {
-    fun error(progress: String, note: String): String? {
-        if(!progress.matches(Regex("[0-9]+")) || progress.toIntOrNull() !in 0..100)return "进度请输入 0–100 的整数"
+    fun error(progress: String, note: String, status: String? = null): String? {
+        if(status!=null && status !in setOf("todo","doing","done"))return "请选择工作状态"
+        if(progress.isBlank()) {
+            if(status==null)return "请选择工作状态"
+        } else {
+            if(!progress.matches(Regex("[0-9]+")) || progress.toIntOrNull() !in 0..100)return "百分比请填 0–100 的整数，或留空"
+            if(status!=null && !percentageFits(status,progress.toInt()))return "百分比与工作状态不一致，可以清空百分比后提交"
+        }
         if(note.isBlank())return "请填写进度说明"
         if(note.length>2000)return "进度说明不能超过2000字"
         return null
     }
+    fun percentageFits(status: String, value: Int)=when(status) {"todo"->value==0;"doing"->value in 0..99;"done"->value==100;else->false}
 }
 /** Synchronous transport; callers use Dispatchers.IO. Redirects never forward a token. */
 class ApiClient(address: String) {
@@ -70,8 +77,9 @@ class ApiClient(address: String) {
     }
     fun saveProgress(session: Session, id: Long, input: TaskProgressInput): DispatchTask {
         require(id>0) {"无效的任务编号"}
-        TaskValidation.error(input.progress.toString(),input.progressNote)?.let {throw IllegalArgumentException(it)}
-        val result: DispatchTask = request("/tasks/$id/progress","PUT",input,session,DispatchTask::class.java)
+        TaskValidation.error(input.progress?.toString().orEmpty(),input.progressNote,input.status)?.let {throw IllegalArgumentException(it)}
+        val feedback=input.copy(status=input.status ?: legacyTaskStatus(input.progress))
+        val result: DispatchTask = request("/tasks/$id/progress","PUT",feedback,session,DispatchTask::class.java)
         if(result.id!=id)throw ApiException(502,"服务器返回的任务编号不一致，请刷新后重试")
         return result
     }
@@ -108,13 +116,13 @@ class ApiClient(address: String) {
                 throw ApiException(status,serverMessage ?: when(status) {
                     401->"账号密码错误或登录已过期，请重新登录"
                     403->"无权操作这条记录"
-                    404->"未找到接口或记录，请检查服务地址"
+                    404->"暂时找不到这项内容，请刷新；仍有问题请联系管理员"
                     in 300..399->"服务发生跳转，请直接填写正确服务器地址"
-                    else->"服务器请求失败（$status），请稍后重试"
+                    else->"暂时无法完成操作，请稍后重试"
                 })
             }
             try {return json.fromJson<T>(response,type) ?: throw JsonParseException("empty")}
-            catch(_:JsonParseException) {throw ApiException(502,"服务器响应格式不正确，请确认连接的是潘多拉服务")}
+            catch(_:JsonParseException) {throw ApiException(502,"暂时无法读取工作内容，请检查连接设置或联系管理员")}
         } catch(e:SocketTimeoutException) {throw ApiException(0,"连接超时，请确认服务器已启动，手机与电脑在同一网络")}
           catch(e:IOException) {throw ApiException(0,"连接失败，请检查服务器地址、同一 Wi-Fi 和电脑防火墙")}
           finally {connection.disconnect()}

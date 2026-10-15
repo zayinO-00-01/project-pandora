@@ -24,9 +24,8 @@ data class AppState(
     val taskEditor: TaskEditBuffer? = null, val taskEditorError: String? = null,
     val logError: String? = null, val panelError: String? = null, val authError: String? = null,
     val editor: EditBuffer? = null, val editorError: String? = null,
-    val screen: String = "home", val selectedDate: String = today().toString(),
-    val notice: String? = null,
-    val checkingIntegrity: Boolean = false, val integrityDate: String? = null, val integrityError: String? = null
+    val screen: String = "home", val selectedDate: String = today().toString(), val calendarMode: String = "month",
+    val notice: String? = null
 )
 class PandoraViewModel(app: Application): AndroidViewModel(app) {
     private val store = SessionStore(app)
@@ -47,7 +46,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         // This local identity is never stored as a login or sent to any server.
         val preview=Session("本地开发预览","",-1,"STAFF","开发预览","developer")
         mutable.value=AppState(session=preview,server=state.value.server,username=state.value.username,
-            developmentPreview=true,panels=PanelMap(),integrityDate=today().toString(),
+            developmentPreview=true,panels=PanelMap(),
             notice="开发预览：可查看页面及编辑布局，真实数据和保存需登录。")
     }
     fun loadOrganization() {
@@ -62,7 +61,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
                 val requests=withContext(Dispatchers.IO) {api(me).viewRequests(me)}
                 if(gen==generation)mutable.update {it.copy(organization=org,viewRequests=requests,organizationLoading=false)}
             } catch(e:CancellationException) {throw e}
-              catch(e:Exception) {if(gen==generation)mutable.update {it.copy(organizationLoading=false,organization=null,viewRequests=emptyList(),organizationError=if(e is ApiException && e.status==404)"当前服务尚未开放组织与查看申请接口，请更新服务端。" else message(e))}}
+              catch(e:Exception) {if(gen==generation)mutable.update {it.copy(organizationLoading=false,organization=null,viewRequests=emptyList(),organizationError=if(e is ApiException && e.status==404)"暂时无法读取组织信息，请检查连接设置或联系管理员。" else message(e))}}
         }
     }
     fun openMember(member: UserSummary) {
@@ -104,8 +103,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
                     } catch(e: ApiException) {
                         if(e.status!=404)throw e
                         // main has no business member-list endpoint; validate the token before restoring.
-                        val check=api(old).integrity(old)
-                        if(!check.ok)throw ApiException(401,"账号校验失败，请重新登录")
+                        api(old).logs(old)
                         old
                     }
                 }
@@ -146,7 +144,6 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             screen=if(pending!=null)"logs" else if(taskPending!=null || dispatchPending!=null)"tasks" else "home",
             notice=if(pending==null && taskPending==null && dispatchPending==null)null else "已恢复上次未保存的内容，请检查后保存。")
         refresh()
-        if(pending!=null)checkIntegrity()
     }
     fun logout() {
         if(state.value.saving)return
@@ -159,7 +156,6 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         mutable.update {it.copy(screen=name,notice=null)}
         if(name=="organization")loadOrganization()
         if(name=="home" || name=="tasks")refresh()
-        if(name=="logs")checkIntegrity()
     }
     fun openDispatch() {
         val current=state.value
@@ -249,14 +245,14 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         if(state.value.saving || task.assigneeId!=me.userId)return
         val pending=state.value.taskEditor
         if(pending!=null && pending.taskId!=task.id)return
-        val buffer=pending ?: TaskEditBuffer(me.server,me.userId,task.id,task.progress.toString(),task.progressNote)
+        val buffer=pending ?: TaskEditBuffer(me.server,me.userId,task.id,"",task.progressNote,task.status)
         store.saveTaskBuffer(buffer)
         mutable.update {it.copy(taskEditor=buffer,taskEditorError=null,selectedTaskId=task.id,screen="tasks",notice=null)}
     }
-    fun changeTaskEditor(progress: String? = null, note: String? = null) {
+    fun changeTaskEditor(note: String? = null, status: String? = null) {
         if(state.value.saving)return
         val current=state.value.taskEditor ?: return
-        val buffer=current.copy(progress=progress ?: current.progress,note=note ?: current.note)
+        val buffer=current.copy(progress="",note=note ?: current.note,status=status ?: current.status ?: "todo")
         store.saveTaskBuffer(buffer)
         mutable.update {it.copy(taskEditor=buffer,taskEditorError=null)}
     }
@@ -274,7 +270,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         if(task==null || task.assigneeId!=me.userId) {
             mutable.update {it.copy(taskEditorError="请刷新任务并确认你是当前责任人后再提交。")};return
         }
-        val validation=TaskValidation.error(buffer.progress,buffer.note)
+        val validation=TaskValidation.error("",buffer.note,buffer.status)
         if(validation!=null) {mutable.update {it.copy(taskEditorError=validation)};return}
         val gen=generation
         refreshJob?.cancel()
@@ -282,7 +278,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 val result=withContext(Dispatchers.IO) {
-                    api(me).saveProgress(me,buffer.taskId,TaskProgressInput(buffer.progress.toInt(),buffer.note.trim()))
+                    api(me).saveProgress(me,buffer.taskId,TaskProgressInput(null,buffer.note.trim(),buffer.status))
                 }
                 if(gen!=generation || state.value.session!=me)return@launch
                 store.clearTaskBuffer(me)
@@ -295,9 +291,9 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         }
     }
     fun selectDate(date: String) {mutable.update {it.copy(selectedDate=date)}}
+    fun calendarMode(mode: String) {if(mode in setOf("month","week","day"))mutable.update {it.copy(calendarMode=mode)}}
     fun edit(log: WorkLog? = null) {
         if(state.value.saving)return
-        if((log==null || canWriteLog(log.logDate)) && state.value.integrityDate!=today().toString()) {checkIntegrity {edit(log)};return}
         val me=state.value.session ?: return
         val buffer=EditBuffer(me.server,me.userId,log?.id,log?.logDate ?: today().toString(),log?.content ?: "",log?.status ?: "draft")
         if(!state.value.developmentPreview)store.saveBuffer(buffer)
@@ -320,7 +316,6 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         val current=state.value
         if(current.saving)return
         current.editor?.let {if(logEditorReadOnly(it,current.logs)) {mutable.update {s->s.copy(editorError="该日志已超出可修改日期，仅供查看")};return}}
-        if(current.integrityDate!=today().toString()) {checkIntegrity {save(status)};return}
         val me=current.session ?: return
         val buffer=current.editor ?: return
         val validation=LogValidation.error(buffer.date,buffer.content,status)
@@ -346,7 +341,6 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     fun submit(log: WorkLog) {
         if(state.value.saving)return
         if(!canWriteLog(log.logDate)) {mutable.update {it.copy(notice="该日志已超出可修改日期，仅供查看")};return}
-        if(state.value.integrityDate!=today().toString()) {checkIntegrity {submit(log)};return}
         val me=state.value.session ?: return
         val gen=generation
         mutable.update {it.copy(saving=true,notice=null)}
@@ -386,32 +380,6 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             taskResult.onSuccess {tasks->mutable.update {it.copy(tasks=tasks)}}
                 .onFailure {e->mutable.update {it.copy(taskError=message(e))}}
             mutable.update {it.copy(loading=false,taskLoading=false)}
-        }
-    }
-    fun checkIntegrity(after: ()->Unit = {}) {
-        if(state.value.developmentPreview) {
-            mutable.update {it.copy(integrityDate=today().toString())}
-            after();return
-        }
-        val current=state.value
-        val me=current.session ?: return
-        if(current.integrityDate==today().toString()) {after();return}
-        if(current.checkingIntegrity)return
-        val gen=generation
-        mutable.update {it.copy(checkingIntegrity=true,integrityError=null)}
-        viewModelScope.launch {
-            try {
-                val result=withContext(Dispatchers.IO) {api(me).integrity(me)}
-                if(gen!=generation)return@launch
-                if(!result.ok)throw ApiException(0,result.message ?: "完整性校验失败，请重试")
-                mutable.update {it.copy(checkingIntegrity=false,integrityDate=today().toString(),integrityError=null)}
-                after()
-            } catch(e: CancellationException) {throw e}
-              catch(e: Exception) {
-                if(gen!=generation)return@launch
-                if(e is ApiException && e.status==401)failure(e,false)
-                else mutable.update {it.copy(checkingIntegrity=false,integrityError=message(e))}
-            }
         }
     }
     private fun failure(e: Throwable, editor: Boolean, taskEditor: Boolean = false) {

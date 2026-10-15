@@ -60,7 +60,6 @@ import androidx.compose.ui.semantics.contentDescription
             }
             state.logError?.let {Hint("读取失败：$it\n下面可能是上次成功读取的记录，请刷新。",true)}
             if(state.loading)LinearProgressIndicator(Modifier.fillMaxWidth())
-            if(state.checkingIntegrity)Hint("正在校验日志连接，请稍候。")
             HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
         }}
         if(logs.isEmpty() && !state.loading && state.logError==null)item {
@@ -107,7 +106,7 @@ import androidx.compose.ui.semantics.contentDescription
             else {
             TextButton(onClick={discard=true},enabled=!state.saving) {Text("取消")}
             if(editor.status!="submitted")ControlOutlinedButton(onClick={model.save("draft")},enabled=!state.saving) {Text("存草稿")}
-            ControlButton(onClick={model.save("submitted")},enabled=!state.saving && !state.checkingIntegrity,modifier=Modifier.weight(1f)) {Text(if(state.saving)"保存中…" else if(editor.status=="submitted")"保存修改" else "提交日志")}
+            ControlButton(onClick={model.save("submitted")},enabled=!state.saving,modifier=Modifier.weight(1f)) {Text(if(state.saving)"保存中…" else if(editor.status=="submitted")"保存修改" else "提交日志")}
             }
         }
     }

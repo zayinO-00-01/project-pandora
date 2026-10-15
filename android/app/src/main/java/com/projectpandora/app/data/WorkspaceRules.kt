@@ -33,3 +33,8 @@ fun periodDates(date: LocalDate, mode: String): List<LocalDate> {
 fun taskDate(task: DispatchTask): LocalDate?=task.dueAt?.let {
     runCatching {Instant.parse(it).atZone(ZoneId.of("Asia/Shanghai")).toLocalDate()}.getOrNull()
 }
+
+// Used only when upgrading older percentage-only feedback or local drafts.
+fun legacyTaskStatus(progress: Int?): String=when(progress) {0,null->"todo";100->"done";else->"doing"}
+fun taskStatusLabel(status: String)=when(status) {"doing"->"进行中";"done"->"已完成";else->"待开始"}
+fun taskFeedbackLabel(task: DispatchTask)=taskStatusLabel(task.status)

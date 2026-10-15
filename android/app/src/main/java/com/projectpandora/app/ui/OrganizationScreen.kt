@@ -31,7 +31,7 @@ import com.projectpandora.app.data.*
                 state.memberLogs.forEach {log->item(key="log-${log.id}") {Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {Text(log.logDate,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(log.content,style=MaterialTheme.typography.bodyMedium);HorizontalDivider()}}}
                 item {Text("任务进展",style=MaterialTheme.typography.titleMedium)}
                 if(state.memberTasks.isEmpty())item {Text("暂无任务",color=MaterialTheme.colorScheme.onSurfaceVariant)}
-                state.memberTasks.forEach {task->item(key="task-${task.id}") {Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {Text(task.title,style=MaterialTheme.typography.bodyLarge);Text("${task.progress}% · ${task.progressNote.ifBlank {task.detail}}",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);HorizontalDivider()}}}
+                state.memberTasks.forEach {task->item(key="task-${task.id}") {Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {Text(task.title,style=MaterialTheme.typography.bodyLarge);Text("${taskFeedbackLabel(task)} · ${task.progressNote.ifBlank {task.detail}}",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);HorizontalDivider()}}}
             }
         } else {
             item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp)) {

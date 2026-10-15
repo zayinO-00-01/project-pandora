@@ -324,6 +324,7 @@ paths:
   /logs/integrity:
     get:
       summary: 历史占位接口，无真实完整性校验
+      deprecated: true
       responses:
         "200":
           description: 成功
@@ -512,7 +513,7 @@ paths:
           $ref: "#/components/responses/Error409"
       security:
         - bearer: []
-      description: 进度0/1..99/100自动对应todo/doing/done；查看批准不授予此权限。
+      description: 独立保存status(todo/doing/done)，progress选填可null；填值时todo仅0、doing为0..99、done仅100。说明非空最多2000字。旧请求仅缺status且有整数progress时兼容推导。查看批准不授予反馈权限。
       parameters:
         - in: path
           name: id
@@ -862,6 +863,8 @@ components:
             - done
         progress:
           type: integer
+          nullable: true
+          description: 未填写时为null，不能显示为0%。
           minimum: 0
           maximum: 100
         progressNote:
@@ -881,19 +884,33 @@ components:
           format: date-time
     TaskProgress:
       type: object
+      description: 新客户端必须明确status；progress可省略或null，不把未知进度当成0。旧客户端仅提交整数progress仍临时兼容。
       properties:
+        status:
+          type: string
+          enum: [todo, doing, done]
+          description: 独立工作状态；与所填百分比不一致时返回400，不更改原记录。
         progress:
           type: integer
+          nullable: true
           minimum: 0
           maximum: 100
-          description: strict JSON integer; strings/fractions rejected
+          description: 选填严格整数；todo仅0，doing为0..99，done仅100；字符串和小数拒绝。
         progressNote:
           type: string
           minLength: 1
           maxLength: 2000
       required:
-        - progress
         - progressNote
+      anyOf:
+        - required: [status]
+        - required: [progress]
+          properties:
+            progress:
+              type: integer
+              nullable: false
+              minimum: 0
+              maximum: 100
     PanelItem:
       type: object
       properties:

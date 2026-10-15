@@ -62,7 +62,7 @@ class TaskDemoTests {
         var task = create(leader, staff, "  设备检查  "); long id = task.get("id").asLong();
         assertThat(task.get("title").asText()).isEqualTo("设备检查");
         assertThat(task.get("status").asText()).isEqualTo("todo");
-        assertThat(task.get("progress").asInt()).isZero();
+        assertThat(task.get("progress").isNull()).isTrue();
         assertThat(task.get("progressNote").asText()).isEmpty();
         assertThat(task.get("createdBy").asLong()).isEqualTo(leader.get("userId").asLong());
         assertThat(task.get("assigneeId").asLong()).isEqualTo(staff.get("userId").asLong());
@@ -184,5 +184,42 @@ class TaskDemoTests {
             .andExpect(status().isUnauthorized());
         mvc.perform(put("/api/v1/tasks/1/progress").contentType(MediaType.APPLICATION_JSON).content("{}"))
             .andExpect(status().isUnauthorized());
+    }
+
+    @Test void explicitStatusWorksWithoutPercentageAndSurvivesLeaderRefresh() throws Exception {
+        var leader=login("team_lead"); var staff=login("staff");
+        var task=create(leader,staff,"状态优先任务"); long id=task.get("id").asLong();
+        assertThat(task.get("progress").isNull()).isTrue();
+        for (String state : new String[]{"doing", "done", "todo"}) {
+            var result=json.readTree(mvc.perform(put("/api/v1/tasks/"+id+"/progress")
+                .header("Authorization",token(staff)).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(Map.of("status",state,"progressNote","实际工作说明"))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+            assertThat(result.get("status").asText()).isEqualTo(state);
+            assertThat(result.get("progress").isNull()).isTrue();
+            assertThat(list(leader).get(0)).isEqualTo(result);
+        }
+    }
+
+    @Test void explicitStatusRejectsContradictionsWithoutChangingFeedback() throws Exception {
+        var leader=login("team_lead");var staff=login("staff");
+        long id=create(leader,staff,"一致性任务").get("id").asLong();
+        var original=progress(staff,id,40,"已核对四项");
+        for (String body : new String[]{
+            "{\"status\":\"done\",\"progress\":40,\"progressNote\":\"不一致\"}",
+            "{\"status\":\"todo\",\"progress\":40,\"progressNote\":\"不一致\"}",
+            "{\"status\":\"doing\",\"progress\":100,\"progressNote\":\"不一致\"}",
+            "{\"status\":\"invalid\",\"progress\":40,\"progressNote\":\"错误状态\"}",
+            "{\"status\":\"doing\",\"progressNote\":\"  \"}",
+            "{\"status\":\"doing\",\"progress\":2.5,\"progressNote\":\"小数\"}"
+        }) {
+            mvc.perform(put("/api/v1/tasks/"+id+"/progress").header("Authorization",token(staff))
+                .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isBadRequest());
+            assertThat(list(staff).get(0)).isEqualTo(original);
+        }
+        mvc.perform(put("/api/v1/tasks/"+id+"/progress").header("Authorization",token(leader))
+            .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"done\",\"progressNote\":\"代反馈\"}"))
+            .andExpect(status().isForbidden());
+        assertThat(list(staff).get(0)).isEqualTo(original);
     }
 }

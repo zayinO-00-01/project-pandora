@@ -27,8 +27,9 @@ public class TaskEntity {
     private String priority;
     @Column(name = "due_at")
     private Instant dueAt;
-    @Column(nullable = false)
-    private int progress;
+    @Column(nullable = false, length = 16)
+    private String status = "todo";
+    private Integer progress;
     @Column(name = "progress_note", nullable = false, columnDefinition = "TEXT")
     private String progressNote = "";
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -53,14 +54,15 @@ public class TaskEntity {
     void onCreate() { createdAt = Instant.now(); updatedAt = createdAt; }
     @PreUpdate
     void onUpdate() { updatedAt = Instant.now(); }
-    void updateProgress(int value, String note) { progress = value; progressNote = note; }
+    void updateProgress(String state, Integer value, String note) { status = state; progress = value; progressNote = note; }
 
     public Long getId() { return id; }
     public String getTitle() { return title; }
     public String getDetail() { return detail; }
     public String getPriority() { return priority; }
     public Instant getDueAt() { return dueAt; }
-    public int getProgress() { return progress; }
+    public String getStatus() { return status; }
+    public Integer getProgress() { return progress; }
     public String getProgressNote() { return progressNote; }
     public UserEntity getCreator() { return creator; }
     public UserEntity getAssignee() { return assignee; }

@@ -10,8 +10,8 @@ android {
         applicationId = "com.projectpandora.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 33
-        versionName = "0.4.30-ink-herons"
+        versionCode = 35
+        versionName = "0.5.1-state-feedback"
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }

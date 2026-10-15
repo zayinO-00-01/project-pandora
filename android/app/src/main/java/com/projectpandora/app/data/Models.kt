@@ -17,11 +17,11 @@ data class LogInput(val logDate: String, val content: String, val status: String
 data class EditBuffer(val server: String, val userId: Long, val logId: Long?, val date: String, val content: String, val status: String)
 
 data class DispatchTask(val id: Long, val title: String, val detail: String, val priority: String,
-    val status: String, val dueAt: String?, val progress: Int, val progressNote: String,
+    val status: String, val dueAt: String?, val progress: Int?, val progressNote: String,
     val createdBy: Long, val assigneeId: Long, val creatorName: String, val assigneeName: String,
     val createdAt: String, val updatedAt: String)
-data class TaskProgressInput(val progress: Int, val progressNote: String)
-data class TaskEditBuffer(val server: String, val userId: Long, val taskId: Long, val progress: String, val note: String)
+data class TaskProgressInput(val progress: Int?, val progressNote: String, val status: String? = null)
+data class TaskEditBuffer(val server: String, val userId: Long, val taskId: Long, val progress: String, val note: String, val status: String? = null)
 
 data class TaskCreateInput(val title: String, val detail: String, val priority: String, val assigneeId: Long, val dueAt: String?)
 data class TaskDispatchBuffer(val server: String, val userId: Long, val title: String = "", val detail: String = "", val priority: String = "normal", val assigneeId: Long? = null, val dueDate: String = "")

@@ -15,7 +15,9 @@ class SessionStore(context: Context) {
     fun buffer(session: Session): EditBuffer? = read(bufferKey(session.server,session.userId), EditBuffer::class.java)
     fun clearBuffer(session: Session) { prefs.edit().remove(bufferKey(session.server,session.userId)).apply() }
     fun saveTaskBuffer(buffer: TaskEditBuffer) { prefs.edit().putString(taskBufferKey(buffer.server,buffer.userId), json.toJson(buffer)).apply() }
-    fun taskBuffer(session: Session): TaskEditBuffer? = read(taskBufferKey(session.server,session.userId), TaskEditBuffer::class.java)
+    fun taskBuffer(session: Session): TaskEditBuffer? = read(taskBufferKey(session.server,session.userId), TaskEditBuffer::class.java)?.let {
+        it.copy(status=it.status ?: legacyTaskStatus(it.progress.toIntOrNull()),progress="")
+    }
     fun clearTaskBuffer(session: Session) { prefs.edit().remove(taskBufferKey(session.server,session.userId)).apply() }
     fun saveDispatchBuffer(buffer: TaskDispatchBuffer) {prefs.edit().putString(dispatchKey(buffer.server,buffer.userId),json.toJson(buffer)).apply()}
     fun dispatchBuffer(session: Session): TaskDispatchBuffer?=read(dispatchKey(session.server,session.userId),TaskDispatchBuffer::class.java)

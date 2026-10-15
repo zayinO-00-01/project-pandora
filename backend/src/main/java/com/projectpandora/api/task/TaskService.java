@@ -45,6 +45,6 @@ public class TaskService {
     public TaskResponse updateProgress(Long id,ProgressRequest request) {
         var me=access.assertBusiness();var task=tasks.findById(id).orElseThrow(()->new ApiException(404,"任务不存在"));
         if(!task.getAssignee().getId().equals(me.getId())) throw new ApiException(403,"只有责任人可以更新进度");
-        task.updateProgress(request.progress(),request.progressNote());return TaskResponse.from(tasks.saveAndFlush(task));
+        task.updateProgress(request.resolvedStatus(),request.progress(),request.progressNote());return TaskResponse.from(tasks.saveAndFlush(task));
     }
 }

@@ -53,10 +53,6 @@ import com.projectpandora.app.BuildConfig
             if(state.busyLogin)CircularProgressIndicator(Modifier.size(20.dp),strokeWidth=2.dp,color=MaterialTheme.colorScheme.onPrimary)
             else Text("进入工作空间")
         }
-        HorizontalDivider()
-        if(BuildConfig.DEBUG) {
-            ControlOutlinedButton(onClick=onDevelopmentEntry,enabled=!state.busyLogin,modifier=Modifier.fillMaxWidth()) {Text("开发直接进入")}
-        }
     }
     }
     }

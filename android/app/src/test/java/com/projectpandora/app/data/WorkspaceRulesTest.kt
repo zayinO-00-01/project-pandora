@@ -71,4 +71,11 @@ class WorkspaceRulesTest {
         assertNull(taskDate(task.copy(dueAt=null)))
         assertNull(taskDate(task.copy(dueAt="invalid")))
     }
+    @Test fun historicalPercentagesNeverAppearInTaskLabels() {
+        val task=DispatchTask(1,"t","","normal","doing",null,40,"已联系客户",1,2,"a","b","","")
+        for(progress in listOf(null,0,40,100)) {
+            assertEquals("进行中",taskFeedbackLabel(task.copy(progress=progress)))
+            assertEquals("已完成",taskFeedbackLabel(task.copy(status="done",progress=progress)))
+        }
+    }
 }

@@ -22,7 +22,6 @@ import com.projectpandora.app.data.*
 @Composable fun HomeScreen(state: AppState, model: PandoraViewModel) {
     var selectedPanel by remember {mutableStateOf<String?>(null)}
     var selectedItem by remember {mutableStateOf<PanelItem?>(null)}
-    var emptyCategoryMenu by remember {mutableStateOf(false)}
     val feedback=LocalControlFeedback.current
     val panels=state.panels
     val panelItems=when(selectedPanel) {
@@ -35,7 +34,7 @@ import com.projectpandora.app.data.*
         LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=24.dp)) {
             item {TextButton(onClick={selectedPanel=null;selectedItem=null}) {Text("返回总览")}}
             item {ScreenHeading(selectedPanel!!,if(selectedPanel=="公司十大事")"公司发布的正式事项，只读查看。" else "从个人日志汇总，聚焦重要工作。")}
-            if(panelItems.isEmpty())item {EmptyCard("暂无事项","当前服务尚未提供事项维护，已有工作可在日志与任务中查看。")}
+            if(panelItems.isEmpty())item {EmptyCard(if(selectedPanel=="公司十大事")"公司事项筹备中" else "个人重点筹备中",if(selectedPanel=="公司十大事")"发布方式确认后开放，目前可先查看日志与任务。" else "重点整理功能后续开放，目前可先在日志里记录重要工作。")}
             panelItems.sortedBy {it.sortOrder}.take(10).forEach {entry->item(key=entry.id) {
                 OutlinedCard(onClick={selectedItem=entry},modifier=Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -44,13 +43,11 @@ import com.projectpandora.app.data.*
                     }
                 }
             }}
-            item {Hint(if(selectedPanel=="公司十大事")"公司原文只读；个人备注写入尚未开放。" else "个人事项编辑与排序尚未开放，不影响日志记录。")}
         }
         selectedItem?.let {entry->AlertDialog(containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={selectedItem=null},title={Text(entry.title)},
             text={Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                Text(entry.detail?.ifBlank {"暂无详细说明"} ?: "当前服务仅提供事项标题。")
+                Text(entry.detail?.ifBlank {"暂无详细说明"} ?: "暂无详细说明")
                 Text("个人备注：${entry.myRemark?.ifBlank {"尚无备注"} ?: "尚无备注"}")
-                Text("备注编辑尚未开放",style=MaterialTheme.typography.bodySmall)
             }},confirmButton={TextButton(onClick={selectedItem=null}) {Text("关闭")}})}
         return
     }
@@ -88,11 +85,7 @@ import com.projectpandora.app.data.*
                     Text(task.title,style=MaterialTheme.typography.titleLarge.copy(fontSize=20.sp,lineHeight=28.sp,fontWeight=FontWeight.Medium),maxLines=2,overflow=TextOverflow.Ellipsis)
                     val note=task.progressNote.ifBlank {task.detail}
                     if(note.isNotBlank())Text(note,style=MaterialTheme.typography.bodySmall.copy(lineHeight=18.sp,lineBreak=androidx.compose.ui.text.style.LineBreak.Heading),color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)
-                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(16.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-                            Text("已完成 ${task.progress}%",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                            LinearProgressIndicator(progress={task.progress.coerceIn(0,100)/100f},modifier=Modifier.fillMaxWidth().height(3.dp),color=MaterialTheme.colorScheme.secondary,gapSize=0.dp,drawStopIndicator={})
-                        }
+                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End,verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
                         TextButton(onClick={feedback();model.openTask(task.id)},enabled=!state.saving,modifier=Modifier.heightIn(min=48.dp),contentPadding=PaddingValues(horizontal=8.dp),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.secondary)) {Text("更新进展",style=MaterialTheme.typography.labelMedium)}
                     }
                 }
@@ -118,16 +111,11 @@ import com.projectpandora.app.data.*
                 Icon(androidx.compose.material.icons.Icons.AutoMirrored.Outlined.KeyboardArrowRight,null,modifier=Modifier.size(16.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        if(panels?.let {it.companyImportant.isEmpty() && it.companyDispatch.isEmpty() && it.personalTop.isEmpty()}==true)item {Box {
-            TextButton(onClick={emptyCategoryMenu=true},colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.secondary),contentPadding=PaddingValues(0.dp),modifier=Modifier.heightIn(min=48.dp)) {Text("查看工作分类",style=MaterialTheme.typography.bodyMedium);Icon(androidx.compose.material.icons.Icons.AutoMirrored.Outlined.KeyboardArrowRight,null,modifier=Modifier.size(16.dp))}
-            DropdownMenu(expanded=emptyCategoryMenu,onDismissRequest={emptyCategoryMenu=false}) {
-                listOf("公司十大事","公司派发","个人十大事").forEach {label->DropdownMenuItem(text={Text(label)},onClick={emptyCategoryMenu=false;if(label=="公司派发")model.screen("tasks") else selectedPanel=label})}
-            }
-        }} else item {Column {
+        item {Column {
             Text("工作分类",modifier=Modifier.padding(top=12.dp,bottom=4.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-            WorkspacePanel("公司十大事",panels?.companyImportant?.size,!state.saving,"公司") {feedback();selectedPanel="公司十大事"}
-            WorkspacePanel("公司派发",panels?.companyDispatch?.size,!state.saving,"公司") {feedback();model.screen("tasks")}
-            WorkspacePanel("个人十大事",panels?.personalTop?.size,!state.saving,"个人") {feedback();selectedPanel="个人十大事"}
+            WorkspacePanel("公司十大事",panels?.companyImportant?.size,!state.saving,"筹备中") {feedback();selectedPanel="公司十大事"}
+            WorkspacePanel("公司派发",panels?.companyDispatch?.size,!state.saving,"") {feedback();model.screen("tasks")}
+            WorkspacePanel("个人十大事",panels?.personalTop?.size,!state.saving,"筹备中") {feedback();selectedPanel="个人十大事"}
         }}
 
     }
@@ -136,7 +124,7 @@ import com.projectpandora.app.data.*
 @Composable private fun WorkspacePanel(title: String,count: Int?,enabled: Boolean,source: String,onClick: ()->Unit) {
         Row(Modifier.fillMaxWidth().heightIn(min=48.dp).clickable(enabled=enabled,onClick=onClick),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
             Text(title,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurface,modifier=Modifier.weight(1f))
-            Text(count?.let {"$it 项"} ?: "—",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if(source.isNotBlank() && (count ?: 0)==0)source else count?.let {"$it 项"} ?: "—",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             Icon(androidx.compose.material.icons.Icons.AutoMirrored.Outlined.KeyboardArrowRight,null,modifier=Modifier.size(16.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
         }
 }
@@ -147,9 +135,7 @@ import com.projectpandora.app.data.*
             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                 Text(task.title,style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
                 Text("${task.assigneeName} · ${if(task.status=="done")"已完成" else if(task.status=="doing")"进行中" else "待开始"}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                LinearProgressIndicator(progress={task.progress.coerceIn(0,100)/100f},modifier=Modifier.fillMaxWidth().height(2.dp),color=MaterialTheme.colorScheme.secondary,gapSize=0.dp,drawStopIndicator={})
             }
-            Text("${task.progress}%",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.secondary)
         }
     }
     HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)

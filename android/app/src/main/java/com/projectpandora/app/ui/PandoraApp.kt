@@ -73,7 +73,7 @@ import com.projectpandora.app.data.*
         if(homeHeader && readFailures.isNotEmpty())Text("同步失败 · ${if(retained)"上次内容" else "查看原因"} ›",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.error,maxLines=2)
         if(state.developmentPreview)Text("本地预览",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }},actions={
-        if(canCreate) {WriteLogButton(enabled=!state.saving && !state.checkingIntegrity,onClick={model.edit()});Spacer(Modifier.width(4.dp))}
+        if(canCreate) {WriteLogButton(enabled=!state.saving,onClick={model.edit()});Spacer(Modifier.width(4.dp))}
         if(state.screen!="profile")InlineAction(if(homeHeader && readFailures.isNotEmpty())"重试" else "刷新",enabled=!state.loading && !state.organizationLoading && !state.saving,icon=R.drawable.console_sync,secondary=true,loading=state.loading || state.organizationLoading) {feedback();if(state.screen=="organization")model.loadOrganization() else model.refresh()}
     },colors=TopAppBarDefaults.topAppBarColors(containerColor=Color.Transparent))}},bottomBar={
         if(state.editor==null && state.selectedTaskId==null)Column {
@@ -90,9 +90,6 @@ import com.projectpandora.app.data.*
         }
     }) {padding->Box(Modifier.fillMaxSize(),contentAlignment=Alignment.TopCenter) {Column(Modifier.fillMaxHeight().widthIn(max=600.dp).fillMaxWidth().padding(padding)) {
         state.notice?.takeUnless {state.developmentPreview && it.startsWith("开发预览：")}?.let {Box(Modifier.padding(horizontal=20.dp,vertical=8.dp)) {Hint(it)}}
-        if(state.integrityError!=null)Box(Modifier.padding(horizontal=20.dp)) {
-            Hint("日志校验失败：${state.integrityError}。输入仍保留，请重试。",true,onRetry={model.checkIntegrity()},retryEnabled=!state.checkingIntegrity)
-        }
         if(state.editor!=null)EditorScreen(state,model)
         else when(state.screen) {
             "home" -> HomeScreen(state,model)
@@ -127,14 +124,14 @@ import com.projectpandora.app.data.*
     var leaving by remember {mutableStateOf(false)}
     var details by remember {mutableStateOf<String?>(null)}
     val permissionText=when(me.role) {
-        "FOUNDER"->"创始人：沿公司组织关系向下查看已提交日志与任务，处理直属下级的查看申请。"
+        "FOUNDER"->"创始人：可查看公司业务成员已提交的日志与任务；仅向自己组织下的下级派发任务。"
         "DEPT_HEAD"->"部门老总：可穿透查看部门下属；查看直属上级须申请并获批准。"
         "TEAM_LEAD"->"团队长：可查看团队下属；查看直属上级须申请并获批准。"
         "LEADER"->"当前连接旧版演示服务，权限以该服务为准。"
         else->"员工：记录自己的工作，处理分配任务；查看直属上级须申请并获批准。"
     }
-    details?.let {section->AlertDialog(containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={details=null},title={Text(if(section=="access")"账号与权限" else "当前服务")},text={Text(if(section=="access")"$permissionText\n\n资料与组织关系由管理员在 Web 维护；组织查看与申请从总览入口进入。" else "${me.server}\n\nAI 工作地图尚未开放。")},confirmButton={TextButton(onClick={details=null}) {Text("关闭")}})}
-    if(leaving)AlertDialog(containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={leaving=false},title={Text(if(state.developmentPreview)"退出开发预览？" else "退出当前账号？")},text={Text(if(state.developmentPreview)"预览没有登录业务账号，也未向服务器提交数据。" else "记录保存在服务器。未保存输入留在本机，同服务器同账号登录可恢复。")},confirmButton={TextButton(onClick={leaving=false;model.logout()}) {Text("退出登录")}},dismissButton={TextButton(onClick={leaving=false}) {Text("取消")}})
+    details?.let {section->AlertDialog(containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={details=null},title={Text(if(section=="access")"账号与权限" else "当前服务")},text={Text(if(section=="access")"$permissionText\n\n资料与组织关系由管理员在 Web 维护；组织查看与申请从总览入口进入。" else "${me.server}\n\n工作记录保存在此服务。无法连接时，请检查网络或联系管理员。")},confirmButton={TextButton(onClick={details=null}) {Text("关闭")}})}
+    if(leaving)AlertDialog(containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={leaving=false},title={Text(if(state.developmentPreview)"退出开发预览？" else "退出当前账号？")},text={Text(if(state.developmentPreview)"预览没有登录业务账号，也未向服务器提交数据。" else "工作记录已保存在当前服务。未提交输入会保留在这台设备，再次登录原账号可继续。")},confirmButton={TextButton(onClick={leaving=false;model.logout()}) {Text("退出登录")}},dismissButton={TextButton(onClick={leaving=false}) {Text("取消")}})
     Column(Modifier.fillMaxSize()) {
     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal=24.dp).padding(top=12.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth().padding(vertical=12.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
