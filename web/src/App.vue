@@ -1,123 +1,182 @@
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
-import { api, timeLabel, today } from './api';
-import LogEditor from './LogEditor.vue';
-import TaskBoard from './TaskBoard.vue';
-const session = ref(null), username = ref('leader'), password = ref('demo1234');
-const loginBusy = ref(false), loginError = ref(''), booting = ref(true);
-const logArea = ref('team'), taskSaving = ref(false);
-const members = ref([]), area = ref('team'), memberId = ref(''), date = ref('');
-const logs = ref([]), selectedId = ref(null), loading = ref(false), loadError = ref('');
-const savedMessage = ref(''), saving = ref(false), refreshedAt = ref(null), recovery = ref(null);
-const workspaceBusy = computed(() => saving.value || taskSaving.value);
-const editorRecovery = computed(() => recovery.value && (recovery.value.logId ?? null) === selectedId.value ? recovery.value : null);
-let controller, requestId = 0;
-const selected = computed(() => logs.value.find(l => l.id === selectedId.value) || null);
-const teamMembers = computed(() => members.value.filter(m => m.id !== session.value?.userId));
-const memberName = computed(() => members.value.find(m => String(m.id) === memberId.value)?.displayName || '团队成员');
-const roleLabel = computed(() => session.value?.role === 'ADMIN' ? '公司管理员' : '部门领导');
-const heading = computed(() => area.value === 'tasks' ? '任务派发与进展' : logArea.value === 'team' ? '团队工作日志' : '我的工作记录');
-function logout(message = '') {
-  controller?.abort(); requestId++; sessionStorage.removeItem('pandora-session');
-  session.value = null; members.value = []; logs.value = []; loading.value = false;
-  loginError.value = message; savedMessage.value = ''; saving.value = false; taskSaving.value = false; recovery.value = null;
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { api, timeLabel } from './api';
+import { roles, eligibleManagers, draftForStorage, restoreDraft } from './admin-state';
+
+const session = ref(null), booting = ref(true), loginBusy = ref(false);
+const username = ref(''), password = ref(''), loginError = ref('');
+const users = ref([]), loading = ref(false), saving = ref(false), loadError = ref('');
+const formError = ref(''), notice = ref(''), success = ref(''), refreshedAt = ref(null);
+const search = ref(''), roleFilter = ref(''), statusFilter = ref('');
+const emptyForm = () => ({ id: null, username: '', displayName: '', role: 'STAFF', managerId: '', disabled: false, password: '' });
+const form = reactive(emptyForm());
+const baseline = ref(JSON.stringify(form));
+const dirty = computed(() => JSON.stringify(form) !== baseline.value);
+const isAdmin = computed(() => session.value?.role === 'ADMIN');
+const managers = computed(() => eligibleManagers(users.value, form.role, form.id));
+const canHaveManager = computed(() => ['DEPT_HEAD', 'TEAM_LEAD', 'STAFF'].includes(form.role));
+const selectedManagerValid = computed(() => !form.managerId || managers.value.some(user => String(user.id) === String(form.managerId)));
+const roleName = value => roles.find(role => role.value === value)?.label || value;
+const displayName = user => user.displayName || user.username;
+const managerName = id => users.value.find(user => String(user.id) === String(id))?.displayName || users.value.find(user => String(user.id) === String(id))?.username || (id ? `账号 #${id}` : '未设置');
+const filteredUsers = computed(() => {
+  const query = search.value.trim().toLowerCase();
+  return users.value.filter(user => (!query || `${user.username} ${user.displayName || ''}`.toLowerCase().includes(query))
+    && (!roleFilter.value || user.role === roleFilter.value)
+    && (!statusFilter.value || (statusFilter.value === 'disabled') === user.disabled));
+});
+const enabledCount = computed(() => users.value.filter(user => !user.disabled).length);
+const scope = user => ({ server: window.location.origin, userId: user.userId });
+const draftKey = user => `pandora-admin-draft:${window.location.origin}:${user.userId}`;
+let loadController, loadVersion = 0, memoryRecovery = null;
+const readCache = key => { try { return JSON.parse(sessionStorage.getItem(key) || 'null'); } catch { return null; } };
+const writeCache = (key, value) => { try { sessionStorage.setItem(key, JSON.stringify(value)); } catch { /* The current form still works when browser storage is unavailable. */ } };
+const removeCache = key => { try { sessionStorage.removeItem(key); } catch { /* Storage is optional. */ } };
+
+function resetForm(user = null) {
+  Object.assign(form, emptyForm(), user ? { ...user, managerId: user.managerId == null ? '' : String(user.managerId), password: '' } : {});
+  baseline.value = JSON.stringify(form);
+  formError.value = ''; notice.value = '';
+}
+function rememberDraft() {
+  if (!isAdmin.value) return;
+  if (!dirty.value) { removeCache(draftKey(session.value)); return; }
+  writeCache(draftKey(session.value), draftForStorage(scope(session.value), form));
+}
+function endSession(message = '', preserve = false) {
+  if (session.value) {
+    if (preserve && isAdmin.value && dirty.value) {
+      rememberDraft();
+      memoryRecovery = { ...scope(session.value), form: { ...form } };
+    } else {
+      removeCache(draftKey(session.value)); memoryRecovery = null;
+    }
+  }
+  loadController?.abort(); loadVersion++;
+  removeCache('pandora-admin-session'); removeCache('pandora-session');
+  session.value = null; users.value = []; loading.value = false;
+  resetForm(); success.value = ''; loadError.value = ''; loginError.value = message;
+}
+function expire(error) {
+  endSession(`${error.message} 未保存的账号信息会在同一管理员重新登录后恢复。`, true);
+}
+function chooseUser(user = null) {
+  if (saving.value || (user && form.id === user.id)) return;
+  if (dirty.value && !window.confirm('当前表单有未保存的修改，是否放弃并切换？')) return;
+  if (session.value) removeCache(draftKey(session.value));
+  memoryRecovery = null; resetForm(user); success.value = '';
+}
+async function loadUsers() {
+  if (!isAdmin.value) return;
+  loadController?.abort(); loadController = new AbortController();
+  const version = ++loadVersion;
+  loading.value = true; loadError.value = '';
+  try {
+    const result = await api('/admin/users', { token: session.value.token, signal: loadController.signal });
+    if (version !== loadVersion) return;
+    const me = result.find(user => user.id === session.value.userId);
+    if (!me || me.disabled || me.role !== 'ADMIN') {
+      expire(new Error('此账号已无法使用账号管理，请重新登录。')); return;
+    }
+    users.value = result; refreshedAt.value = new Date().toISOString();
+    session.value = { ...session.value, displayName: me.displayName };
+    writeCache('pandora-admin-session', session.value);
+  } catch (error) {
+    if (version !== loadVersion || error.name === 'AbortError') return;
+    if ([401, 403].includes(error.status)) expire(error);
+    else loadError.value = error.message;
+  } finally { if (version === loadVersion) loading.value = false; }
 }
 async function establish(user) {
-  const people = await api('/users', { token: user.token });
-  const me = people.find(p => p.id === user.userId);
-  if (!me || !['ADMIN', 'LEADER'].includes(me.role)) throw new Error('这里是管理工作台，请使用管理员或领导账号；员工请使用 Android 端。');
-  members.value = people;
-  memberId.value = String(people.find(p => p.username === 'staff' && p.id !== me.id)?.id || people.find(p => p.id !== me.id)?.id || '');
-  session.value = { ...user, role: me.role, displayName: me.displayName };
-  sessionStorage.setItem('pandora-session', JSON.stringify(session.value));
-  let pending = null;
-  try { pending = JSON.parse(sessionStorage.getItem('pandora-unsaved') || 'null'); } catch { /* Ignore invalid local cache. */ }
-  recovery.value = pending?.userId === me.id ? pending : null;
-  date.value = '';
-  let taskDraft = null;
-  try { taskDraft = JSON.parse(sessionStorage.getItem('pandora-task-unsaved') || 'null'); } catch { /* Ignore invalid local cache. */ }
-  logArea.value = recovery.value ? 'personal' : memberId.value ? 'team' : 'personal';
-  area.value = !recovery.value && taskDraft?.userId === me.id ? 'tasks' : logArea.value;
-  await nextTick(); // Let filter watchers finish before selecting a recovered record.
-  await loadLogs(recovery.value ? recovery.value.logId : undefined);
-  if (recovery.value) savedMessage.value = '已恢复上次登录过期时未保存的内容，请检查后保存。';
+  session.value = user; resetForm(); search.value = ''; roleFilter.value = ''; statusFilter.value = '';
+  writeCache('pandora-admin-session', user);
+  if (user.role !== 'ADMIN') return;
+  const recovered = restoreDraft(readCache(draftKey(user)), scope(user));
+  if (recovered) {
+    Object.assign(form, recovered);
+    if (memoryRecovery?.server === scope(user).server && memoryRecovery?.userId === user.userId) Object.assign(form, memoryRecovery.form);
+    notice.value = '已恢复未保存的账号信息，请检查后保存。刷新过页面时，请重新填写所需密码。';
+  }
+  memoryRecovery = null;
+  await loadUsers();
 }
 async function login() {
   if (loginBusy.value) return;
   loginBusy.value = true; loginError.value = '';
-  try { await establish(await api('/auth/login', { method: 'POST', body: { username: username.value.trim(), password: password.value } })); }
-  catch (e) { logout(e.message); }
+  try {
+    const user = await api('/auth/login', { method: 'POST', body: { username: username.value.trim(), password: password.value } });
+    password.value = ''; await establish(user);
+  } catch (error) { loginError.value = error.message; }
   finally { loginBusy.value = false; }
 }
-function quick(name) { username.value = name; password.value = 'demo1234'; }
-async function loadLogs(preferredId) {
-  controller?.abort(); const thisId = ++requestId; controller = new AbortController();
-  if (!session.value) return;
-  const target = logArea.value === 'personal' ? session.value.userId : memberId.value;
-  logs.value = []; selectedId.value = null; loadError.value = '';
-  if (!target) { loading.value = false; return; }
-  loading.value = true;
-  const query = new URLSearchParams({ userId: target }); if (date.value) query.set('date', date.value);
+async function saveUser() {
+  if (saving.value || !isAdmin.value) return;
+  formError.value = ''; success.value = '';
+  if (!form.id && (form.username.trim().length < 3 || form.username.trim().length > 64)) { formError.value = '账号须为 3–64 个字符。'; return; }
+  if ((!form.id || form.password) && (form.password.length < 6 || form.password.length > 72)) { formError.value = '密码须为 6–72 个字符。'; return; }
+  if (!selectedManagerValid.value) { formError.value = '请选择角色更高且已启用的业务上级，或选择未设置。'; return; }
+  const editing = form.id !== null;
+  const payload = { role: form.role, displayName: form.displayName.trim(), disabled: form.disabled };
+  if (editing) {
+    if (form.managerId) payload.managerId = Number(form.managerId); else payload.clearManager = true;
+    if (form.password) payload.password = form.password;
+  } else Object.assign(payload, { username: form.username.trim(), password: form.password, managerId: form.managerId ? Number(form.managerId) : null });
+  saving.value = true;
   try {
-    const result = await api(`/logs?${query}`, { token: session.value.token, signal: controller.signal });
-    if (thisId !== requestId) return;
-    logs.value = result; selectedId.value = preferredId === null ? null : result.some(l => l.id === preferredId) ? preferredId : result[0]?.id ?? null;
-    refreshedAt.value = new Date().toISOString();
-  } catch (e) {
-    if (thisId !== requestId || e.name === 'AbortError') return;
-    if (e.status === 401) logout(e.message); else loadError.value = e.message;
-  } finally { if (thisId === requestId) loading.value = false; }
+    const result = await api(editing ? `/admin/users/${form.id}` : '/admin/users', { token: session.value.token, method: editing ? 'PATCH' : 'POST', body: payload });
+    users.value = editing ? users.value.map(user => user.id === result.id ? result : user) : [...users.value, result];
+    removeCache(draftKey(session.value)); memoryRecovery = null;
+    const changedSelf = result.id === session.value.userId;
+    const resetOwnPassword = changedSelf && Boolean(payload.password);
+    resetForm(result);
+    if (changedSelf && (result.disabled || result.role !== 'ADMIN' || resetOwnPassword)) {
+      endSession('账号修改已保存，请使用当前账号信息重新登录。'); return;
+    }
+    if (changedSelf) { session.value.displayName = result.displayName; writeCache('pandora-admin-session', session.value); }
+    success.value = `${displayName(result)}的账号已${editing ? '更新' : '创建'}。`;
+  } catch (error) {
+    if ([401, 403].includes(error.status)) expire(error);
+    else {
+      formError.value = error.message + (!editing ? ' 若连接在提交后中断，请先刷新列表确认账号是否已创建。' : '');
+      rememberDraft();
+    }
+  } finally { saving.value = false; }
 }
-async function onSaved(log) {
-  if (recovery.value?.userId === session.value.userId) {
-    sessionStorage.removeItem('pandora-unsaved'); recovery.value = null;
-  }
-  // Wait for a changed filter's watcher before refreshing with the saved ID.
-  if (date.value && date.value !== log.logDate) date.value = '';
-  await nextTick();
-  await loadLogs(log.id);
-  if (session.value) savedMessage.value = log.status === 'draft' ? '草稿已保存，仅你自己可见。' : '日志已保存，管理者可查看最新内容。';
-}
-watch(area, value => { if (value !== 'tasks') logArea.value = value; });
-watch([logArea, memberId, date], () => { savedMessage.value = ''; if (session.value) loadLogs(); });
+watch(form, rememberDraft, { deep: true });
+watch(() => form.role, () => { if (!canHaveManager.value) form.managerId = ''; });
+function beforeUnload(event) { if (isAdmin.value && dirty.value) { rememberDraft(); event.preventDefault(); event.returnValue = ''; } }
 onMounted(async () => {
-  try {
-    const raw = sessionStorage.getItem('pandora-session');
-    if (raw) await establish(JSON.parse(raw));
-  } catch (e) { logout(e.message); }
-  finally { booting.value = false; }
+  const saved = readCache('pandora-admin-session');
+  if (saved?.token && saved?.userId && roles.some(role => role.value === saved.role)) await establish(saved);
+  booting.value = false;
+  window.addEventListener('beforeunload', beforeUnload);
 });
-onBeforeUnmount(() => controller?.abort());
+onBeforeUnmount(() => { loadController?.abort(); window.removeEventListener('beforeunload', beforeUnload); });
 </script>
+
 <template>
-  <div v-if="booting" class="boot">正在打开潘多拉…</div>
+  <div v-if="booting" class="boot" role="status">正在打开潘多拉…</div>
   <main v-else-if="!session" class="login-layout">
     <section class="login-story">
       <div class="brand"><span class="brand-mark">P</span><span>潘多拉<span class="brand-en">PANDORA</span></span></div>
-      <div class="story-content"><span class="eyebrow">EVERY DAY, A LITTLE FORWARD</span><h1>让每一天的工作，<br>都有迹可循。</h1><p>从一篇日志开始。<br>记录进展，看见团队正在发生的事。</p>
-        <div class="journal-art" aria-hidden="true"><div class="paper back"></div><div class="paper front"><div class="paper-date">DAILY NOTES / 01</div><div class="ink-line wide"></div><div class="ink-line"></div><div class="ink-line short"></div><div class="paper-check">✓ &nbsp; 今日，有所进展</div><div class="paper-stamp">P</div></div><div class="art-note">A space for your work.</div></div>
-      </div><div class="story-foot">工作日志 · 团队协作</div>
+      <div class="story-content"><span class="eyebrow">PEOPLE, CONNECTED</span><h1>让每一位同事，<br>各就其位。</h1><p>维护账号与组织关系，<br>让协作从清楚的连接开始。</p><div class="org-art" aria-hidden="true"><span>创始人</span><i></i><span>部门 · 团队</span><i></i><span>每一位同事</span></div></div>
+      <div class="story-foot">账号管理 · 组织关系</div>
     </section>
-    <section class="login-side"><div class="login-card"><span class="eyebrow">WELCOME BACK</span><h2>进入管理工作台</h2><p class="muted">查看团队日志，也记录自己的工作。</p>
-      <form @submit.prevent="login"><label for="username">账号</label><input id="username" v-model="username" autocomplete="username" required :disabled="loginBusy"><label for="password">密码</label><input id="password" v-model="password" type="password" autocomplete="current-password" required :disabled="loginBusy"><p v-if="loginError" class="error" role="alert">{{ loginError }}</p><button class="button primary login-button" :disabled="loginBusy">{{ loginBusy ? '正在登录…' : '登录工作台 →' }}</button></form>
-      <div class="demo-accounts"><span>本地演示账号</span><div><button @click="quick('leader')" :disabled="loginBusy">部门领导</button><button @click="quick('admin')" :disabled="loginBusy">公司管理员</button></div><small>密码 demo1234 · 员工端由 Android 接入</small></div>
+    <section class="login-side"><div class="login-card"><span class="eyebrow">ADMINISTRATION</span><h2>登录账号管理</h2><p class="muted">管理员在此维护账号。工作日志与任务请使用 Android App。</p>
+      <form @submit.prevent="login"><label for="username">账号</label><input id="username" v-model="username" autocomplete="username" required maxlength="64" :disabled="loginBusy"><label for="password">密码</label><input id="password" v-model="password" type="password" autocomplete="current-password" required :disabled="loginBusy"><p v-if="loginError" class="error" role="alert">{{ loginError }}</p><button class="button primary login-button" :disabled="loginBusy">{{ loginBusy ? '正在登录…' : '登录 →' }}</button></form>
+      <p class="login-help">账号由管理员统一创建，暂不开放注册。<br>忘记密码或账号停用，请联系管理员。</p>
     </div><a class="credit" href="https://deerflow.tech" target="_blank" rel="noopener noreferrer">Created By Deerflow</a></section>
   </main>
+  <main v-else-if="!isAdmin" class="app-guidance"><section class="panel guidance-card"><div class="brand"><span class="brand-mark">P</span><span>潘多拉<span class="brand-en">PANDORA</span></span></div><span class="eyebrow">YOUR WORK, IN THE APP</span><h1>请前往 Android App</h1><p>{{ session.displayName || username }}，你当前的角色是「{{ roleName(session.role) }}」。</p><p class="muted">使用同一账号登录 Android App，记录工作日志、处理任务及查看组织。Web 入口供管理员维护账号。</p><button class="button primary" @click="endSession()">返回登录</button><a class="credit" href="https://deerflow.tech" target="_blank" rel="noopener noreferrer">Created By Deerflow</a></section></main>
   <div v-else class="workspace">
-    <aside class="sidebar"><div class="brand"><span class="brand-mark">P</span><span>潘多拉<span class="brand-en">PANDORA</span></span></div><div class="workspace-label">工作空间</div><nav><button :class="{ active: area === 'team' }" :disabled="workspaceBusy" @click="area = 'team'"><span>▤</span> 团队日志 <span class="nav-arrow">↗</span></button><button :class="{ active: area === 'personal' }" :disabled="workspaceBusy" @click="area = 'personal'"><span>✎</span> 我的日志 <span class="nav-arrow">↗</span></button><button data-testid="task-nav" :class="{ active: area === 'tasks' }" :disabled="workspaceBusy" @click="area = 'tasks'"><span>↗</span> 任务派发 <span class="nav-arrow">↗</span></button></nav><div class="sidebar-note"><span class="note-dot"></span>记录进展，保持同步。<p>每一篇日志<br>都是工作向前的一步。</p></div><div class="profile"><div class="avatar">{{ (session.displayName || '管').slice(0, 1) }}</div><div><strong>{{ session.displayName }}</strong><small>{{ roleLabel }}</small></div><button @click="logout()" :disabled="workspaceBusy" title="退出登录" aria-label="退出登录">↪</button></div><a class="credit sidebar-credit" href="https://deerflow.tech" target="_blank" rel="noopener noreferrer">Created By Deerflow</a></aside>
-    <main class="main-content"><header class="page-header"><div><span class="eyebrow">{{ area === 'tasks' ? 'TASK DISPATCH' : logArea === 'team' ? 'TEAM JOURNAL' : 'MY JOURNAL' }}</span><h1>{{ heading }}<span class="heading-dot">.</span></h1><p>{{ area === 'tasks' ? '把安排交给责任人，把最新进展带回来。' : logArea === 'team' ? '把分散的记录，汇成清楚的团队进展。' : '写下完成的事，也留下接下来要解决的问题。' }}</p></div><div class="header-date"><span>{{ today().replaceAll('-', ' / ') }}</span><small>今天也是向前的一天</small></div></header>
-      <TaskBoard v-show="area === 'tasks'" :session="session" :members="members" :active="area === 'tasks'" @expired="logout" @busy="taskSaving = $event" />
-      <div v-show="area !== 'tasks'">
-      <section class="toolbar panel"><div class="filter-fields"><div v-if="logArea === 'team'"><label for="member">团队成员</label><select id="member" v-model="memberId" :disabled="workspaceBusy"><option value="" disabled>选择成员</option><option v-for="m in teamMembers" :value="String(m.id)" :key="m.id">{{ m.displayName || m.username }}</option></select></div><div><label for="filter-date">日志日期</label><div class="date-filter"><input id="filter-date" type="date" v-model="date" :max="today()" :disabled="workspaceBusy"><button v-if="date" @click="date = ''" :disabled="workspaceBusy" title="查看全部日期">清除</button><span v-else class="all-dates">全部日期</span></div></div></div><button class="button secondary refresh" @click="loadLogs(selectedId)" :disabled="loading || saving">{{ loading ? '加载中…' : '↻ 刷新日志' }}</button></section>
-      <p v-if="savedMessage" class="success" role="status">✓ {{ savedMessage }}</p>
-      <div class="section-heading"><h2>{{ logArea === 'team' ? memberName + '的日志' : '我的记录' }} <span>{{ logs.length.toString().padStart(2, '0') }}</span></h2><span v-if="refreshedAt">最近刷新 {{ timeLabel(refreshedAt) }}</span><button v-if="logArea === 'personal'" class="button primary small" @click="selectedId = null; savedMessage = ''" :disabled="saving || loading">＋ 写日志</button></div>
-      <div v-if="loading" class="state panel" role="status"><div class="loader"></div><h3>正在读取日志</h3><p>稍等，正在同步最新记录。</p></div>
-      <div v-else-if="loadError" class="state panel"><span class="state-symbol">!</span><h3>日志暂时没有加载成功</h3><p class="error" role="alert">{{ loadError }}</p><button class="button secondary" @click="loadLogs()">重新加载</button></div>
-      <div v-else class="journal-grid"><section class="log-list panel"><div class="list-label">{{ logArea === 'personal' ? '我的日志 · 含草稿' : '已提交日志' }}</div><div v-if="!logs.length" class="list-empty"><span>↗</span><h3>{{ logArea === 'team' ? '这里还没有日志' : '开始你的第一篇记录' }}</h3><p>{{ logArea === 'team' ? '换个日期看看，或等待成员提交。' : '在右侧写下今天的工作。' }}</p></div><button v-for="(log, i) in logs" :key="log.id" class="log-row" :class="{ selected: selectedId === log.id }" @click="selectedId = log.id; savedMessage = ''" :disabled="workspaceBusy"><div class="row-top"><span class="row-number">{{ String(i + 1).padStart(2, '0') }}</span><time>{{ log.logDate }}</time><span class="badge" :class="{ draft: log.status === 'draft' }">{{ log.status === 'draft' ? '草稿' : '已提交' }}</span></div><h3>{{ log.content.split('\n')[0] }}</h3><p>{{ log.content }}</p><div class="row-bottom"><span>更新于 {{ timeLabel(log.updatedAt) }}</span><span>↗</span></div></button></section>
-        <LogEditor v-if="logArea === 'personal'" :key="selectedId ?? 'new'" :log="selected" :token="session.token" :user-id="session.userId" :recovery="editorRecovery" @saved="onSaved" @expired="logout" @busy="saving = $event" />
-        <article v-else-if="selected" class="log-detail panel"><div class="detail-top"><span class="eyebrow">JOURNAL / {{ String(selected.id).padStart(3, '0') }}</span><span class="badge">已提交</span></div><h2>{{ selected.logDate.replaceAll('-', ' / ') }}</h2><div class="author-line"><span class="avatar mini">{{ memberName.slice(0,1) }}</span><strong>{{ memberName }}</strong><span>工作日志</span></div><div class="log-body">{{ selected.content }}</div><footer class="detail-footer"><span>最后修改 {{ timeLabel(selected.updatedAt) }}</span><span>记录 #{{ selected.id }}</span></footer></article>
-        <section v-else class="state detail-empty panel"><span class="state-symbol">▤</span><h3>记录，让进展可见</h3><p>选择一篇日志，在这里阅读完整内容。</p></section>
-      </div></div><footer class="page-footer"><span>PANDORA / {{ area === 'tasks' ? '任务派发' : '工作日志' }}</span><span>把今天记录好，把明天安排好。</span></footer>
+    <aside class="sidebar"><div class="brand"><span class="brand-mark">P</span><span>潘多拉<span class="brand-en">PANDORA</span></span></div><div class="workspace-label">管理空间</div><nav aria-label="管理导航"><span class="active-nav">▦ <strong>账号管理</strong><span>↗</span></span></nav><div class="sidebar-note"><span class="note-dot"></span>清楚的关系，顺畅的协作。<p>业务角色使用 App。<br>管理员在这里维护账号。</p></div><div class="profile"><div class="avatar">{{ (session.displayName || '管').slice(0, 1) }}</div><div><strong>{{ session.displayName || '管理员' }}</strong><small>管理员</small></div><button @click="endSession()" :disabled="saving" title="退出登录" aria-label="退出登录">↪</button></div><a class="credit sidebar-credit" href="https://deerflow.tech" target="_blank" rel="noopener noreferrer">Created By Deerflow</a></aside>
+    <main class="main-content"><header class="page-header"><div><span class="eyebrow">ACCOUNT DIRECTORY</span><h1>账号管理<span class="heading-dot">.</span></h1><p>维护角色、直属上级与账号状态。</p></div><div class="account-total"><strong>{{ users.length }}</strong><span>个账号 · {{ enabledCount }} 个启用</span></div></header>
+      <section class="toolbar panel" aria-label="筛选账号"><div class="filter-fields"><div class="search-field"><label for="search">搜索账号</label><input id="search" v-model="search" placeholder="账号或姓名" type="search"></div><div><label for="role-filter">角色</label><select id="role-filter" v-model="roleFilter"><option value="">全部角色</option><option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option></select></div><div><label for="status-filter">状态</label><select id="status-filter" v-model="statusFilter"><option value="">全部状态</option><option value="enabled">启用</option><option value="disabled">停用</option></select></div></div><button class="button secondary" @click="loadUsers" :disabled="loading || saving">{{ loading ? '刷新中…' : '↻ 刷新' }}</button></section>
+      <p v-if="success" class="success" role="status">✓ {{ success }}</p><p v-if="loadError" class="error" role="alert">{{ loadError }} <button class="text-button" @click="loadUsers" :disabled="loading || saving">重新加载</button></p>
+      <div class="account-grid"><section class="panel directory"><div class="section-heading"><h2>全部账号 <span>{{ filteredUsers.length }}</span></h2><span v-if="refreshedAt">刷新于 {{ timeLabel(refreshedAt) }}</span></div><p v-if="loading && !users.length" class="empty-state" role="status">正在读取账号…</p><p v-else-if="!filteredUsers.length" class="empty-state">{{ loadError ? '账号列表暂不可用，请重试。' : users.length ? '没有符合筛选条件的账号。' : '暂无账号。' }}</p><div v-else class="table-scroll"><table><thead><tr><th scope="col">账号 / 姓名</th><th scope="col">角色 / 直属上级</th><th scope="col">状态</th><th scope="col"><span class="sr-only">操作</span></th></tr></thead><tbody><tr v-for="user in filteredUsers" :key="user.id" :class="{ selected: form.id === user.id }"><td><strong>{{ displayName(user) }} <small v-if="user.id === session.userId">我</small></strong><span class="account-username">{{ user.username }}</span></td><td>{{ roleName(user.role) }}<span class="account-manager">{{ managerName(user.managerId) }}</span></td><td><span class="badge" :class="{ disabled: user.disabled }">{{ user.disabled ? '停用' : '启用' }}</span></td><td><button class="text-button" :aria-label="`编辑${user.username}`" :disabled="saving" @click="chooseUser(user)">编辑 ↗</button></td></tr></tbody></table></div></section>
+        <section class="panel account-editor"><div class="editor-heading"><div><span class="eyebrow">{{ form.id ? `ACCOUNT / ${form.id}` : 'NEW ACCOUNT' }}</span><h2>{{ form.id ? '编辑账号' : '新建账号' }}</h2></div><button v-if="form.id" class="button secondary small" @click="chooseUser()" :disabled="saving">＋ 新建</button></div><p class="muted">{{ form.id ? '修改账号资料，密码留空则保持原密码。' : '创建后，请将账号信息交给对应同事。' }}</p><p v-if="notice" class="notice" role="status">{{ notice }}</p>
+          <form @submit.prevent="saveUser"><fieldset :disabled="saving"><label for="account-username">账号 <span v-if="form.id">创建后不可修改</span></label><input id="account-username" v-model="form.username" autocomplete="off" :readonly="form.id !== null" required minlength="3" maxlength="64"><label for="display-name">姓名 <span>选填</span></label><input id="display-name" v-model="form.displayName" autocomplete="off" maxlength="64" placeholder="留空时使用账号名"><div class="form-pair"><div><label for="account-role">角色</label><select id="account-role" v-model="form.role"><option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option></select></div><div><label for="account-status">账号状态</label><select id="account-status" v-model="form.disabled"><option :value="false">启用</option><option :value="true">停用</option></select></div></div><label for="account-manager">直属上级 <span>选填</span></label><select id="account-manager" v-model="form.managerId" :disabled="!canHaveManager"><option value="">未设置</option><option v-if="!selectedManagerValid" :value="form.managerId" disabled>{{ managerName(form.managerId) }}（请重新选择）</option><option v-for="manager in managers" :key="manager.id" :value="String(manager.id)">{{ displayName(manager) }} · {{ roleName(manager.role) }}</option></select><p class="field-help">{{ canHaveManager ? '仅显示已启用、角色层级更高的业务账号。' : '管理员和创始人无需设置直属上级。' }}</p><label for="account-password">{{ form.id ? '重置密码' : '初始密码' }} <span>{{ form.id ? '选填' : '6–72 个字符' }}</span></label><input id="account-password" v-model="form.password" type="password" autocomplete="new-password" :required="!form.id" minlength="6" maxlength="72" :placeholder="form.id ? '留空则不修改' : '设置初始密码'"><p v-if="form.id === session.userId" class="field-help">修改自己的角色、停用状态或密码后，需要重新登录。</p><p v-if="form.disabled" class="field-help warning">停用后，该账号将无法登录或继续使用已有会话。</p><p v-if="formError" class="error" role="alert">{{ formError }}</p><div class="editor-actions"><span v-if="dirty">有未保存的修改</span><button class="button primary" :disabled="saving || loading || Boolean(loadError)">{{ saving ? '正在保存…' : form.id ? '保存修改' : '创建账号' }}</button></div></fieldset></form>
+        </section></div><footer class="page-footer"><span>PANDORA / 账号管理</span><span>角色清楚，协作有序。</span></footer>
     </main>
   </div>
 </template>

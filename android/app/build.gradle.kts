@@ -10,12 +10,12 @@ android {
         applicationId = "com.projectpandora.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.3.0-tasks"
+        versionCode = 33
+        versionName = "0.4.30-ink-herons"
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     signingConfigs { getByName("debug") { storeFile = rootProject.file("../.tools/android-debug.keystore") } }
 }
 dependencies {

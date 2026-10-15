@@ -17,7 +17,7 @@ public class TaskController {
     private final TaskService tasks;
     public TaskController(TaskService tasks) { this.tasks = tasks; }
     @GetMapping
-    public List<TaskResponse> list() { return tasks.list(); }
+    public List<TaskResponse> list(@org.springframework.web.bind.annotation.RequestParam(required=false) Long userId) { return tasks.list(userId); }
     @PostMapping
     public ResponseEntity<TaskResponse> create(@Valid @RequestBody CreateTaskRequest request) {
         return ResponseEntity.status(201).body(tasks.create(request));

@@ -17,6 +17,10 @@ class SessionStore(context: Context) {
     fun saveTaskBuffer(buffer: TaskEditBuffer) { prefs.edit().putString(taskBufferKey(buffer.server,buffer.userId), json.toJson(buffer)).apply() }
     fun taskBuffer(session: Session): TaskEditBuffer? = read(taskBufferKey(session.server,session.userId), TaskEditBuffer::class.java)
     fun clearTaskBuffer(session: Session) { prefs.edit().remove(taskBufferKey(session.server,session.userId)).apply() }
+    fun saveDispatchBuffer(buffer: TaskDispatchBuffer) {prefs.edit().putString(dispatchKey(buffer.server,buffer.userId),json.toJson(buffer)).apply()}
+    fun dispatchBuffer(session: Session): TaskDispatchBuffer?=read(dispatchKey(session.server,session.userId),TaskDispatchBuffer::class.java)
+    fun clearDispatchBuffer(session: Session) {prefs.edit().remove(dispatchKey(session.server,session.userId)).apply()}
+    private fun dispatchKey(server: String,id: Long)="task-dispatch:$server:$id"
     private fun taskBufferKey(server: String, id: Long) = "task-edit:$server:$id"
     private fun bufferKey(server: String, id: Long) = "edit:$server:$id"
     private fun <T> read(key: String, type: Class<T>): T? = try { prefs.getString(key, null)?.let { json.fromJson(it,type) } } catch (_: Exception) { null }

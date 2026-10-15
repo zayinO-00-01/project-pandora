@@ -28,7 +28,7 @@ public class PanelController {
 
     @GetMapping("/map")
     public PanelMapResponse map() {
-        UserPrincipal me = accessService.currentUser();
+        UserPrincipal me = accessService.assertBusiness();
         List<WorkLogResponse> todayLogs =
                 workLogRepository
                         .findByUserIdAndLogDateOrderByCreatedAtDesc(me.getId(), LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")))

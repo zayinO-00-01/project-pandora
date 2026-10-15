@@ -1,34 +1,29 @@
-# task-dispatch Specification
+# Task dispatch
 
 ## Purpose
-Provide authorized task dispatch, assignee progress feedback and consistent Web/Android demonstration.
+Provide Android leader dispatch and assignee progress using durable API records.
+
 ## Requirements
-### Requirement: Authorized dispatch and durable tasks
-The API SHALL persist dispatch tasks with title, detail, priority, due instant, creator and assignee. ADMIN SHALL assign other non-admin members and LEADER SHALL assign direct STAFF; STAFF SHALL NOT create dispatches. Authenticated task listing SHALL expose only admin company scope, leader self/created/direct-assignee scope or staff own assignments.
-#### Scenario: Create and receive
-- **WHEN** a leader dispatches to direct staff through Web
-- **THEN** the task starts at progress 0/todo, is readable by that staff in Android and survives service restart with the same ID
-#### Scenario: Reject invalid scope
-- **WHEN** a staff creates a dispatch or a leader assigns a non-direct member
-- **THEN** the API returns 403 and creates no task; missing login returns 401
+### Requirement: Authorized dispatch
+FOUNDER/DEPT_HEAD/TEAM_LEAD SHALL dispatch only to active business users of lower role rank in their actual manager_id descendant trees. ADMIN and STAFF SHALL NOT dispatch. Read grants SHALL NOT confer dispatch rights. Tasks SHALL store title,detail,priority,due instant,creator and assignee.
+#### Scenario: Founder global reads
+- **WHEN** founder can read an unlinked employee
+- **THEN** that employee is not a dispatch candidate unless actually a descendant
 
-### Requirement: Assignee progress feedback
-Only the assignee SHALL update task progress and its nonblank explanation. Progress SHALL be an integer from 0 through 100; status SHALL derive as todo at 0, doing at 1..99 and done at 100. Invalid writes SHALL leave prior records unchanged.
-#### Scenario: Feedback round trip
-- **WHEN** staff reports 50 then 100 percent on the same task
-- **THEN** Web refresh displays each latest explanation and doing then done with the same task ID
-#### Scenario: Protect the assignee
-- **WHEN** a creator, unrelated member or administrator who is not the assignee attempts feedback
-- **THEN** the API returns 403 without changing task progress
+### Requirement: Task visibility and progress
+Default task reads SHALL follow business member scope, and userId reads SHALL require target read permission and return that target's assigned tasks. Only assignees SHALL update progress. Progress SHALL be a strict JSON integer0..100 and explanation nonblank at most2000chars; todo/doing/done SHALL derive from0/1..99/100.
+#### Scenario: Read grant is not feedback permission
+- **WHEN** an approved subordinate tries to update the manager's task
+- **THEN** the API returns403 and retains progress
 
-### Requirement: Usable Web and Android task views
-Web SHALL provide dispatch creation, assignee selection, list/details and refresh. Android SHALL provide list/details and assignee feedback. Both SHALL distinguish loading, empty and failed requests, prevent duplicate saves and retain input on failure.
-#### Scenario: Local demonstration
-- **WHEN** a leader creates a task, staff refreshes Android, reports progress and leader refreshes Web
-- **THEN** both clients use the real API and display consistent task identity/content
+### Requirement: Usable Android task flow
+Android SHALL provide real task creation, authoritative organization.assignees selection, list/detail/refresh and assignee feedback. Failed input SHALL be retained and pending writes SHALL prevent duplicate submission. Missing assignees SHALL NOT fall back to global readable members.
+#### Scenario: Feedback roundtrip
+- **WHEN** a leader dispatches and staff reports50 then100
+- **THEN** leader refresh shows the same task and latest explanation/status
 
-### Requirement: Authorized dispatch panel
-The Android home company dispatch panel SHALL show up to ten newest tasks from the same authorization scope, and SHALL provide navigation to tasks. It SHALL NOT expose unrelated assignments.
-#### Scenario: Home entry
-- **WHEN** staff receives a dispatch and refreshes home
-- **THEN** its task title appears in the dispatch panel and opens the task flow
+### Requirement: Dispatch panel
+The business home dispatch panel SHALL show at most10 newest tasks in the same authorized scope, with navigation to tasks.
+#### Scenario: New assignment
+- **WHEN** staff refreshes home after assignment
+- **THEN** the task appears without unrelated assignments

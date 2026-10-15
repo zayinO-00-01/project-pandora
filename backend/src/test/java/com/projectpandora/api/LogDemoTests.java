@@ -40,7 +40,7 @@ class LogDemoTests {
             .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
     }
     @Test void draftSubmissionAndEditReachManagerWithSameId() throws Exception {
-        var staff=login("staff"); var leader=login("leader"); var log=create(staff,"draft");
+        var staff=login("staff"); var leader=login("team_lead"); var log=create(staff,"draft");
         long id=log.get("id").asLong(); String path="/api/v1/logs/"+id;
         assertThat(log.get("status").asText()).isEqualTo("draft");
         mvc.perform(get("/api/v1/logs").header("Authorization",token(staff)))
@@ -80,7 +80,7 @@ class LogDemoTests {
             .andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("submitted"));
     }
     @Test void permissionsAndPublicMemberScope() throws Exception {
-        var staff=login("staff"); var leader=login("leader"); var admin=login("admin");
+        var staff=login("staff"); var leader=login("team_lead"); var admin=login("admin");
         var log=create(staff,"submitted"); String path="/api/v1/logs/"+log.get("id");
         mvc.perform(put(path).header("Authorization",token(leader)).contentType(MediaType.APPLICATION_JSON).content(body("越权","submitted")))
             .andExpect(status().isForbidden());
@@ -98,7 +98,7 @@ class LogDemoTests {
         assertThat(members.size()).isEqualTo(2);
         assertThat(members.toString()).doesNotContain("password", "ADMIN");
         mvc.perform(get("/api/v1/users").header("Authorization",token(admin)))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(3));
+            .andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/users")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/logs").header("Authorization","Bearer broken")).andExpect(status().isUnauthorized());
     }

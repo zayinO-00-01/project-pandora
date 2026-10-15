@@ -1,34 +1,23 @@
-# android-log-client Specification
+# Android business client
 
 ## Purpose
-Provide the native Android first log MVP connected to the local authenticated API and Web console.
+Provide the four-business-role native client connected to the local five-role API.
+
 ## Requirements
-### Requirement: Configurable authenticated client
-Android SHALL connect to a configured HTTP/HTTPS origin or /api/v1 base, authenticate against the real API, keep passwords out of persistent storage and clear old authentication when changing servers. Debug SHALL allow local HTTP; Release SHALL forbid cleartext.
-#### Scenario: Login and restore
-- **WHEN** staff supplies a valid server and account
-- **THEN** login uses that server, authenticated calls send the returned Bearer token and reopening the app reloads the same user's server records
-#### Scenario: Invalid connection
-- **WHEN** an address is malformed, credentials fail or the server cannot be reached
-- **THEN** a readable error is shown and no success or fake server data is displayed
+### Requirement: Authenticated client
+Android SHALL support configurable server origin, real JWT login/restore for FOUNDER/DEPT_HEAD/TEAM_LEAD/STAFF, and reject ADMIN and legacy LEADER. Changing servers SHALL clear old authentication, and passwords SHALL NOT be persisted. Debug SHALL permit local HTTP; Release SHALL forbid cleartext.
+#### Scenario: Restore
+- **WHEN** a valid business session is restored
+- **THEN** /users includes the caller and latest role is used; disabled sessions fail
 
-### Requirement: Editable personal logs
-Android SHALL create draft/submitted logs, list own records, submit an existing draft and edit an already submitted log without creating a new ID. Date and content validation SHALL match the API.
-#### Scenario: Full first MVP chain
-- **WHEN** staff saves a draft, submits and edits it
-- **THEN** the same server ID appears in Android home/day/list and authorized Web after refresh; the draft is hidden from managers until submission
-#### Scenario: Save fails or session expires
-- **WHEN** a save fails or returns 401
-- **THEN** input is retained, no success is shown, and same-server same-author login restores unsaved input without exposing it to another user
+### Requirement: Business workspace
+Android SHALL retain the ink login, calendar/month layout and light/dark themes, provide log draft/submit/submitted-edit/history with the Shanghai8date window, organization members and direct-manager approval/revocation, task dispatch and progress. Real flows SHALL not rely on developer preview data.
+#### Scenario: Role or relationship changes
+- **WHEN** backend invalidates an upward read grant
+- **THEN** refreshed member reads are denied and no write authority is inferred
 
-### Requirement: Four panels and day view
-Android SHALL show company important items top-left, company dispatch top-right, personal top bottom-left and today's logs bottom-right from the real panel API. The day view SHALL filter the same user's logs by Shanghai date. Empty and failed loading SHALL be distinct.
-#### Scenario: Browse a saved record
-- **WHEN** a today's log is saved and the user opens home or day view
-- **THEN** that same log is readable and author-editable; selecting a past day shows only that date
-
-### Requirement: Installable local demo
-The repository SHALL include native source, Gradle build entry, a signed Debug APK and concise real-device demo instructions.
-#### Scenario: LAN demonstration
-- **WHEN** the user installs the APK and supplies the PC address on the same LAN
-- **THEN** the login/log/panel/day/Web flow can be demonstrated against the local backend
+### Requirement: Failure recovery and delivery
+Android SHALL preserve failed author input isolated by server and user, avoid false success and duplicate pending saves, and generate a signed Debug APK from committed source. Local SDK, keystores and generated APKs SHALL NOT be committed.
+#### Scenario: Offline save
+- **WHEN** backend is unavailable during save
+- **THEN** a readable error and retained input allow retry after recovery

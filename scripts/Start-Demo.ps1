@@ -58,8 +58,11 @@ try {
     }
     if (-not (Test-Path -LiteralPath $jarPath)) { throw '未找到演示包，请先去掉 -SkipBuild 参数重新运行。' }
     if ($BuildOnly) { Write-Host "构建完成：$jarPath" -ForegroundColor Green; exit 0 }
-    Write-Host "`n打开管理工作台：http://localhost:$Port" -ForegroundColor Green
-    Write-Host '账号 leader / admin，密码 demo1234；按 Ctrl+C 停止。'
+    if (-not $env:SPRING_DATASOURCE_URL) {
+        & (Join-Path $PSScriptRoot 'Upgrade-DemoDatabase.ps1') -JavaHome $env:JAVA_HOME
+    }
+    Write-Host "`n打开账号管理后台：http://localhost:$Port" -ForegroundColor Green
+    Write-Host 'Web：admin；Android：founder / leader / team_lead / staff。密码 demo1234；按 Ctrl+C 停止。'
     $lanAddresses = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -notmatch '^(127\.|169\.254\.)' -and $_.AddressState -eq 'Preferred' }
     foreach ($address in $lanAddresses) { Write-Host "局域网：http://$($address.IPAddress):$Port（手机需与电脑同网）" }
     Push-Location (Join-Path $repoPath 'backend')

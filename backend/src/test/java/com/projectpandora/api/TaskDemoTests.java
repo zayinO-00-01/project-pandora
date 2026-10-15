@@ -31,9 +31,11 @@ class TaskDemoTests {
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
     }
     JsonNode unrelated() throws Exception {
-        return json.readTree(mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("username", "task_unrelated", "password", "demo1234", "displayName", "外部成员"))))
-            .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+        var admin=login("admin");var founder=login("founder");
+        mvc.perform(post("/api/v1/admin/users").header("Authorization",token(admin)).contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("username","task_unrelated","password","demo1234","role","STAFF",
+                "displayName","外部成员","managerId",founder.get("userId").asLong())))).andExpect(status().isCreated());
+        return login("task_unrelated");
     }
     String token(JsonNode user) { return "Bearer " + user.get("token").asText(); }
     String payload(JsonNode assignee, String title) throws Exception {
@@ -56,7 +58,7 @@ class TaskDemoTests {
     }
 
     @Test void dispatchFeedbackRoundTripKeepsIdentityAndImmutableFields() throws Exception {
-        var leader = login("leader"); var staff = login("staff");
+        var leader = login("team_lead"); var staff = login("staff");
         var task = create(leader, staff, "  设备检查  "); long id = task.get("id").asLong();
         assertThat(task.get("title").asText()).isEqualTo("设备检查");
         assertThat(task.get("status").asText()).isEqualTo("todo");
@@ -81,12 +83,12 @@ class TaskDemoTests {
     }
 
     @Test void roleScopesExcludeUnrelatedAssignments() throws Exception {
-        var admin = login("admin"); var leader = login("leader"); var staff = login("staff"); var other = unrelated();
-        var direct = create(admin, staff, "直属任务");
-        var own = create(admin, leader, "领导本人任务");
-        var hidden = create(admin, other, "无关任务");
+        var admin = login("admin"); var founder = login("founder"); var leader = login("team_lead"); var staff = login("staff"); var other = unrelated();
+        var direct = create(founder, staff, "直属任务");
+        var own = create(founder, leader, "领导本人任务");
+        var hidden = create(founder, other, "无关任务");
         var created = create(leader, staff, "领导派发任务");
-        assertThat(list(admin).size()).isEqualTo(4);
+        assertThat(list(founder).size()).isEqualTo(4);
         assertThat(list(leader).findValuesAsText("id")).containsExactly(created.get("id").asText(), own.get("id").asText(), direct.get("id").asText());
         assertThat(list(staff).findValuesAsText("id")).containsExactly(created.get("id").asText(), direct.get("id").asText());
         assertThat(list(other).findValuesAsText("id")).containsExactly(hidden.get("id").asText());
@@ -98,14 +100,14 @@ class TaskDemoTests {
             .andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON).content(payload(admin, "管理员")))
             .andExpect(status().isForbidden());
-        mvc.perform(post("/api/v1/tasks").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/tasks").header("Authorization", token(founder)).contentType(MediaType.APPLICATION_JSON)
             .content("{\"title\":\"不存在\",\"assigneeId\":9223372036854775807}"))
             .andExpect(status().isNotFound());
-        assertThat(list(admin).size()).isEqualTo(4);
+        assertThat(list(founder).size()).isEqualTo(4);
     }
 
     @Test void onlyAssigneeCanUpdateIncludingCreatorAndAdmin() throws Exception {
-        var leader = login("leader"); var staff = login("staff"); var admin = login("admin"); var other = unrelated();
+        var leader = login("team_lead"); var staff = login("staff"); var admin = login("admin"); var founder = login("founder"); var other = unrelated();
         var task = create(leader, staff, "受保护任务"); long id = task.get("id").asLong();
         for (var user : new JsonNode[]{leader, admin, other})
             mvc.perform(put("/api/v1/tasks/" + id + "/progress").header("Authorization", token(user))
@@ -118,7 +120,7 @@ class TaskDemoTests {
     }
 
     @Test void invalidProgressDoesNotMutateStoredTask() throws Exception {
-        var leader = login("leader"); var staff = login("staff"); var task = create(leader, staff, "校验任务");
+        var leader = login("team_lead"); var staff = login("staff"); var task = create(leader, staff, "校验任务");
         long id = task.get("id").asLong(); var original = progress(staff, id, 50, "原有进度");
         String[] invalid = {"{bad", "{}", "{\"progress\":null,\"progressNote\":\"说明\"}",
             "{\"progress\":-1,\"progressNote\":\"说明\"}", "{\"progress\":101,\"progressNote\":\"说明\"}",
@@ -133,7 +135,7 @@ class TaskDemoTests {
     }
 
     @Test void invalidCreationCreatesNothingAndDefaultsAreStable() throws Exception {
-        var leader = login("leader"); var staff = login("staff");
+        var leader = login("team_lead"); var staff = login("staff");
         var defaults = new HashMap<String, Object>(); defaults.put("title", " 简单任务 "); defaults.put("assigneeId", staff.get("userId").asLong());
         defaults.put("dueAt", null);
         var task = json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization", token(leader))
@@ -155,10 +157,10 @@ class TaskDemoTests {
     }
 
     @Test void dispatchPanelContainsOnlyTenNewestAuthorizedTasks() throws Exception {
-        var leader = login("leader"); var staff = login("staff"); var admin = login("admin"); var other = unrelated();
+        var leader = login("team_lead"); var staff = login("staff"); var admin = login("admin"); var founder = login("founder"); var other = unrelated();
         var ids = new java.util.ArrayList<Long>();
         for (int i = 0; i < 12; i++) ids.add(create(leader, staff, "任务" + i).get("id").asLong());
-        create(admin, other, "不应显示");
+        create(founder, other, "不应显示");
         var panel = json.readTree(mvc.perform(get("/api/v1/panels/map").header("Authorization", token(staff)))
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
         var dispatch = panel.get("companyDispatch"); assertThat(dispatch.size()).isEqualTo(10);
