@@ -34,7 +34,7 @@ class TaskDemoTests {
         var admin=login("admin");var founder=login("founder");
         mvc.perform(post("/api/v1/admin/users").header("Authorization",token(admin)).contentType(MediaType.APPLICATION_JSON)
             .content(json.writeValueAsString(Map.of("username","task_unrelated","password","demo1234","role","STAFF",
-                "displayName","外部成员","managerId",founder.get("userId").asLong())))).andExpect(status().isCreated());
+                "displayName","外部成员","managerId",founder.get("userId").asLong(),"phone","13900000002")))).andExpect(status().isCreated());
         return login("task_unrelated");
     }
     String token(JsonNode user) { return "Bearer " + user.get("token").asText(); }

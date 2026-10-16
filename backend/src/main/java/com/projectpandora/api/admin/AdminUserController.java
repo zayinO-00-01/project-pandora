@@ -6,6 +6,7 @@ import com.projectpandora.api.user.*;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,10 +36,16 @@ public class AdminUserController {
         String username=request.username().trim();
         if(username.length()<3 || username.length()>64) throw new ApiException(400,"用户名须为3至64字");
         if(users.findByUsername(username).isPresent()) throw new ApiException(400,"用户名已存在");
+        String phone=ProfileRules.normalizePhone(request.phone());
+        if(users.findByPhone(phone).isPresent()) throw new ApiException(400,"手机号已被使用");
+        String idCard=ProfileRules.normalizeIdCard(request.idCard());
+        if(idCard!=null && users.findByIdCard(idCard).isPresent()) throw new ApiException(400,"身份证号已被使用");
         assertAssignableManager(request.managerId());
         UserEntity user=new UserEntity();user.setUsername(username);user.setPasswordHash(passwords.encode(request.password()));
         user.setRole(request.role());user.setDisplayName(request.displayName()==null || request.displayName().isBlank() ? username : request.displayName().trim());
         user.setManagerId(request.managerId());user.setDisabled(Boolean.TRUE.equals(request.disabled()));user.setCreatedAt(Instant.now());
+        applyProfile(user,phone,idCard,request.birthDate(),request.gender(),request.hireDate(),
+            request.emergencyContact(),request.emergencyPhone(),request.address());
         var all=new ArrayList<>(users.findAll());all.add(user);validateHierarchy(all);
         return ResponseEntity.status(201).body(AdminUserResponse.from(users.saveAndFlush(user)));
     }
@@ -56,6 +63,7 @@ public class AdminUserController {
         }
         if(request.disabled()!=null) user.setDisabled(request.disabled());
         if(request.password()!=null && !request.password().isBlank()) user.setPasswordHash(passwords.encode(request.password()));
+        applyProfileUpdate(user,request);
         validateHierarchy(users.findAll());
         if(oldRole!=user.getRole() || !Objects.equals(oldManager,user.getManagerId()) || oldDisabled!=user.isDisabled()) {
             for(var r:requests.findByRequesterIdOrTargetIdOrderByUpdatedAtDesc(id,id)) {
@@ -88,13 +96,54 @@ public class AdminUserController {
             }
         }
     }
+    private void applyProfile(UserEntity user,String phone,String idCard,LocalDate birthDate,String gender,
+            LocalDate hireDate,String emergencyContact,String emergencyPhone,String address) {
+        user.setPhone(phone);
+        user.setIdCard(idCard);
+        user.setBirthDate(ProfileRules.validateBirthDate(birthDate));
+        user.setGender(ProfileRules.normalizeGender(gender));
+        user.setHireDate(hireDate);
+        user.setEmergencyContact(trimToNull(emergencyContact));
+        user.setEmergencyPhone(trimToNull(emergencyPhone));
+        user.setAddress(trimToNull(address));
+    }
+    private void applyProfileUpdate(UserEntity user,UpdateUserRequest r) {
+        if(r.phone()!=null && !r.phone().isBlank()) {
+            String phone=ProfileRules.normalizePhone(r.phone());
+            users.findByPhone(phone).filter(other->!other.getId().equals(user.getId()))
+                .ifPresent(other->{throw new ApiException(400,"手机号已被使用");});
+            user.setPhone(phone);
+        }
+        if(r.idCard()!=null) {
+            String idCard=ProfileRules.normalizeIdCard(r.idCard());
+            if(idCard!=null) users.findByIdCard(idCard).filter(other->!other.getId().equals(user.getId()))
+                .ifPresent(other->{throw new ApiException(400,"身份证号已被使用");});
+            user.setIdCard(idCard);
+        }
+        if(r.birthDate()!=null) user.setBirthDate(ProfileRules.validateBirthDate(r.birthDate()));
+        if(r.gender()!=null) user.setGender(ProfileRules.normalizeGender(r.gender()));
+        if(r.hireDate()!=null) user.setHireDate(r.hireDate());
+        if(r.emergencyContact()!=null) user.setEmergencyContact(trimToNull(r.emergencyContact()));
+        if(r.emergencyPhone()!=null) user.setEmergencyPhone(trimToNull(r.emergencyPhone()));
+        if(r.address()!=null) user.setAddress(trimToNull(r.address()));
+    }
+    private static String trimToNull(String value) {
+        if(value==null) return null;String trimmed=value.trim();return trimmed.isEmpty() ? null : trimmed;
+    }
     public record CreateUserRequest(@NotBlank @Size(min=3,max=64) String username,
-        @NotBlank @Size(min=6,max=72) String password,@NotNull Role role,@Size(max=64) String displayName,Long managerId,Boolean disabled) {}
+        @NotBlank @Size(min=6,max=72) String password,@NotNull Role role,@Size(max=64) String displayName,Long managerId,Boolean disabled,
+        String phone,String idCard,LocalDate birthDate,String gender,LocalDate hireDate,
+        String emergencyContact,String emergencyPhone,String address) {}
     public record UpdateUserRequest(Role role,@Size(max=64) String displayName,Long managerId,Boolean clearManager,Boolean disabled,
-        @Size(min=6,max=72) String password) {}
-    public record AdminUserResponse(Long id,String username,String role,String displayName,Long managerId,boolean disabled) {
+        @Size(min=6,max=72) String password,String phone,String idCard,LocalDate birthDate,String gender,LocalDate hireDate,
+        String emergencyContact,String emergencyPhone,String address) {}
+    public record AdminUserResponse(Long id,String username,String role,String displayName,Long managerId,boolean disabled,
+        String phone,String idCard,LocalDate birthDate,String gender,LocalDate hireDate,
+        String emergencyContact,String emergencyPhone,String address) {
         static AdminUserResponse from(UserEntity u) {
-            return new AdminUserResponse(u.getId(),u.getUsername(),u.getRole().name(),u.getDisplayName(),u.getManagerId(),u.isDisabled());
+            return new AdminUserResponse(u.getId(),u.getUsername(),u.getRole().name(),u.getDisplayName(),u.getManagerId(),u.isDisabled(),
+                u.getPhone(),u.getIdCard(),u.getBirthDate(),u.getGender(),u.getHireDate(),
+                u.getEmergencyContact(),u.getEmergencyPhone(),u.getAddress());
         }
     }
 }

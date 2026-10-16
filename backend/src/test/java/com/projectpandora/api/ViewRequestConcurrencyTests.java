@@ -30,10 +30,11 @@ class ViewRequestConcurrencyTests {
             .andReturn().getResponse().getContentAsString());
     }
     String token(JsonNode user) {return "Bearer "+user.get("token").asText();}
+    String phone() { return "139" + String.format("%08d", sequence.incrementAndGet()); }
     JsonNode newStaff(JsonNode admin,JsonNode manager) throws Exception {
         String name="concurrent_"+sequence.incrementAndGet();
         mvc.perform(post("/api/v1/admin/users").header("Authorization",token(admin)).contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("username",name,"password","demo1234","role","STAFF","managerId",manager.get("userId").asLong()))))
+            .content(json.writeValueAsString(Map.of("username",name,"password","demo1234","role","STAFF","managerId",manager.get("userId").asLong(),"phone",phone()))))
             .andExpect(status().isCreated());return login(name);
     }
     String requestBody(JsonNode manager) throws Exception {
@@ -85,9 +86,9 @@ class ViewRequestConcurrencyTests {
     @Test void concurrentTrimmedUsernamesReturnOneCreationAndOneClientError() throws Exception {
         var admin=login("admin");String name="duplicate_"+sequence.incrementAndGet();
         Callable<Integer> first=()->mvc.perform(post("/api/v1/admin/users").header("Authorization",token(admin)).contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("username",name,"password","demo1234","role","STAFF")))).andReturn().getResponse().getStatus();
+            .content(json.writeValueAsString(Map.of("username",name,"password","demo1234","role","STAFF","phone",phone())))).andReturn().getResponse().getStatus();
         Callable<Integer> second=()->mvc.perform(post("/api/v1/admin/users").header("Authorization",token(admin)).contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("username"," "+name+" ","password","demo1234","role","STAFF")))).andReturn().getResponse().getStatus();
+            .content(json.writeValueAsString(Map.of("username"," "+name+" ","password","demo1234","role","STAFF","phone",phone())))).andReturn().getResponse().getStatus();
         assertThat(race(first,second)).containsExactlyInAnyOrder(201,400);
     }
 }

@@ -11,8 +11,8 @@ export function eligibleManagers(users, role, userId) {
     && rank[user.role] !== undefined && rank[user.role] < rank[role]);
 }
 export function draftForStorage(scope, form) {
-  const { id, username, displayName, role, managerId, disabled } = form;
-  return { ...scope, form: { id, username, displayName, role, managerId, disabled } };
+  const { id, username, displayName, role, managerId, disabled, phone, idCard, birthDate, gender, hireDate, emergencyContact, emergencyPhone, address } = form;
+  return { ...scope, form: { id, username, displayName, role, managerId, disabled, phone, idCard, birthDate, gender, hireDate, emergencyContact, emergencyPhone, address } };
 }
 export function restoreDraft(cached, scope) {
   if (!cached || cached.server !== scope.server || cached.userId !== scope.userId
