@@ -142,7 +142,7 @@ class PandoraApplicationTests {
                                         .content(
                                                 "{\"username\":\""
                                                         + username
-                                                        + "\",\"password\":\"demo1234\",\"role\":\"STAFF\",\"disabled\":true}"))
+                                                        + "\",\"password\":\"demo1234\",\"role\":\"STAFF\",\"disabled\":true,\"phone\":\"13900000001\"}"))
                         .andExpect(status().isCreated())
                         .andReturn();
         Number id = JsonPath.read(created.getResponse().getContentAsString(), "$.id");

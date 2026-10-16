@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Pandora API
-  version: 0.5.0
-  description: 五角色本地原型。Web仅ADMIN账号管理；Android四业务角色。公开注册关闭；任务邀约、十大事写入等尚未实现。
+  version: 0.6.0
+  description: 五角色本地原型。Web 仅 ADMIN：账号管理、档案维护与公司十大事项发布；Android 四业务角色。公开注册关闭；公司事项全员只读并可写个人备注。业务账号新增手机号（必填唯一）、身份证号、出生年月等档案字段。
 servers:
   - url: /api/v1
 paths:
@@ -549,7 +549,137 @@ paths:
           $ref: "#/components/responses/Error409"
       security:
         - bearer: []
-      description: 本人今日日志、当前可读最新10任务；两个十大事板块暂空。ADMIN403。
+      description: 本人今日日志、当前可读最新10任务；公司事项来自已发布十条。ADMIN403。
+  /company-notices:
+    get:
+      summary: 全员只读：启用的公司十大事项
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CompanyNotice"
+        "403":
+          $ref: "#/components/responses/Error403"
+  /company-notices/{id}:
+    get:
+      summary: 公司事项详情（含本人备注）
+      security:
+        - bearer: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyNotice"
+        "404":
+          $ref: "#/components/responses/Error404"
+  /company-notices/{id}/note:
+    put:
+      summary: 写本人备注（每人每条唯一）
+      security:
+        - bearer: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteInput"
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyNotice"
+  /admin/company-notices:
+    get:
+      summary: 仅 ADMIN：全部事项（含停用）
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CompanyNotice"
+        "403":
+          $ref: "#/components/responses/Error403"
+    post:
+      summary: 仅 ADMIN：发布事项（启用上限 10）
+      security:
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompanyNoticeInput"
+      responses:
+        "201":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyNotice"
+        "400":
+          $ref: "#/components/responses/Error400"
+  /admin/company-notices/{id}:
+    patch:
+      summary: 仅 ADMIN：修改内容、排序或状态
+      security:
+        - bearer: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompanyNoticeInput"
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyNotice"
+        "400":
+          $ref: "#/components/responses/Error400"
+  /users/me:
+    get:
+      summary: 本人完整档案（含敏感字段）
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
 components:
   securitySchemes:
     bearer:
@@ -601,6 +731,33 @@ components:
           nullable: true
         disabled:
           type: boolean
+        phone:
+          type: string
+          nullable: true
+        idCard:
+          type: string
+          nullable: true
+        birthDate:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          type: string
+          enum: [MALE, FEMALE, UNSPECIFIED]
+          nullable: true
+        hireDate:
+          type: string
+          format: date
+          nullable: true
+        emergencyContact:
+          type: string
+          nullable: true
+        emergencyPhone:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
     CreateUser:
       type: object
       properties:
@@ -629,10 +786,38 @@ components:
           nullable: true
         disabled:
           type: boolean
+        phone:
+          type: string
+          description: 必填，11 位手机号，trim 后唯一
+        idCard:
+          type: string
+          nullable: true
+        birthDate:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          type: string
+          enum: [MALE, FEMALE, UNSPECIFIED]
+          nullable: true
+        hireDate:
+          type: string
+          format: date
+          nullable: true
+        emergencyContact:
+          type: string
+          nullable: true
+        emergencyPhone:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
       required:
         - username
         - password
         - role
+        - phone
     PatchUser:
       type: object
       properties:
@@ -660,6 +845,33 @@ components:
         clearManager:
           type: boolean
           description: true clears current managerId
+        phone:
+          type: string
+          nullable: true
+        idCard:
+          type: string
+          nullable: true
+        birthDate:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          type: string
+          enum: [MALE, FEMALE, UNSPECIFIED]
+          nullable: true
+        hireDate:
+          type: string
+          format: date
+          nullable: true
+        emergencyContact:
+          type: string
+          nullable: true
+        emergencyPhone:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
     Login:
       type: object
       properties:
@@ -689,6 +901,97 @@ components:
         displayName:
           type: string
           nullable: true
+    Profile:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        role:
+          type: string
+          enum: [ADMIN, FOUNDER, DEPT_HEAD, TEAM_LEAD, STAFF]
+        displayName:
+          type: string
+          nullable: true
+        managerId:
+          type: integer
+          format: int64
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        idCard:
+          type: string
+          nullable: true
+        birthDate:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          type: string
+          enum: [MALE, FEMALE, UNSPECIFIED]
+          nullable: true
+        hireDate:
+          type: string
+          format: date
+          nullable: true
+        emergencyContact:
+          type: string
+          nullable: true
+        emergencyPhone:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+    CompanyNotice:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        content:
+          type: string
+        sortOrder:
+          type: integer
+        enabled:
+          type: boolean
+        publisherId:
+          type: integer
+          format: int64
+          nullable: true
+        updatedAt:
+          type: string
+        myNote:
+          type: string
+          nullable: true
+    CompanyNoticeInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 128
+        content:
+          type: string
+        sortOrder:
+          type: integer
+        enabled:
+          type: boolean
+      required:
+        - title
+        - content
+    NoteInput:
+      type: object
+      properties:
+        content:
+          type: string
+          maxLength: 2000
+      required:
+        - content
     LogInput:
       type: object
       properties:
