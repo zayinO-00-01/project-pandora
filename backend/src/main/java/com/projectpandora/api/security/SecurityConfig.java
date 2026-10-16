@@ -31,21 +31,15 @@ public class SecurityConfig {
         http.csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(
-                        eh ->
-                                eh.authenticationEntryPoint(authEntryPoint)
-                                        .accessDeniedHandler(authEntryPoint))
+                .exceptionHandling(eh -> eh.authenticationEntryPoint(authEntryPoint))
                 .authorizeHttpRequests(
                         auth ->
-                                auth.requestMatchers("/api/v1/health")
+                                auth.requestMatchers(org.springframework.http.HttpMethod.GET, "/", "/index.html", "/assets/**", "/favicon.svg")
+                                        .permitAll()
+                                        .requestMatchers("/api/v1/health")
                                         .permitAll()
                                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login")
                                         .permitAll()
-                                        .requestMatchers("/api/v1/admin/**")
-                                        .hasRole("ADMIN")
-                                        .requestMatchers(
-                                                "/api/v1/logs", "/api/v1/logs/**", "/api/v1/panels/**")
-                                        .hasAnyRole("FOUNDER", "DEPT_HEAD", "TEAM_LEAD", "STAFF")
                                         .anyRequest()
                                         .authenticated())
                 .httpBasic(AbstractHttpConfigurer::disable)

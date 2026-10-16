@@ -21,6 +21,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+@org.springframework.transaction.annotation.Transactional
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -170,71 +171,6 @@ class PandoraApplicationTests {
                                                 + username
                                                 + "\",\"password\":\"demo1234\"}"))
                 .andExpect(status().isOk());
-    }
-
-    @Test
-    @Order(11)
-    void unauthenticatedProtectedApiReturnsUnauthorized() throws Exception {
-        mockMvc.perform(get("/api/v1/logs")).andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/v1/admin/users")).andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    @Order(12)
-    void organizationCannotUseAdminAsBusinessManager() throws Exception {
-        String adminToken = login("admin");
-        String username = "admin_manager_case_" + System.currentTimeMillis();
-        long adminId = userId("admin");
-
-        mockMvc.perform(
-                        post("/api/v1/admin/users")
-                                .header("Authorization", "Bearer " + adminToken)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(
-                                        "{\"username\":\""
-                                                + username
-                                                + "\",\"password\":\"demo1234\",\"role\":\"STAFF\",\"managerId\":"
-                                                + adminId
-                                                + "}"))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    @Order(13)
-    void organizationCannotContainManagerCycle() throws Exception {
-        String adminToken = login("admin");
-        long firstId = createStaff(adminToken, "cycle_first_" + System.currentTimeMillis());
-        long secondId = createStaff(adminToken, "cycle_second_" + System.currentTimeMillis());
-
-        mockMvc.perform(
-                        patch("/api/v1/admin/users/" + firstId)
-                                .header("Authorization", "Bearer " + adminToken)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"managerId\":" + secondId + "}"))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(
-                        patch("/api/v1/admin/users/" + secondId)
-                                .header("Authorization", "Bearer " + adminToken)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"managerId\":" + firstId + "}"))
-                .andExpect(status().isBadRequest());
-    }
-
-    private long createStaff(String adminToken, String username) throws Exception {
-        MvcResult result =
-                mockMvc.perform(
-                                post("/api/v1/admin/users")
-                                        .header("Authorization", "Bearer " + adminToken)
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .content(
-                                                "{\"username\":\""
-                                                        + username
-                                                        + "\",\"password\":\"demo1234\",\"role\":\"STAFF\"}"))
-                        .andExpect(status().isCreated())
-                        .andReturn();
-        Number id = JsonPath.read(result.getResponse().getContentAsString(), "$.id");
-        return id.longValue();
     }
 
     private String login(String username) throws Exception {

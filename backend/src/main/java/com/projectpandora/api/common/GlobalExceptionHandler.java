@@ -3,12 +3,9 @@ package com.projectpandora.api.common;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
@@ -32,14 +29,18 @@ public class GlobalExceptionHandler {
                 .body(ApiError.of(400, "Bad Request", message, request.getRequestURI()));
     }
 
-    @ExceptionHandler({
-        HttpMessageNotReadableException.class,
-        MethodArgumentTypeMismatchException.class,
-        MissingServletRequestParameterException.class
-    })
-    public ResponseEntity<ApiError> handleMalformedRequest(Exception ex, HttpServletRequest request) {
-        return ResponseEntity.badRequest()
-                .body(ApiError.of(400, "Bad Request", "请求格式或参数类型不合法", request.getRequestURI()));
+    @ExceptionHandler({org.springframework.http.converter.HttpMessageNotReadableException.class,
+                       org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ApiError> handleMalformed(Exception ex, HttpServletRequest request) {
+        return ResponseEntity.badRequest().body(ApiError.of(400, "Bad Request",
+                "请求格式不正确，请检查日期和 JSON", request.getRequestURI()));
+    }
+
+    @ExceptionHandler({org.springframework.dao.OptimisticLockingFailureException.class,
+                       org.springframework.dao.PessimisticLockingFailureException.class,
+                       org.springframework.dao.DataIntegrityViolationException.class})
+    public ResponseEntity<ApiError> handleConflict(Exception ex, HttpServletRequest request) {
+        return ResponseEntity.status(409).body(ApiError.of(409, "Conflict", "数据已变化或发生冲突，请刷新后重试", request.getRequestURI()));
     }
 
     @ExceptionHandler(Exception.class)
