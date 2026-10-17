@@ -16,11 +16,19 @@ try {
     }
     if(-not $SdkPath){throw '未找到 Android SDK 35，请用 Android Studio 安装并传入 -SdkPath。'}
     if(-not $JavaHome){
-        $ideaJava='E:/Program Files/JetBrains/IntelliJ IDEA Community Edition 2025.1.3/jbr'
-        if(Test-Path -LiteralPath "$ideaJava/bin/java.exe"){$JavaHome=$ideaJava}
-        elseif($env:JAVA_HOME){$JavaHome=$env:JAVA_HOME}
-        else{$javaCommand=Get-Command java.exe -ErrorAction Stop;$JavaHome=Split-Path -Parent (Split-Path -Parent $javaCommand.Source)}
+        $candidates=@($env:JAVA_HOME)
+        $jdkFolder=Join-Path $env:USERPROFILE '.jdks'
+        if(Test-Path -LiteralPath $jdkFolder){$candidates+=Get-ChildItem -LiteralPath $jdkFolder -Directory | Where-Object {$_.Name -match '(17|21)'} | Sort-Object Name -Descending | Select-Object -ExpandProperty FullName}
+        $candidates+='E:/Program Files/JetBrains/IntelliJ IDEA Community Edition 2025.1.3/jbr'
+        $candidates+='C:/Program Files/Android/Android Studio/jbr'
+        foreach($candidate in $candidates){
+            if($candidate -and (Test-Path -LiteralPath "$candidate/bin/jlink.exe") -and (Test-Path -LiteralPath "$candidate/release")){
+                $release=Get-Content -LiteralPath "$candidate/release" -Raw
+                if($release -match 'JAVA_VERSION="(17|21)[.\"]'){$JavaHome=$candidate;break}
+            }
+        }
     }
+    if(-not $JavaHome -or -not (Test-Path -LiteralPath "$JavaHome/bin/jlink.exe")){throw '请安装完整 JDK17/21（包含jlink），或使用 -JavaHome 指定；仅运行时JBR不能构建Android。'}
     $env:JAVA_HOME=$JavaHome
     $env:GRADLE_USER_HOME=Join-Path $toolPath 'gradle-cache'
     $javaPath=Join-Path $JavaHome 'bin/java.exe'

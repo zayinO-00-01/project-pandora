@@ -28,7 +28,7 @@ try {
         else { $result=Send-Json '/logs' 'POST' $body $headers }
     }
     $result | Format-List id,userId,logDate,content,status,updatedAt
-    Write-Host "日志 #$($result.id) 已保存。管理端选择该员工后刷新。"
+    Write-Host "日志 #$($result.id) 已保存。上级在 Android 组织页选择该员工后刷新。"
     Write-Host "修改：.\scripts\Invoke-EmployeeDemo.ps1 -LogId $($result.id) -Content '新的工作进度'"
     if ($result.status -eq 'draft') { Write-Host "提交：.\scripts\Invoke-EmployeeDemo.ps1 -LogId $($result.id) -Submit" }
 } catch { Write-Host "操作失败：$($_.Exception.Message)" -ForegroundColor Red; exit 1 }

@@ -1,16 +1,14 @@
-# android-log-client Specification
+# Android business client
 
 ## Purpose
-Provide the native Android first log MVP connected to the local authenticated API and Web console.
+Provide the four-business-role native client connected to the local five-role API.
+
 ## Requirements
-### Requirement: Configurable authenticated client
-Android SHALL connect to a configured HTTP/HTTPS origin or /api/v1 base, authenticate against the real API, keep passwords out of persistent storage and clear old authentication when changing servers. Debug SHALL allow local HTTP; Release SHALL forbid cleartext.
-#### Scenario: Login and restore
-- **WHEN** staff supplies a valid server and account
-- **THEN** login uses that server, authenticated calls send the returned Bearer token and reopening the app reloads the same user's server records
-#### Scenario: Invalid connection
-- **WHEN** an address is malformed, credentials fail or the server cannot be reached
-- **THEN** a readable error is shown and no success or fake server data is displayed
+### Requirement: Authenticated client
+Android SHALL support configurable server origin, real JWT login/restore for FOUNDER/DEPT_HEAD/TEAM_LEAD/STAFF, and reject ADMIN and legacy LEADER. Changing servers SHALL clear old authentication, and passwords SHALL NOT be persisted. Debug SHALL permit local HTTP; Release SHALL forbid cleartext.
+#### Scenario: Restore
+- **WHEN** a valid business session is restored
+- **THEN** /users includes the caller and latest role is used; disabled sessions fail
 
 ### Requirement: Editable personal logs
 Android SHALL create logs dated today or up to three days earlier inclusive in Shanghai. Existing logs SHALL be editable/submittable only when their original date is today; update target date SHALL remain today. Historical logs SHALL remain fully readable. Date rules SHALL be rechecked after restore and day changes, retaining failed input.

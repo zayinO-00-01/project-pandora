@@ -15,9 +15,7 @@ import org.springframework.web.bind.annotation.*;
 public class WorkLogController {
     private final WorkLogRepository logs;
     private final AccessService access;
-    public WorkLogController(WorkLogRepository logs, AccessService access) {
-        this.logs=logs; this.access=access;
-    }
+    public WorkLogController(WorkLogRepository logs,AccessService access) {this.logs=logs;this.access=access;}
     @GetMapping("/integrity")
     public IntegrityResponse integrity() {
         return new IntegrityResponse(true, "完整性校验通过: user="+access.assertBusiness().getUsername());
@@ -28,10 +26,8 @@ public class WorkLogController {
         Long me=access.assertBusiness().getId();
         Long target=userId==null ? me : userId;
         access.assertCanViewUserLogs(target);
-        var result=date==null ? logs.findByUserIdOrderByCreatedAtDesc(target)
-                             : logs.findByUserIdAndLogDateOrderByCreatedAtDesc(target,date);
-        return result.stream().filter(e -> me.equals(target) || "submitted".equals(e.getStatus()))
-                     .map(WorkLogResponse::from).toList();
+        var result=date==null ? logs.findByUserIdOrderByCreatedAtDesc(target) : logs.findByUserIdAndLogDateOrderByCreatedAtDesc(target,date);
+        return result.stream().filter(e->me.equals(target) || "submitted".equals(e.getStatus())).map(WorkLogResponse::from).toList();
     }
     @PostMapping
     public ResponseEntity<WorkLogResponse> create(@Valid @RequestBody CreateLogRequest r) {
