@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
     [ValidateRange(1,65535)][int]$Port = 8080,
     [switch]$SkipBuild,
@@ -20,6 +20,8 @@ function Resolve-Tool([string]$Name, [string[]]$Candidates) {
     throw "未找到 $Name，请安装并加入 PATH，或使用脚本参数指定位置。"
 }
 try {
+    $localJava = Join-Path $cachePath 'jdk17/jdk-17.0.20.1+1'
+    if (-not $JavaHome -and (Test-Path -LiteralPath "$localJava/bin/java.exe")) { $JavaHome = $localJava }
     if ($JavaHome) { $env:JAVA_HOME = $JavaHome }
     $javaCandidates = @()
     if ($env:JAVA_HOME) { $javaCandidates += (Join-Path $env:JAVA_HOME 'bin/java.exe') }
@@ -37,7 +39,7 @@ try {
     if (-not $SkipBuild) {
         $npmPath = Resolve-Tool 'npm.cmd' @('E:/Program Files/nodejs/npm.cmd')
         if (-not $MavenPath) {
-            $MavenPath = Resolve-Tool 'mvn.cmd' @('E:/Program Files/JetBrains/IntelliJ IDEA Community Edition 2025.1.3/plugins/maven/lib/maven3/bin/mvn.cmd')
+            $MavenPath = Resolve-Tool 'mvn.cmd' @((Join-Path $cachePath 'apache-maven-3.9.9/bin/mvn.cmd'), 'E:/Program Files/JetBrains/IntelliJ IDEA Community Edition 2025.1.3/plugins/maven/lib/maven3/bin/mvn.cmd')
         }
         New-Item -ItemType Directory -Path $cachePath -Force | Out-Null
         Push-Location (Join-Path $repoPath 'web')

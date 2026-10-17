@@ -1,0 +1,10 @@
+{
+  "decodedFrames": 541,
+  "fps": 60,
+  "allTimestampIntervalsContinuous": true,
+  "firstAndLastCleanPaintingMeanErrors": [
+    1.8861837705761317,
+    2.2824189814814817
+  ],
+  "bytes": 1926563
+}

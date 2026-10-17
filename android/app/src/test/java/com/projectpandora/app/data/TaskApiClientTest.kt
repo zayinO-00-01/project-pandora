@@ -35,8 +35,9 @@ class TaskApiClientTest {
                 assertEquals(if(index == 0) "/api/v1/tasks" else "/api/v1/tasks/19/progress", request.path)
                 if(index > 0) {
                     val body = JsonParser.parseString(request.body.readUtf8()).asJsonObject
-                    assertEquals(setOf("progress", "progressNote"), body.keySet())
+                    assertEquals(setOf("progress", "progressNote", "status"), body.keySet())
                     assertEquals(if(index == 1) 50 else 100, body["progress"].asInt)
+                    assertEquals(if(index == 1) "doing" else "done", body["status"].asString)
                     assertEquals(if(index == 1) "已完成一半" else "已验收", body["progressNote"].asString)
                 }
             }
@@ -70,5 +71,33 @@ class TaskApiClientTest {
             catch(e: ApiException) { assertEquals(401, e.status) }
         }
     }
+    @Test fun statusOnlyFeedbackSendsStateAndKeepsPercentageUnknown() {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody(task(0,"doing","实际工作说明").replace("\"progress\":0", "\"progress\":null")))
+            server.start()
+            val api=ApiClient(server.url("/").toString())
+            val me=Session(api.server,"token",3,"STAFF",null,"staff")
+            val input=com.google.gson.Gson().fromJson("""{"status":"doing","progress":null,"progressNote":"实际工作说明"}""",TaskProgressInput::class.java)
+            val result=api.saveProgress(me,19,input)
+            assertEquals("doing",result.status)
+            assertNull(result.progress)
+            val body=JsonParser.parseString(server.takeRequest().body.readUtf8()).asJsonObject
+            assertEquals("doing",body["status"].asString)
+            assertTrue(body["progress"].isJsonNull)
+        }
+    }
+
+    @Test fun contradictoryExplicitFeedbackNeverReachesNetwork() {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody(task(40,"doing","说明")))
+            server.start()
+            val api=ApiClient(server.url("/").toString())
+            val me=Session(api.server,"token",3,"STAFF",null,"staff")
+            val input=com.google.gson.Gson().fromJson("""{"status":"done","progress":40,"progressNote":"说明"}""",TaskProgressInput::class.java)
+            try {api.saveProgress(me,19,input);fail("contradictory feedback accepted")}catch(_:IllegalArgumentException) {}
+            assertEquals(0,server.requestCount)
+        }
+    }
+
     private fun task(progress: Int, status: String, note: String) = """{"id":19,"title":"核对合同","detail":"核对条款","priority":"high","status":"$status","dueAt":"2026-10-10T15:59:59Z","progress":$progress,"progressNote":"$note","createdBy":2,"assigneeId":3,"creatorName":"领导","assigneeName":"负责人","createdAt":"2026-10-09T01:00:00Z","updatedAt":"2026-10-09T02:00:00Z"}"""
 }

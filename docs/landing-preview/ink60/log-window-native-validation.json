@@ -1,0 +1,19 @@
+{
+  "loginCopyRemoved": true,
+  "connectionInitiallyCollapsed": true,
+  "connectionToggle": true,
+  "headerButtonsPixels": {
+    "write": [
+      231,
+      126
+    ],
+    "refresh": [
+      231,
+      126
+    ]
+  },
+  "oldRecordFullyReadable": true,
+  "oldRecordHasNoWriteActions": true,
+  "sevenDaysAgoUpdateSucceeded": true,
+  "realBackendPort": 18842
+}

@@ -36,6 +36,13 @@ public class GlobalExceptionHandler {
                 "请求格式不正确，请检查日期和 JSON", request.getRequestURI()));
     }
 
+    @ExceptionHandler({org.springframework.dao.OptimisticLockingFailureException.class,
+                       org.springframework.dao.PessimisticLockingFailureException.class,
+                       org.springframework.dao.DataIntegrityViolationException.class})
+    public ResponseEntity<ApiError> handleConflict(Exception ex, HttpServletRequest request) {
+        return ResponseEntity.status(409).body(ApiError.of(409, "Conflict", "数据已变化或发生冲突，请刷新后重试", request.getRequestURI()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleOther(Exception ex, HttpServletRequest request) {
         return ResponseEntity.status(500)

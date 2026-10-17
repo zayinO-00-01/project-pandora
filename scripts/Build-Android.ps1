@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param([string]$SdkPath,[string]$JavaHome,[switch]$RunTests)
 $ErrorActionPreference='Stop'
 $repoPath=Split-Path -Parent $PSScriptRoot

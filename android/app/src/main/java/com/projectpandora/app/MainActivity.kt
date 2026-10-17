@@ -4,27 +4,27 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.SystemBarStyle
 import androidx.activity.viewModels
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.projectpandora.app.ui.PandoraApp
+import com.projectpandora.app.ui.ControlTheme
 
 class MainActivity: ComponentActivity() {
     private val model: PandoraViewModel by viewModels()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        volumeControlStream=android.media.AudioManager.STREAM_MUSIC
         enableEdgeToEdge()
         setContent {
-            MaterialTheme(colorScheme=lightColorScheme(
-                primary=Color(0xFF183F35), onPrimary=Color(0xFFF5F3ED),
-                secondary=Color(0xFFAF663F), secondaryContainer=Color(0xFFF1E3D2),
-                background=Color(0xFFF5F3ED), surface=Color(0xFFFFFEF9),
-                surfaceVariant=Color(0xFFE8EDDF), onSurfaceVariant=Color(0xFF536451),
-                outline=Color(0xFF8B9783)
-            )) {
-                val state by model.state.collectAsStateWithLifecycle()
+            val state by model.state.collectAsStateWithLifecycle()
+            ControlTheme(forceLight=state.session==null,onAppearanceChange={dark->
+                val bars=if(dark)SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                    else SystemBarStyle.light(android.graphics.Color.TRANSPARENT,android.graphics.Color.TRANSPARENT)
+                enableEdgeToEdge(statusBarStyle=bars,navigationBarStyle=bars)
+            }) {
                 PandoraApp(state,model)
             }
         }

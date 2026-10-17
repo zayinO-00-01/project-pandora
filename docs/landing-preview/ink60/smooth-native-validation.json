@@ -1,0 +1,55 @@
+{
+  "loginGroupCenterY": 1182.0,
+  "screenHeight": 2400,
+  "connectionInitiallyCollapsed": true,
+  "squareTouchBoundsPixels": {
+    "写日志": [
+      126,
+      126
+    ],
+    "刷新": [
+      126,
+      126
+    ]
+  },
+  "iconOnlyWithAccessibleLabels": true,
+  "writeAndRefreshOperate": true,
+  "bothThemesVerified": true,
+  "wordmarkAccessible": true,
+  "keyboardReachable": true,
+  "finalFrameLifecycleRestore": true,
+  "steadyPlayback": {
+    "hardwareGpu": "NVIDIA GeForce RTX 5060 Laptop GPU; emulator -gpu host",
+    "codec": "c2.goldfish.h264.decoder",
+    "requestedFps": 60,
+    "samples": [
+      {
+        "run": 1,
+        "decodedFrames": 542,
+        "decoderDroppedFrames": 14,
+        "dropRatio": 0.025830258302583026
+      },
+      {
+        "run": 2,
+        "decodedFrames": 542,
+        "decoderDroppedFrames": 11,
+        "dropRatio": 0.02029520295202952
+      },
+      {
+        "run": 3,
+        "decodedFrames": 542,
+        "decoderDroppedFrames": 5,
+        "dropRatio": 0.00922509225092251
+      }
+    ],
+    "noUIAutomationDuringPlayback": true,
+    "apkSha256": "8EAF169A83435489F4A84AC6619531F8CA5FCA5897D2F84EA98955679AF951D2",
+    "version": "0.4.29-smooth-login / 32"
+  },
+  "layoutPlaybackMetricsBeforeLifecycleFix": "--------- beginning of main\r\n10-12 12:26:59.888  3414  3414 I InkPlayback: completed PersistableBundle[{android.media.mediaplayer.fps=60.0, android.media.mediaplayer.durationMs=9017, android.media.mediaplayer.dataSource=GenFD, android.media.mediaplayer.dropped=18, android.media.mediaplayer.video.codec=c2.goldfish.h264.decoder, _key=nuplayer, _uid=10235, android.media.mediaplayer.video.mime=video/avc, android.media.mediaplayer.width=540, android.media.mediaplayer.frames=542, android.media.mediaplayer.height=960, android.media.mediaplayer.playingMs=9848}]\r\n",
+  "lifecyclePlayback": {
+    "midPlaybackBackgroundAndResumeCompleted": true,
+    "playbackMetrics": "--------- beginning of main\r\n10-12 12:43:44.580  5161  5161 I InkPlayback: completed PersistableBundle[{android.media.mediaplayer.fps=60.0, android.media.mediaplayer.durationMs=9017, android.media.mediaplayer.dataSource=GenFD, android.media.mediaplayer.dropped=6, android.media.mediaplayer.video.codec=c2.goldfish.h264.decoder, _key=nuplayer, _uid=10235, android.media.mediaplayer.video.mime=video/avc, android.media.mediaplayer.width=540, android.media.mediaplayer.frames=542, android.media.mediaplayer.height=960, android.media.mediaplayer.playingMs=9419}]\r\n"
+  },
+  "apkSha256": "8EAF169A83435489F4A84AC6619531F8CA5FCA5897D2F84EA98955679AF951D2"
+}

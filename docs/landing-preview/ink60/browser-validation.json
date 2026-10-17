@@ -1,0 +1,137 @@
+{
+  "scan": {
+    "state": "passed",
+    "checked": 541,
+    "distinctFrames": 534,
+    "fps": 60,
+    "seamsIdentical": true,
+    "decodedTimestampsVerified": true
+  },
+  "responsive": [
+    {
+      "p": 0,
+      "x": 0,
+      "width": 320,
+      "documentWidth": 320,
+      "time": 0,
+      "final": false
+    },
+    {
+      "p": 0.18,
+      "x": 0,
+      "width": 320,
+      "documentWidth": 320,
+      "time": 1.616666,
+      "final": false
+    },
+    {
+      "p": 0.5,
+      "x": 0,
+      "width": 320,
+      "documentWidth": 320,
+      "time": 4.5,
+      "final": false
+    },
+    {
+      "p": 1,
+      "x": 0,
+      "width": 320,
+      "documentWidth": 320,
+      "time": 9,
+      "final": true
+    },
+    {
+      "p": 0.25,
+      "x": 0,
+      "width": 320,
+      "documentWidth": 320,
+      "time": 2.25,
+      "final": false
+    },
+    {
+      "p": 0,
+      "x": 0,
+      "width": 390,
+      "documentWidth": 390,
+      "time": 0,
+      "final": false
+    },
+    {
+      "p": 0.18,
+      "x": 0,
+      "width": 390,
+      "documentWidth": 390,
+      "time": 1.616666,
+      "final": false
+    },
+    {
+      "p": 0.5,
+      "x": 0,
+      "width": 390,
+      "documentWidth": 390,
+      "time": 4.5,
+      "final": false
+    },
+    {
+      "p": 1,
+      "x": 0,
+      "width": 390,
+      "documentWidth": 390,
+      "time": 9,
+      "final": true
+    },
+    {
+      "p": 0.25,
+      "x": 0,
+      "width": 390,
+      "documentWidth": 390,
+      "time": 2.25,
+      "final": false
+    },
+    {
+      "p": 0,
+      "x": 0,
+      "width": 768,
+      "documentWidth": 768,
+      "time": 0,
+      "final": false
+    },
+    {
+      "p": 0.18,
+      "x": 0,
+      "width": 768,
+      "documentWidth": 768,
+      "time": 1.616666,
+      "final": false
+    },
+    {
+      "p": 0.5,
+      "x": 0,
+      "width": 768,
+      "documentWidth": 768,
+      "time": 4.5,
+      "final": false
+    },
+    {
+      "p": 1,
+      "x": 0,
+      "width": 768,
+      "documentWidth": 768,
+      "time": 9,
+      "final": true
+    },
+    {
+      "p": 0.25,
+      "x": 0,
+      "width": 768,
+      "documentWidth": 768,
+      "time": 2.25,
+      "final": false
+    }
+  ],
+  "directLogin": true,
+  "finalLogin": true,
+  "reducedMotion": true,
+  "videoFailureFallback": true,
+  "pageErrors": []
+}
