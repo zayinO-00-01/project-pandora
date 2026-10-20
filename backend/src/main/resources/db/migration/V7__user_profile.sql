@@ -1,0 +1,11 @@
+ALTER TABLE users ADD COLUMN phone VARCHAR(20) NULL;
+ALTER TABLE users ADD COLUMN id_card VARCHAR(20) NULL;
+ALTER TABLE users ADD COLUMN birth_date DATE NULL;
+ALTER TABLE users ADD COLUMN gender VARCHAR(16) NULL;
+ALTER TABLE users ADD COLUMN hire_date DATE NULL;
+ALTER TABLE users ADD COLUMN emergency_contact VARCHAR(64) NULL;
+ALTER TABLE users ADD COLUMN emergency_phone VARCHAR(20) NULL;
+ALTER TABLE users ADD COLUMN address VARCHAR(255) NULL;
+
+CREATE UNIQUE INDEX uk_users_phone ON users (phone);
+CREATE UNIQUE INDEX uk_users_id_card ON users (id_card);
