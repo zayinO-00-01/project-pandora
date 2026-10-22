@@ -60,7 +60,7 @@ class IntegratedPolicyTests {
             .content(json.writeValueAsString(changes))).andExpect(status().is(expected));
     }
     @Test void expiredDraftCannotBeSubmitted() throws Exception {
-        var historic=new WorkLogEntity();historic.setUserId(user("staff").getId());historic.setLogDate(today().minusDays(8));
+        var historic=new WorkLogEntity();historic.setUserId(user("staff").getId());historic.setLogDate(today().minusDays(4));
         historic.setContent("过期草稿");historic.setStatus("draft");logs.saveAndFlush(historic);
         mvc.perform(post("/api/v1/logs/"+historic.getId()+"/submit").header("Authorization",token("staff")))
             .andExpect(status().isForbidden());
@@ -92,23 +92,23 @@ class IntegratedPolicyTests {
         mvc.perform(post("/api/v1/logs").header("Authorization",admin).contentType(MediaType.APPLICATION_JSON).content(logBody(today(),"submitted")))
             .andExpect(status().isForbidden());
     }
-    @Test void writeWindowIncludesEightShanghaiDatesAndBlocksOldOriginalDate() throws Exception {
+    @Test void writeWindowIncludesFourShanghaiDatesAndBlocksOldOriginalDate() throws Exception {
         String staff=token("staff");
-        for(LocalDate date: new LocalDate[]{today().minusDays(7),today()}) createLog(staff,date,"submitted");
-        for(LocalDate date: new LocalDate[]{today().minusDays(8),today().plusDays(1)})
+        for(LocalDate date: new LocalDate[]{today().minusDays(3),today()}) createLog(staff,date,"submitted");
+        for(LocalDate date: new LocalDate[]{today().minusDays(4),today().plusDays(1)})
             mvc.perform(post("/api/v1/logs").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(logBody(date,"draft")))
                 .andExpect(status().isBadRequest());
-        var historic=new WorkLogEntity(); historic.setUserId(user("staff").getId());historic.setLogDate(today().minusDays(8));
+        var historic=new WorkLogEntity(); historic.setUserId(user("staff").getId());historic.setLogDate(today().minusDays(4));
         historic.setContent("历史记录");historic.setStatus("draft");logs.saveAndFlush(historic);
         mvc.perform(put("/api/v1/logs/"+historic.getId()).header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(logBody(today(),"submitted")))
             .andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/logs/"+historic.getId()+"/submit").header("Authorization",staff)).andExpect(status().isForbidden());
-        mvc.perform(get("/api/v1/logs").param("date",today().minusDays(8).toString()).header("Authorization",staff))
+        mvc.perform(get("/api/v1/logs").param("date",today().minusDays(4).toString()).header("Authorization",staff))
             .andExpect(status().isOk()).andExpect(jsonPath("$[0].content").value("历史记录"));
     }
     @Test void submittedEditKeepsIdAndStatusAndRejectsOutOfWindowDestination() throws Exception {
-        String staff=token("staff");var log=createLog(staff,today().minusDays(7),"submitted");long id=log.get("id").asLong();
-        mvc.perform(put("/api/v1/logs/"+id).header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(logBody(today().minusDays(8),"submitted")))
+        String staff=token("staff");var log=createLog(staff,today(),"submitted");long id=log.get("id").asLong();
+        mvc.perform(put("/api/v1/logs/"+id).header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(logBody(today().minusDays(4),"submitted")))
             .andExpect(status().isBadRequest());
         mvc.perform(put("/api/v1/logs/"+id).header("Authorization",staff).contentType(MediaType.APPLICATION_JSON)
             .content(json.writeValueAsString(Map.of("logDate",today().toString(),"content","已修改"))))

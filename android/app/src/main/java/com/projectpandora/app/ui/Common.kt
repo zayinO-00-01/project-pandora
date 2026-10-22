@@ -43,7 +43,7 @@ import androidx.compose.material.icons.outlined.Warning
 @Composable fun DateButton(date: String, enabled: Boolean=true,minDate: LocalDate?=null, onDate: (String)->Unit) {
     val context=LocalContext.current
     val dark=LocalAppearance.current.mode==Appearance.DARK
-    TextButton(enabled=enabled,colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface),contentPadding=PaddingValues(horizontal=0.dp,vertical=8.dp),onClick={
+    ControlTextButton(enabled=enabled,colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface),contentPadding=PaddingValues(horizontal=0.dp,vertical=8.dp),onClick={
         val current=runCatching {LocalDate.parse(date)}.getOrDefault(today())
         val dialogContext=ContextThemeWrapper(context,if(dark)android.R.style.Theme_Material_Dialog_Alert else android.R.style.Theme_Material_Light_Dialog_Alert)
         DatePickerDialog(dialogContext,{_,y,m,d -> onDate(LocalDate.of(y,m+1,d).toString())},current.year,current.monthValue-1,current.dayOfMonth).apply {
@@ -59,10 +59,10 @@ import androidx.compose.material.icons.outlined.Warning
         Row(Modifier.fillMaxWidth().heightIn(min=48.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             Icon(Icons.Outlined.Warning,null,tint=MaterialTheme.colorScheme.error,modifier=Modifier.size(16.dp))
             Text(summary,modifier=Modifier.weight(1f),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error,maxLines=2)
-            TextButton(onClick={expanded=true},colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurfaceVariant),contentPadding=PaddingValues(horizontal=8.dp)) {Text("详情",style=MaterialTheme.typography.labelMedium)}
-            if(onRetry!=null)TextButton(onClick=onRetry,enabled=retryEnabled,contentPadding=PaddingValues(horizontal=8.dp)) {Text("重试",style=MaterialTheme.typography.labelMedium)}
+            ControlTextButton(onClick={expanded=true},colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurfaceVariant),contentPadding=PaddingValues(horizontal=8.dp)) {Text("详情",style=MaterialTheme.typography.labelMedium)}
+            if(onRetry!=null)ControlTextButton(onClick=onRetry,enabled=retryEnabled,contentPadding=PaddingValues(horizontal=8.dp)) {Text("重试",style=MaterialTheme.typography.labelMedium)}
         }
-        if(expanded)AlertDialog(onDismissRequest={expanded=false},title={Text(summary)},text={Text(text)},confirmButton={TextButton(onClick={expanded=false}) {Text("关闭")}})
+        if(expanded)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={expanded=false},title={Text(summary)},text={Text(text)},confirmButton={ControlTextButton(onClick={expanded=false}) {Text("关闭")}})
         return
     }
     Surface(color=if(error)MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,

@@ -10,7 +10,8 @@ context: |
   API 前缀：/api/v1。当前本地一键演示，云部署暂缓，不要硬编码服务IP。
   CI 测试不得使用云端数据库。
   一期排除：AI 地图、MBTI、跨公司匹配、分层审批、图表。
-  角色：ADMIN（仅Web账号管理）、FOUNDER、DEPT_HEAD、TEAM_LEAD、STAFF（App业务）。公司事项发布角色待老师确认，本周不做。
+  本分支后端基于 zayin，角色为 ADMIN、LEADER、STAFF。
+  安卓设计按 main 2026-10-09 文档接受 STAFF、TEAM_LEAD、DEPT_HEAD、FOUNDER，并兼容旧 LEADER；ADMIN 仅 Web。
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.

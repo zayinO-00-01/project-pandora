@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
     [string]$BaseUrl = 'http://localhost:8080',
     [string]$Username = 'staff',

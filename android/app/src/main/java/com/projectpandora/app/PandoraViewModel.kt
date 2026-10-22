@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.update
 data class AppState(
     val session: Session? = null, val server: String = "", val username: String = "staff",
     val developmentPreview: Boolean = false,
+    val localPriorities: LocalPriorities = LocalPriorities(),
     val busyLogin: Boolean = false, val loading: Boolean = false, val saving: Boolean = false,
     val logs: List<WorkLog> = emptyList(), val panels: PanelMap? = null,
     val tasks: List<DispatchTask> = emptyList(), val taskLoading: Boolean = false,
@@ -25,10 +26,12 @@ data class AppState(
     val logError: String? = null, val panelError: String? = null, val authError: String? = null,
     val editor: EditBuffer? = null, val editorError: String? = null,
     val screen: String = "home", val selectedDate: String = today().toString(), val calendarMode: String = "month",
+    val checkingIntegrity: Boolean = false, val integrityDate: String? = null, val integrityError: String? = null,
     val notice: String? = null
 )
 class PandoraViewModel(app: Application): AndroidViewModel(app) {
     private val store = SessionStore(app)
+    private val priorityStore = PriorityStore(app)
     private val mutable = MutableStateFlow(AppState(server=store.server(), username=store.username()))
     val state = mutable.asStateFlow()
     private var refreshJob: Job? = null
@@ -46,8 +49,39 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         // This local identity is never stored as a login or sent to any server.
         val preview=Session("本地开发预览","",-1,"STAFF","开发预览","developer")
         mutable.value=AppState(session=preview,server=state.value.server,username=state.value.username,
-            developmentPreview=true,panels=PanelMap(),
+            developmentPreview=true,localPriorities=priorityStore.read(preview),
+            panels=PanelMap(companyImportant=CompanyPriorityExamples.items),integrityDate=today().toString(),
             notice="开发预览：可查看页面及编辑布局，真实数据和保存需登录。")
+    }
+    private fun savePriorities(value: LocalPriorities) {
+        val session=state.value.session ?: return
+        priorityStore.save(session,value)
+        mutable.update {it.copy(localPriorities=value,notice="已保存到本机，尚未同步服务器。")}
+    }
+    private fun personalPriorities()=state.value.localPriorities.personal ?: state.value.panels?.personalTop.orEmpty().sortedBy {it.sortOrder}
+    fun savePersonalPriority(id: Long?,title: String,detail: String) {
+        if(title.isBlank() || title.length>120 || detail.length>2000)return
+        val current=personalPriorities()
+        if(id==null && current.size>=10)return
+        if(id!=null && current.none {it.id==id})return
+        val entry=PanelItem(id ?: ((current.minOfOrNull {it.id} ?: 0L).coerceAtMost(0L)-1),title.trim(),null,null,detail.trim())
+        val items=if(id==null)current+entry else current.map {if(it.id==id)entry else it}
+        savePriorities(state.value.localPriorities.copy(personal=items.mapIndexed {index,item->item.copy(sortOrder=index)}))
+    }
+    fun deletePersonalPriority(id: Long) {savePriorities(state.value.localPriorities.copy(personal=personalPriorities().filterNot {it.id==id}))}
+    fun previewPersonalPriorityOrder(id: Long,targetId: Long) {
+        val reordered=reorderedPriorities(personalPriorities(),id,targetId)
+        mutable.update {it.copy(localPriorities=it.localPriorities.copy(personal=reordered))}
+    }
+    fun finishPersonalPriorityOrder(originalIds: List<Long>,originalPersonal: List<PanelItem>?,cancelled: Boolean) {
+        val current=personalPriorities()
+        if(cancelled || current.map {it.id}==originalIds) {
+            mutable.update {it.copy(localPriorities=it.localPriorities.copy(personal=originalPersonal))}
+        } else savePriorities(state.value.localPriorities.copy(personal=current))
+    }
+    fun saveCompanyRemark(id: Long,note: String) {
+        if(note.length>2000 || state.value.panels?.companyImportant?.none {it.id==id}!=false)return
+        savePriorities(state.value.localPriorities.copy(remarks=state.value.localPriorities.remarks+(id to note)))
     }
     fun loadOrganization() {
         val me=state.value.session ?: return
@@ -139,7 +173,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         val pending=store.buffer(session)
         val taskPending=store.taskBuffer(session)
         val dispatchPending=if(AppRoles.canDispatch(session.role))store.dispatchBuffer(session) else null
-        mutable.value=AppState(session=session,server=session.server,username=session.username,
+        mutable.value=AppState(session=session,server=session.server,username=session.username,localPriorities=priorityStore.read(session),
             editor=pending,taskEditor=taskPending,selectedTaskId=taskPending?.taskId,dispatchEditor=dispatchPending,
             screen=if(pending!=null)"logs" else if(taskPending!=null || dispatchPending!=null)"tasks" else "home",
             notice=if(pending==null && taskPending==null && dispatchPending==null)null else "已恢复上次未保存的内容，请检查后保存。")
@@ -153,9 +187,9 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     }
     fun screen(name: String) {
         if(state.value.saving || state.value.editor!=null)return
-        mutable.update {it.copy(screen=name,notice=null)}
+        mutable.update {it.copy(screen=name,selectedTaskId=null,dispatchOpen=false,notice=null)}
         if(name=="organization")loadOrganization()
-        if(name=="home" || name=="tasks")refresh()
+        if(name in listOf("home","tasks","functions"))refresh()
     }
     fun openDispatch() {
         val current=state.value
@@ -380,6 +414,32 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             taskResult.onSuccess {tasks->mutable.update {it.copy(tasks=tasks)}}
                 .onFailure {e->mutable.update {it.copy(taskError=message(e))}}
             mutable.update {it.copy(loading=false,taskLoading=false)}
+        }
+    }
+    fun checkIntegrity(after: ()->Unit = {}) {
+        if(state.value.developmentPreview) {
+            mutable.update {it.copy(integrityDate=today().toString())}
+            after();return
+        }
+        val current=state.value
+        val me=current.session ?: return
+        if(current.integrityDate==today().toString()) {after();return}
+        if(current.checkingIntegrity)return
+        val gen=generation
+        mutable.update {it.copy(checkingIntegrity=true,integrityError=null)}
+        viewModelScope.launch {
+            try {
+                val result=withContext(Dispatchers.IO) {api(me).integrity(me)}
+                if(gen!=generation)return@launch
+                if(!result.ok)throw ApiException(0,result.message ?: "完整性校验失败，请重试")
+                mutable.update {it.copy(checkingIntegrity=false,integrityDate=today().toString(),integrityError=null)}
+                after()
+            } catch(e: CancellationException) {throw e}
+              catch(e: Exception) {
+                if(gen!=generation)return@launch
+                if(e is ApiException && e.status==401)failure(e,false)
+                else mutable.update {it.copy(checkingIntegrity=false,integrityError=message(e))}
+            }
         }
     }
     private fun failure(e: Throwable, editor: Boolean, taskEditor: Boolean = false) {

@@ -52,14 +52,15 @@ import androidx.compose.ui.semantics.contentDescription
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                 if(!dayOnly && allDates)Text("全部记录 · ${logs.size} 条",modifier=Modifier.padding(vertical=14.dp),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 else DateButton(state.selectedDate,!state.saving) {allDates=false;model.selectDate(it)}
-                if(!dayOnly)TextButton(onClick={allDates=!allDates},enabled=!state.saving,colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.secondary)) {Text(if(allDates)"按日期筛选" else "全部记录",style=MaterialTheme.typography.labelMedium)}
+                if(!dayOnly)ControlTextButton(onClick={allDates=!allDates},enabled=!state.saving,colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.secondary)) {Text(if(allDates)"按日期筛选" else "全部记录",style=MaterialTheme.typography.labelMedium)}
             }
             if(dayOnly)Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                 ControlOutlinedButton(onClick={model.selectDate(LocalDate.parse(state.selectedDate).minusDays(1).toString())}) {Text("← 前一天")}
-                TextButton(onClick={model.selectDate(today().toString())}) {Text("回到今天")}
+                ControlTextButton(onClick={model.selectDate(today().toString())}) {Text("回到今天")}
             }
             state.logError?.let {Hint("读取失败：$it\n下面可能是上次成功读取的记录，请刷新。",true)}
             if(state.loading)LinearProgressIndicator(Modifier.fillMaxWidth())
+            if(state.checkingIntegrity)Hint("正在校验日志连接，请稍候。")
             HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
         }}
         if(logs.isEmpty() && !state.loading && state.logError==null)item {
@@ -92,21 +93,22 @@ import androidx.compose.ui.semantics.contentDescription
     val readOnly=logEditorReadOnly(editor,state.logs)
     var discard by remember {mutableStateOf(false)}
     BackHandler {if(!state.saving) {if(readOnly)model.discardEditor() else discard=true}}
-    if(discard)AlertDialog(containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={discard=false},title={Text("放弃这次修改？")},text={Text("未保存内容会被清除，服务器里的日志不会改变。")},confirmButton={TextButton(onClick={discard=false;model.discardEditor()}) {Text("放弃修改")}},dismissButton={TextButton(onClick={discard=false}) {Text("继续编辑")}})
+    if(discard)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={discard=false},title={Text("放弃这次修改？")},text={Text("未保存内容会被清除，服务器里的日志不会改变。")},confirmButton={ControlTextButton(onClick={discard=false;model.discardEditor()}) {Text("放弃修改")}},dismissButton={ControlTextButton(onClick={discard=false}) {Text("继续编辑")}})
     Column(Modifier.fillMaxSize().imePadding().padding(horizontal=20.dp)) {
         LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=20.dp)) {
-            item {ScreenHeading(if(readOnly)"查看工作日志" else if(editor.logId==null)"新建工作日志" else "编辑工作日志",if(readOnly)"此记录已超出修改期限，内容仅供查看。" else "可更新七天前至今天的日志。")}
+            item {ScreenHeading(if(readOnly)"查看工作日志" else if(editor.logId==null)"新建工作日志" else "编辑工作日志",if(readOnly)"此记录已超出修改期限，内容仅供查看。" else "可补录今天及往前 3 天；仅当天日报可修改。")}
             item {Text(if(readOnly)"历史日志完整保留。" else if(editor.status=="submitted")"保存后，领导刷新即可看到最新内容。" else "草稿仅自己可见，提交后领导才能查看。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-            item {DateButton(editor.date,!state.saving && !readOnly,minDate=if(readOnly)null else today().minusDays(7)) {model.changeEditor(date=it)}}
+            item {DateButton(editor.date,!state.saving && !readOnly && editor.logId==null,minDate=if(readOnly)null else today().minusDays(3)) {model.changeEditor(date=it)}}
+            if(editor.logId==null && editor.date!=today().toString())item {Hint("补录历史日报后将立即只读，不能再次修改。请确认内容后直接提交。")}
             item {OutlinedTextField(value=editor.content,onValueChange={if(it.length<=5000)model.changeEditor(content=it)},readOnly=readOnly,label={Text("工作记录")},placeholder={Text("今天完成了什么？遇到哪些问题？下一步准备做什么？")},enabled=!state.saving,modifier=Modifier.fillMaxWidth().heightIn(min=260.dp),minLines=9,supportingText={Text("${editor.content.length} / 5000")})}
             state.editorError?.let {item {Hint(it,true)}}
         }
         Row(Modifier.fillMaxWidth().padding(vertical=12.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            if(readOnly)TextButton(onClick={model.discardEditor()},enabled=!state.saving) {Text("返回")}
+            if(readOnly)ControlTextButton(onClick={model.discardEditor()},enabled=!state.saving) {Text("返回")}
             else {
-            TextButton(onClick={discard=true},enabled=!state.saving) {Text("取消")}
-            if(editor.status!="submitted")ControlOutlinedButton(onClick={model.save("draft")},enabled=!state.saving) {Text("存草稿")}
-            ControlButton(onClick={model.save("submitted")},enabled=!state.saving,modifier=Modifier.weight(1f)) {Text(if(state.saving)"保存中…" else if(editor.status=="submitted")"保存修改" else "提交日志")}
+            ControlTextButton(onClick={discard=true},enabled=!state.saving) {Text("取消")}
+            if(editor.status!="submitted" && editor.date==today().toString())ControlOutlinedButton(onClick={model.save("draft")},enabled=!state.saving) {Text("存草稿")}
+            ControlButton(onClick={model.save("submitted")},enabled=!state.saving && !state.checkingIntegrity,modifier=Modifier.weight(1f)) {Text(if(state.saving)"保存中…" else if(editor.status=="submitted")"保存修改" else "提交日志")}
             }
         }
     }

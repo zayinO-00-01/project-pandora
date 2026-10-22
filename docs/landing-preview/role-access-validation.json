@@ -1,0 +1,23 @@
+{
+  "founder": {
+    "title": "公司总览",
+    "authorized_descendants": 3,
+    "ui_verified": true
+  },
+  "dept": {
+    "title": "部门总览",
+    "authorized_descendants": 2,
+    "ui_verified": true
+  },
+  "team": {
+    "title": "团队总览",
+    "authorized_descendants": 1,
+    "ui_verified": true
+  },
+  "approval_flow": {
+    "pending_then_approved": true,
+    "approved_read_only": true,
+    "draft_hidden": true,
+    "revocation_visible": true
+  }
+}

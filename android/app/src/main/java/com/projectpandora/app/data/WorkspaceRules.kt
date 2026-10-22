@@ -8,11 +8,13 @@ import java.time.ZoneId
 
 fun canWriteLog(date: String,reference: LocalDate=today()): Boolean = runCatching {
     val parsed=LocalDate.parse(date)
-    parsed>=reference.minusDays(7) && parsed<=reference
+    parsed>=reference.minusDays(3) && parsed<=reference
 }.getOrDefault(false)
 
+fun canModifyLog(date: String,reference: LocalDate=today()): Boolean = date==reference.toString()
+
 fun logEditorReadOnly(buffer: EditBuffer,logs: List<WorkLog>): Boolean = buffer.logId!=null &&
-    !canWriteLog(logs.firstOrNull {it.id==buffer.logId}?.logDate ?: "")
+    !canModifyLog(logs.firstOrNull {it.id==buffer.logId}?.logDate ?: "")
 
 object AppRoles {
     fun canViewDown(role: String)=role in setOf("FOUNDER","DEPT_HEAD","TEAM_LEAD")
@@ -38,3 +40,19 @@ fun taskDate(task: DispatchTask): LocalDate?=task.dueAt?.let {
 fun legacyTaskStatus(progress: Int?): String=when(progress) {0,null->"todo";100->"done";else->"doing"}
 fun taskStatusLabel(status: String)=when(status) {"doing"->"进行中";"done"->"已完成";else->"待开始"}
 fun taskFeedbackLabel(task: DispatchTask)=taskStatusLabel(task.status)
+
+/** Staff see only their pending work; leaders see their authored assignments, including completed ones. */
+fun dutyTasks(tasks: List<DispatchTask>,userId: Long,leader: Boolean): List<DispatchTask> =
+    orderedTasks(tasks.filter {if(leader)it.createdBy==userId else it.assigneeId==userId && it.status!="done"})
+
+fun taskPriorityRank(priority: String)=when(priority) {"high"->0;"low"->2;else->1}
+fun taskPriorityLabel(priority: String)=when(priority) {"high"->"高优先级";"low"->"低优先级";else->"普通优先级"}
+fun orderedTasks(tasks: List<DispatchTask>): List<DispatchTask> = tasks.sortedWith(
+    compareBy<DispatchTask> {it.status=="done"}.thenBy {taskPriorityRank(it.priority)}
+        .thenBy {it.dueAt?.let {due->runCatching {Instant.parse(due)}.getOrNull()} ?: Instant.MAX}.thenBy {it.id})
+
+fun reorderedPriorities(items: List<PanelItem>,id: Long,targetId: Long): List<PanelItem> {
+    val from=items.indexOfFirst {it.id==id};val to=items.indexOfFirst {it.id==targetId}
+    if(from<0 || to<0 || from==to)return items
+    return items.toMutableList().apply {add(to,removeAt(from))}.mapIndexed {index,item->item.copy(sortOrder=index)}
+}

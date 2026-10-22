@@ -28,14 +28,15 @@ import java.time.format.DateTimeFormatter
         return
     }
     BackHandler(enabled=selected!=null) {if(!state.saving)model.closeTask()}
-    if(discard)AlertDialog(containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={discard=false},title={Text("放弃未提交的反馈？")},
+    if(discard)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={discard=false},title={Text("放弃未提交的反馈？")},
         text={Text("此次输入会被清除，已保存的任务进度不会改变。")},
-        confirmButton={TextButton(onClick={discard=false;model.discardTaskEditor()}) {Text("放弃反馈")}},
-        dismissButton={TextButton(onClick={discard=false}) {Text("继续保留")}})
+        confirmButton={ControlTextButton(onClick={discard=false;model.discardTaskEditor()}) {Text("放弃反馈")}},
+        dismissButton={ControlTextButton(onClick={discard=false}) {Text("继续保留")}})
     LazyColumn(Modifier.fillMaxSize().imePadding().padding(horizontal=20.dp),
         verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=28.dp)) {
         item {Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
-            if(selected!=null)TextButton(onClick=model::closeTask,enabled=!state.saving,contentPadding=PaddingValues(0.dp)) {Text("← 返回任务列表")}
+            if(selected==null)ControlTextButton(onClick={model.screen("functions")},enabled=!state.saving,contentPadding=PaddingValues(0.dp)) {Text("← 返回职能")}
+            if(selected!=null)ControlTextButton(onClick=model::closeTask,enabled=!state.saving,contentPadding=PaddingValues(0.dp)) {Text("← 返回任务列表")}
             ScreenHeading(if(selected==null)"任务工作台" else "任务详情",if(selected==null)"接收派发，持续反馈工作进展。" else "查看责任、时间节点与最新进度。")
             if(selected==null)Text("查看任务，及时记录进展与需要协调的问题。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             if(state.taskLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -44,8 +45,8 @@ import java.time.format.DateTimeFormatter
         if(buffer!=null && buffer.taskId!=selected)item {Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
             Hint("另一个任务有未提交的反馈，离开页面会保留输入。")
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick={model.openTask(buffer.taskId)},enabled=!state.saving) {Text("继续填写")}
-                TextButton(onClick={discard=true},enabled=!state.saving) {Text("放弃反馈")}
+                ControlTextButton(onClick={model.openTask(buffer.taskId)},enabled=!state.saving) {Text("继续填写")}
+                ControlTextButton(onClick={discard=true},enabled=!state.saving) {Text("放弃反馈")}
             }
         }}
         if(selected==null) {
@@ -57,10 +58,10 @@ import java.time.format.DateTimeFormatter
             if(state.tasks.isEmpty() && !state.taskLoading && state.taskError==null)item {
                 EmptyCard("暂无派发任务","领导派发后，刷新这里即可查看。")
             }
-            items(state.tasks,key={it.id}) {row->OutlinedCard(onClick={model.openTask(row.id)},enabled=!state.saving,modifier=Modifier.fillMaxWidth()) {
+            items(orderedTasks(state.tasks),key={it.id}) {row->OutlinedCard(onClick={model.openTask(row.id)},enabled=!state.saving,modifier=Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
                     Text(row.title,style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
-                    Text("${priorityLabel(row.priority)} · ${taskFeedbackLabel(row)}",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.secondary)
+                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {TaskPriorityText(row.priority);Text(taskFeedbackLabel(row),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}
                     Text("责任人：${row.assigneeName} · 截止 ${dueLabel(row.dueAt)}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("查看详情 →",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -70,21 +71,21 @@ import java.time.format.DateTimeFormatter
             if(buffer?.taskId==selected)item {Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
                 Hint("未提交反馈仍在本机保留。刷新确认任务后即可继续填写。")
                 Text("状态：${taskStatusLabel(buffer.status ?: "todo")}\n说明：${buffer.note}",style=MaterialTheme.typography.bodyMedium)
-                TextButton(onClick={discard=true},enabled=!state.saving) {Text("放弃未提交反馈")}
+                ControlTextButton(onClick={discard=true},enabled=!state.saving) {Text("放弃未提交反馈")}
             }}
         } else {
             item {OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                 Text(task.title,style=MaterialTheme.typography.titleLarge)
-                Text("${priorityLabel(task.priority)} · ${taskFeedbackLabel(task)}",color=MaterialTheme.colorScheme.primary)
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {TaskPriorityText(task.priority);Text(taskFeedbackLabel(task),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}
                 Text(task.detail.ifBlank {"暂无任务说明"},style=MaterialTheme.typography.bodyLarge)
                 HorizontalDivider()
                 Text("派发人：${task.creatorName}\n责任人：${task.assigneeName}\n截止时间：${dueLabel(task.dueAt)}",style=MaterialTheme.typography.bodyMedium)
-                Text("创建 ${dueLabel(task.createdAt)}\n更新 ${dueLabel(task.updatedAt)}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }}}
-            item {Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            item {TaskProgressGraph(task)}
+            item {OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 Text("最新进度说明",style=MaterialTheme.typography.titleMedium)
                 Text(task.progressNote.ifBlank {"尚未反馈进度"},style=MaterialTheme.typography.bodyLarge)
-            }}
+            }}}
             if(task.assigneeId!=state.session?.userId)item {Hint("仅当前责任人可反馈进度，你可以查看任务详情。")}
             else if(buffer?.taskId==selected) {
                 item {Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -100,7 +101,7 @@ import java.time.format.DateTimeFormatter
                     supportingText={Text("${buffer.note.length} / 2000")},modifier=Modifier.fillMaxWidth())}
                 state.taskEditorError?.let {item {Hint(it,true)}}
                 item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick={discard=true},enabled=!state.saving) {Text("放弃反馈")}
+                    ControlTextButton(onClick={discard=true},enabled=!state.saving) {Text("放弃反馈")}
                     ControlButton(onClick=model::saveTaskProgress,enabled=!state.saving,modifier=Modifier.weight(1f)) {Text(if(state.saving)"提交中…" else "提交进度")}
                 }}
                 item {Text("返回或切换页面会保留输入；提交成功后同步到领导端。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
@@ -108,7 +109,6 @@ import java.time.format.DateTimeFormatter
         }
     }
 }
-private fun priorityLabel(value: String)=when(value) {"low"->"低优先级";"high"->"高优先级";else->"普通优先级"}
 private fun dueLabel(value: String?): String = if(value==null)"未设置" else runCatching {
     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.of("Asia/Shanghai")).format(Instant.parse(value))
 }.getOrDefault(value)
@@ -119,10 +119,10 @@ private fun dueLabel(value: String?): String = if(value==null)"未设置" else r
     var assigneesExpanded by remember {mutableStateOf(false)}
     var discard by remember {mutableStateOf(false)}
     val selected=state.dispatchMembers.firstOrNull {it.id==draft.assigneeId}
-    if(discard)AlertDialog(onDismissRequest={discard=false},title={Text("放弃未派发的任务？")},text={Text("本机保存的派发输入将被清除。")},
-        confirmButton={TextButton(onClick={discard=false;model.discardDispatch()}) {Text("放弃")}},dismissButton={TextButton(onClick={discard=false}) {Text("继续填写")}})
+    if(discard)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={discard=false},title={Text("放弃未派发的任务？")},text={Text("本机保存的派发输入将被清除。")},
+        confirmButton={ControlTextButton(onClick={discard=false;model.discardDispatch()}) {Text("放弃")}},dismissButton={ControlTextButton(onClick={discard=false}) {Text("继续填写")}})
     LazyColumn(Modifier.fillMaxSize().imePadding().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=28.dp)) {
-        item {TextButton(onClick=model::closeDispatch,enabled=enabled) {Text("返回任务工作台 · 保留输入")}}
+        item {ControlTextButton(onClick=model::closeDispatch,enabled=enabled) {Text("返回任务工作台 · 保留输入")}}
         item {ScreenHeading("派发任务","选择下级责任人，说明要完成的工作。")}
         item {OutlinedTextField(value=draft.title,onValueChange={model.changeDispatch(title=it.take(128))},enabled=enabled,label={Text("事项名称（必填）")},singleLine=true,supportingText={Text("${draft.title.length} / 128")},modifier=Modifier.fillMaxWidth())}
         item {Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
@@ -137,16 +137,16 @@ private fun dueLabel(value: String?): String = if(value==null)"未设置" else r
                 }
             }
             if(!state.dispatchLoading && state.dispatchMembers.isEmpty())Text("暂无可派发的下级，请管理员检查组织关系。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-            TextButton(onClick=model::loadDispatchMembers,enabled=enabled && !state.dispatchLoading) {Text("刷新人员列表")}
+            ControlTextButton(onClick=model::loadDispatchMembers,enabled=enabled && !state.dispatchLoading) {Text("刷新人员列表")}
         }}
         item {Column {Text("优先级",style=MaterialTheme.typography.labelLarge);Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            listOf("low" to "低","normal" to "普通","high" to "高").forEach {(value,label)->FilterChip(selected=draft.priority==value,onClick={model.changeDispatch(priority=value)},enabled=enabled,label={Text(label)})}
+            listOf("low" to "低","normal" to "普通","high" to "高").forEach {(value,label)->FilterChip(selected=draft.priority==value,onClick={model.changeDispatch(priority=value)},enabled=enabled,label={Text(label,color=taskPriorityColor(value))})}
         }}}
         item {DeadlinePicker(draft.dueDate,enabled) {model.changeDispatch(dueDate=it)}}
         item {OutlinedTextField(value=draft.detail,onValueChange={model.changeDispatch(detail=it.take(5000))},enabled=enabled,label={Text("详细说明")},minLines=5,supportingText={Text("${draft.detail.length} / 5000")},modifier=Modifier.fillMaxWidth())}
         state.dispatchError?.let {item {Hint(it,true)}}
         item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick={discard=true},enabled=enabled) {Text("放弃派发")}
+            ControlTextButton(onClick={discard=true},enabled=enabled) {Text("放弃派发")}
             ControlButton(onClick=model::createTask,enabled=enabled && !state.dispatchLoading && selected!=null,modifier=Modifier.weight(1f)) {Text(if(state.saving)"派发中…" else "确认派发")}
         }}
         item {Text("暂时离开会保留输入，再次登录原账号可继续填写。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}

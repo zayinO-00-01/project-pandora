@@ -25,3 +25,7 @@ data class TaskEditBuffer(val server: String, val userId: Long, val taskId: Long
 
 data class TaskCreateInput(val title: String, val detail: String, val priority: String, val assigneeId: Long, val dueAt: String?)
 data class TaskDispatchBuffer(val server: String, val userId: Long, val title: String = "", val detail: String = "", val priority: String = "normal", val assigneeId: Long? = null, val dueDate: String = "")
+
+
+data class PersonalPrioritiesInput(val items: List<PanelItem>)
+data class CompanyRemarkInput(val remark: String)

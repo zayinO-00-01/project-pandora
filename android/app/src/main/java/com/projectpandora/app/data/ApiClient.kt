@@ -26,7 +26,7 @@ object LogValidation {
     fun error(date: String, content: String, status: String): String? {
         val parsed=try {LocalDate.parse(date)} catch(_:Exception) {return "请选择有效的日志日期"}
         if(parsed>today())return "日志日期不能晚于今天"
-        if(!canWriteLog(date))return "仅可更新七天前至今天的日志"
+        if(!canWriteLog(date))return "可创建今天及往前 3 天的日报"
         if(content.isBlank())return "工作记录不能为空"
         if(content.length>5000)return "工作记录不能超过5000字"
         if(status !in listOf("draft","submitted"))return "无效的日志状态"
@@ -86,7 +86,10 @@ class ApiClient(address: String) {
     fun panels(session: Session): PanelMap = request("/panels/map","GET",null,session,PanelMap::class.java)
     fun save(session: Session, id: Long?, input: LogInput): WorkLog {
         LogValidation.error(input.logDate,input.content,input.status)?.let {throw IllegalArgumentException(it)}
-        if(id!=null)require(id>0) {"无效的日志编号"}
+        if(id!=null) {
+            require(id>0) {"无效的日志编号"}
+            require(canModifyLog(input.logDate)) {"仅能修改今天的日报"}
+        }
         return request(if(id==null)"/logs" else "/logs/$id",if(id==null)"POST" else "PUT",input,session,WorkLog::class.java)
     }
     fun submit(session: Session, id: Long): WorkLog {

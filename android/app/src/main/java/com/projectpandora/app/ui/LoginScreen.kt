@@ -47,7 +47,7 @@ import com.projectpandora.app.BuildConfig
         }
         OutlinedTextField(value=username,onValueChange={username=it},label={Text("账号")},modifier=Modifier.fillMaxWidth(),singleLine=true,enabled=!state.busyLogin,colors=OutlinedTextFieldDefaults.colors(focusedContainerColor=ConsoleTokens.Paper.copy(alpha=0.94f),unfocusedContainerColor=ConsoleTokens.Paper.copy(alpha=0.94f)))
         OutlinedTextField(value=password,onValueChange={password=it},label={Text("密码")},visualTransformation=if(visible)VisualTransformation.None else PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth(),singleLine=true,enabled=!state.busyLogin,colors=OutlinedTextFieldDefaults.colors(focusedContainerColor=ConsoleTokens.Paper.copy(alpha=0.94f),unfocusedContainerColor=ConsoleTokens.Paper.copy(alpha=0.94f)),
-            trailingIcon={TextButton(onClick={visible=!visible},enabled=!state.busyLogin) {Text(if(visible)"隐藏" else "显示")}})
+            trailingIcon={ControlTextButton(onClick={visible=!visible},enabled=!state.busyLogin) {Text(if(visible)"隐藏" else "显示")}})
         state.authError?.let {Hint(it,true)}
         ControlButton(onClick={onLogin(server,username,password)},enabled=!state.busyLogin,modifier=Modifier.fillMaxWidth()) {
             if(state.busyLogin)CircularProgressIndicator(Modifier.size(20.dp),strokeWidth=2.dp,color=MaterialTheme.colorScheme.onPrimary)
@@ -58,5 +58,7 @@ import com.projectpandora.app.BuildConfig
     }
     }
     }
+    if(BuildConfig.DEBUG)ControlTextButton(onClick=onDevelopmentEntry,enabled=!state.busyLogin,
+        modifier=Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top=12.dp,end=16.dp)) {Text("开发直接进入")}
     }
 }

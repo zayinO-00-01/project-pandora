@@ -31,7 +31,7 @@ import java.time.format.DateTimeFormatter
             },enabled=enabled,modifier=Modifier.weight(1f).heightIn(min=48.dp)) {
                 Text(selected?.format(DateTimeFormatter.ofPattern("M月d日 HH:mm")) ?: if(value.isNotBlank())"重新选择截止时间" else "选择日期和时间")
             }
-            if(value.isNotBlank())TextButton(onClick={onChange("")},enabled=enabled,modifier=Modifier.heightIn(min=48.dp)) {Text("清除")}
+            if(value.isNotBlank())ControlTextButton(onClick={onChange("")},enabled=enabled,modifier=Modifier.heightIn(min=48.dp)) {Text("清除")}
         }
         Text("按北京时间安排；不选择则不限制截止时间。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }

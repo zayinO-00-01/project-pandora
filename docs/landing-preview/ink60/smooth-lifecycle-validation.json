@@ -1,0 +1,4 @@
+{
+  "midPlaybackBackgroundAndResumeCompleted": true,
+  "playbackMetrics": "--------- beginning of main\r\n10-12 12:43:44.580  5161  5161 I InkPlayback: completed PersistableBundle[{android.media.mediaplayer.fps=60.0, android.media.mediaplayer.durationMs=9017, android.media.mediaplayer.dataSource=GenFD, android.media.mediaplayer.dropped=6, android.media.mediaplayer.video.codec=c2.goldfish.h264.decoder, _key=nuplayer, _uid=10235, android.media.mediaplayer.video.mime=video/avc, android.media.mediaplayer.width=540, android.media.mediaplayer.frames=542, android.media.mediaplayer.height=960, android.media.mediaplayer.playingMs=9419}]\r\n"
+}

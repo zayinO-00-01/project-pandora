@@ -7,11 +7,11 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.MockResponse
 
 class WorkspaceRulesTest {
-    @Test fun logWindowIncludesSevenDaysAgoAndTodayAcrossYears() {
+    @Test fun logWindowIncludesThreeDaysAgoAndTodayAcrossYears() {
         val reference=LocalDate.of(2026,1,3)
-        assertTrue(canWriteLog("2025-12-27",reference))
+        assertTrue(canWriteLog("2025-12-31",reference))
         assertTrue(canWriteLog("2026-01-03",reference))
-        assertFalse(canWriteLog("2025-12-26",reference))
+        assertFalse(canWriteLog("2025-12-30",reference))
         assertFalse(canWriteLog("2026-01-04",reference))
         assertFalse(canWriteLog("2026-02-30",reference))
         assertFalse(canWriteLog("bad-date",reference))
@@ -22,7 +22,7 @@ class WorkspaceRulesTest {
         val buffer=EditBuffer("http://server",1,91,today().toString(),"changed","submitted")
         assertTrue(logEditorReadOnly(buffer,listOf(log)))
         assertFalse(logEditorReadOnly(buffer.copy(logId=null),emptyList()))
-        assertFalse(logEditorReadOnly(buffer,listOf(log.copy(logDate=today().minusDays(7).toString()))))
+        assertFalse(logEditorReadOnly(buffer,listOf(log.copy(logDate=today().toString()))))
     }
     @Test fun missingOriginalLogCannotUnlockRestoredEditor() {
         val buffer=EditBuffer("http://server",1,91,today().toString(),"changed","submitted")

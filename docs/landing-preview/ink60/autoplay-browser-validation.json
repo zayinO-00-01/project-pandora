@@ -1,0 +1,50 @@
+{
+  "wordmarkVisible": true,
+  "wholeGroupCenterY": 422,
+  "initial": {
+    "time": 0.264403,
+    "paused": false,
+    "ended": false,
+    "revealed": false,
+    "opacity": 0,
+    "failed": false
+  },
+  "fading": {
+    "time": 1.196718,
+    "paused": false,
+    "ended": false,
+    "revealed": true,
+    "opacity": 0.101582,
+    "failed": false
+  },
+  "login": {
+    "time": 2.858312,
+    "paused": false,
+    "ended": false,
+    "revealed": true,
+    "opacity": 1,
+    "failed": false
+  },
+  "ended": {
+    "time": 9.016667,
+    "paused": true,
+    "ended": true,
+    "revealed": true,
+    "opacity": 1,
+    "failed": false
+  },
+  "dimensions": [
+    {
+      "width": 320,
+      "content": 320
+    },
+    {
+      "width": 768,
+      "content": 768
+    }
+  ],
+  "formUsable": true,
+  "reducedMotion": true,
+  "videoFailureFallback": true,
+  "errors": []
+}

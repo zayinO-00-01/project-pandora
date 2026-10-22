@@ -15,12 +15,13 @@ import com.projectpandora.app.data.*
 @Composable fun OrganizationScreen(state: AppState,model: PandoraViewModel) {
     val me=state.session ?: return
     var section by rememberSaveable {mutableStateOf(if(AppRoles.canViewDown(me.role))"members" else "manager")}
+    var memberQuery by rememberSaveable(me.userId) {mutableStateOf("")}
     var reason by rememberSaveable {mutableStateOf("")}
     val enabled=!state.saving && !state.organizationLoading
     val member=state.member
     BackHandler(enabled=member!=null && !state.saving) {model.loadOrganization()}
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=32.dp)) {
-        item {TextButton(onClick={if(member!=null)model.loadOrganization() else model.screen("home")},enabled=!state.saving,contentPadding=PaddingValues(0.dp)) {Text(if(member!=null)"返回组织" else "返回工作区")}}
+        item {ControlTextButton(onClick={if(member!=null)model.loadOrganization() else model.screen("functions")},enabled=!state.saving,contentPadding=PaddingValues(0.dp)) {Text(if(member!=null)"返回组织" else "返回职能")}}
         if(state.organizationLoading)item {LinearProgressIndicator(Modifier.fillMaxWidth())}
         state.organizationError?.let {item {Hint(it,true,onRetry={if(member!=null)model.openMember(member) else model.loadOrganization()},retryEnabled=enabled)}}
         if(member!=null) {
@@ -31,21 +32,25 @@ import com.projectpandora.app.data.*
                 state.memberLogs.forEach {log->item(key="log-${log.id}") {Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {Text(log.logDate,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(log.content,style=MaterialTheme.typography.bodyMedium);HorizontalDivider()}}}
                 item {Text("任务进展",style=MaterialTheme.typography.titleMedium)}
                 if(state.memberTasks.isEmpty())item {Text("暂无任务",color=MaterialTheme.colorScheme.onSurfaceVariant)}
-                state.memberTasks.forEach {task->item(key="task-${task.id}") {Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {Text(task.title,style=MaterialTheme.typography.bodyLarge);Text("${taskFeedbackLabel(task)} · ${task.progressNote.ifBlank {task.detail}}",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);HorizontalDivider()}}}
+                orderedTasks(state.memberTasks).forEach {task->item(key="task-${task.id}") {Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {Text(task.title,style=MaterialTheme.typography.bodyLarge);TaskPriorityText(task.priority);Text("${taskFeedbackLabel(task)} · ${task.progressNote.ifBlank {task.detail}}",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);HorizontalDivider()}}}
             }
         } else {
             item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-                if(AppRoles.canViewDown(me.role))TextButton(onClick={section="members"}) {Text("下级工作")}
-                if(me.role!="FOUNDER")TextButton(onClick={section="manager"}) {Text("直属上级")}
-                TextButton(onClick={section="requests"}) {Text("查看申请")}
+                if(AppRoles.canViewDown(me.role))ControlTextButton(onClick={section="members"}) {Text("下级工作")}
+                if(me.role!="FOUNDER")ControlTextButton(onClick={section="manager"}) {Text("直属上级")}
+                ControlTextButton(onClick={section="requests"}) {Text("查看申请")}
             }}
             if(section=="members") {
                 item {ScreenHeading(AppRoles.scopeLabel(me.role),if(me.role=="FOUNDER")"查看全公司业务成员的已提交日志与任务，草稿不公开。" else "沿组织关系向下查看，其他部门与他人草稿不开放。")}
-                val members=state.organization?.members.orEmpty()
-                if(members.isEmpty() && !state.organizationLoading && state.organizationError==null)item {Text("暂无可查看的下级，请由管理员维护组织关系。",color=MaterialTheme.colorScheme.onSurfaceVariant)}
+                val allMembers=state.organization?.members.orEmpty()
+                val members=filterMembers(allMembers,memberQuery)
+                item {OutlinedTextField(value=memberQuery,onValueChange={memberQuery=it},label={Text("搜索成员姓名")},placeholder={Text("输入姓名或账号")},singleLine=true,modifier=Modifier.fillMaxWidth(),trailingIcon={if(memberQuery.isNotEmpty())ControlTextButton(onClick={memberQuery=""}) {Text("清空")}})}
+                item {Text("找到 ${members.size} 位 / 共 ${allMembers.size} 位",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+                if(members.isEmpty() && allMembers.isNotEmpty())item {EmptyCard("没有找到匹配的成员","请核对姓名，或清空搜索条件。")}
+                if(allMembers.isEmpty() && !state.organizationLoading && state.organizationError==null)item {Text("暂无可查看的下级，请由管理员维护组织关系。",color=MaterialTheme.colorScheme.onSurfaceVariant)}
                 members.groupBy {it.role}.forEach {(role,users)->
                     item {Text(AppRoles.label(role),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-                    users.forEach {user->item(key="member-${user.id}") {TextButton(onClick={model.openMember(user)},enabled=enabled,modifier=Modifier.fillMaxWidth(),contentPadding=PaddingValues(vertical=12.dp)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text(user.displayName ?: user.username);Text("查看工作 ›")}}}}
+                    users.forEach {user->item(key="member-${user.id}") {ControlTextButton(onClick={model.openMember(user)},enabled=enabled,modifier=Modifier.fillMaxWidth(),contentPadding=PaddingValues(vertical=12.dp)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text(user.displayName ?: user.username);Text("查看工作 ›")}}}}
                 }
             }
             if(section=="manager") {

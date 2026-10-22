@@ -1,0 +1,13 @@
+{
+  "initialOnlyArtwork": true,
+  "automaticFormReveal": true,
+  "noScrollOrEntryClick": true,
+  "developmentEntryUsable": true,
+  "backgroundReturnUsable": true,
+  "captureSeconds": {
+    "initial": 0,
+    "fading": 5.28,
+    "form": 7.09,
+    "last": 13.58
+  }
+}

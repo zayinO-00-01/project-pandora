@@ -1,0 +1,25 @@
+{
+  "fps": 60,
+  "frames": 541,
+  "durationSeconds": 9.016666666666667,
+  "width": 540,
+  "height": 960,
+  "bytes": 1926563,
+  "generatedAtlasUsedInVideo": true,
+  "oldLineGlyphsRemoved": true,
+  "oneContinuousFlockPass": true,
+  "wingBones": [
+    "shoulder",
+    "elbow",
+    "wrist"
+  ],
+  "wingbeatHz": 1.55,
+  "downstrokeFraction": 0.44,
+  "recoveryFraction": 0.56,
+  "glideSeconds": [
+    1.65,
+    2.29
+  ],
+  "supersampling": 3,
+  "constantBoneLengthAssertions": true
+}

@@ -16,6 +16,7 @@ class MainActivity: ComponentActivity() {
     private val model: PandoraViewModel by viewModels()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        volumeControlStream=android.media.AudioManager.STREAM_MUSIC
         enableEdgeToEdge()
         setContent {
             val state by model.state.collectAsStateWithLifecycle()

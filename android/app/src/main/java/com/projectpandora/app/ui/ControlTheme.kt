@@ -10,6 +10,7 @@ import android.view.HapticFeedbackConstants
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -56,7 +57,7 @@ object ConsoleTokens {
 }
 
 class FeedbackSettings(val haptic: Boolean, val sound: Boolean, val setHaptic: (Boolean)->Unit, val setSound: (Boolean)->Unit)
-val LocalFeedbackSettings=staticCompositionLocalOf {FeedbackSettings(true,false,{},{})}
+val LocalFeedbackSettings=staticCompositionLocalOf {FeedbackSettings(true,true,{},{})}
 val LocalControlFeedback=staticCompositionLocalOf<()->Unit> {{}}
 enum class Appearance { LIGHT, DARK }
 class AppearanceSettings(val mode: Appearance,val select: (Appearance)->Unit)
@@ -72,20 +73,22 @@ val ConsoleDisplay=FontFamily(Font(R.font.console_display,FontWeight.SemiBold))
     var haptic by remember {mutableStateOf(prefs.getBoolean("haptic",true))}
     var sound by remember {mutableStateOf(prefs.getBoolean("sound",true))}
     val pool=remember {SoundPool.Builder().setMaxStreams(1).setAudioAttributes(AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()).build()}
+        .setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()).build()}
     var sample by remember {mutableIntStateOf(0)}
     DisposableEffect(pool) {
         pool.setOnLoadCompleteListener {_,id,status->if(status==0)sample=id}
         pool.load(context,R.raw.control_tap,1)
         onDispose {pool.setOnLoadCompleteListener(null);pool.release()}
     }
-    val settings=FeedbackSettings(haptic,sound,{haptic=it;prefs.edit().putBoolean("haptic",it).apply()},
-        {sound=it;prefs.edit().putBoolean("sound",it).apply()})
-    val feedback: ()->Unit={
-        if(haptic)view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-        val audio=context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        if(sound && sample!=0 && audio.ringerMode==AudioManager.RINGER_MODE_NORMAL)pool.play(sample,0.22f,0.22f,1,0,1f)
+    val audio=remember {context.getSystemService(Context.AUDIO_SERVICE) as AudioManager}
+    fun playFeedback(withHaptic: Boolean,withSound: Boolean) {
+        if(withHaptic)view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        if(withSound && sample!=0 && audio.ringerMode==AudioManager.RINGER_MODE_NORMAL)
+            pool.play(sample,0.65f,0.65f,1,0,1f)
     }
+    val settings=FeedbackSettings(haptic,sound,{haptic=it;prefs.edit().putBoolean("haptic",it).apply();if(it)playFeedback(true,false)},
+        {sound=it;prefs.edit().putBoolean("sound",it).apply();if(it)playFeedback(false,true)})
+    val feedback: ()->Unit={playFeedback(haptic,sound)}
     val dark=!forceLight && appearance==Appearance.DARK
     DisposableEffect(dark) {onAppearanceChange(dark);onDispose {}}
     val colors=if(dark)darkColorScheme(
@@ -102,7 +105,7 @@ val ConsoleDisplay=FontFamily(Font(R.font.console_display,FontWeight.SemiBold))
         secondary=ConsoleTokens.Teal,onSecondary=ConsoleTokens.White,secondaryContainer=ConsoleTokens.Line,onSecondaryContainer=ConsoleTokens.Teal,
         background=ConsoleTokens.Paper,surface=ConsoleTokens.White,onSurface=ConsoleTokens.Ink,
         onBackground=ConsoleTokens.Ink,surfaceVariant=ConsoleTokens.Line,onSurfaceVariant=ConsoleTokens.Muted,
-        outline=ConsoleTokens.Muted,outlineVariant=ConsoleTokens.Line,surfaceTint=ConsoleTokens.Teal,
+        outline=Color.Black,outlineVariant=Color.Black,surfaceTint=ConsoleTokens.Teal,
         error=ConsoleTokens.Error,errorContainer=ConsoleTokens.ErrorPanel,onErrorContainer=ConsoleTokens.Error
     )
     val chinese=FontFamily(listOf(400,500,600,700).map {weight ->
@@ -154,3 +157,16 @@ val ConsoleDisplay=FontFamily(Font(R.font.console_display,FontWeight.SemiBold))
     OutlinedButton(onClick={feedback();onClick()},modifier=modifier.heightIn(min=48.dp),enabled=enabled,
         shape=MaterialTheme.shapes.small,contentPadding=contentPadding,content=content)
 }
+
+
+@Composable fun ControlTextButton(onClick: ()->Unit,modifier: Modifier=Modifier,enabled: Boolean=true,
+    shape: androidx.compose.ui.graphics.Shape=ButtonDefaults.textShape,
+    colors: ButtonColors=ButtonDefaults.textButtonColors(),contentPadding: PaddingValues=ButtonDefaults.TextButtonContentPadding,
+    content: @Composable RowScope.()->Unit) {
+    val feedback=LocalControlFeedback.current
+    TextButton(onClick={feedback();onClick()},modifier=modifier,enabled=enabled,shape=shape,colors=colors,contentPadding=contentPadding,content=content)
+}
+
+
+@Composable fun Modifier.panelOutline(shape: androidx.compose.ui.graphics.Shape=MaterialTheme.shapes.medium): Modifier =
+    if(LocalAppearance.current.mode==Appearance.LIGHT)border(1.dp,Color.Black,shape) else this

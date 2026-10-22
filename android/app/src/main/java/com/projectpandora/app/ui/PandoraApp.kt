@@ -51,13 +51,16 @@ import com.projectpandora.app.data.*
     var syncDetails by remember {mutableStateOf(false)}
     val readFailures=listOfNotNull(state.panelError?.let {"总览：$it"},state.taskError?.let {"任务：$it"},state.logError?.let {"日志：$it"})
     val retained=state.tasks.isNotEmpty() || state.logs.isNotEmpty() || state.panels!=null
-    if(syncDetails)AlertDialog(onDismissRequest={syncDetails=false},title={Text("同步失败")},text={Text(readFailures.joinToString("\n\n")+if(retained)"\n\n正在显示上次成功读取的内容。" else "\n\n暂时无法读取工作内容。")},confirmButton={TextButton(onClick={syncDetails=false;model.refresh()},enabled=!state.loading) {Text("重试")}},dismissButton={TextButton(onClick={syncDetails=false}) {Text("关闭")}})
+    if(syncDetails)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={syncDetails=false},title={Text("同步失败")},text={Text(readFailures.joinToString("\n\n")+if(retained)"\n\n正在显示上次成功读取的内容。" else "\n\n暂时无法读取工作内容。")},confirmButton={ControlTextButton(onClick={syncDetails=false;model.refresh()},enabled=!state.loading) {Text("重试")}},dismissButton={ControlTextButton(onClick={syncDetails=false}) {Text("关闭")}})
     val canCreate=state.editor==null && state.selectedTaskId==null && state.screen in listOf("home","logs","day","ai")
     val headerHeight=(if(homeHeader && (readFailures.isNotEmpty() || state.developmentPreview))96.dp else if(homeHeader)72.dp else if(state.developmentPreview)64.dp else 48.dp) * maxOf(1f,LocalDensity.current.fontScale)
-    BackHandler(enabled=state.editor==null && state.selectedTaskId==null && state.screen!="home") {if(!state.saving)model.screen("home")}
+    BackHandler(enabled=state.editor==null && state.selectedTaskId==null && state.screen!="home" && !state.dispatchOpen) {if(!state.saving)model.screen(if(state.screen in listOf("tasks","organization"))"functions" else "home")}
     val pageTitle=when {
         state.editor!=null -> "潘多拉"
         state.screen=="home" || state.screen=="ai" -> AppRoles.homeTitle(state.session.role)
+        state.dispatchOpen -> "派发任务"
+        state.screen=="functions" -> "职能"
+        state.screen=="tasks" -> if(state.selectedTaskId==null)"任务列表" else "任务详情"
         state.screen=="organization" -> AppRoles.scopeLabel(state.session.role)
         state.screen=="logs" -> "工作日志"
         state.screen=="day" -> "工作视图"
@@ -67,7 +70,7 @@ import com.projectpandora.app.data.*
     Box(Modifier.fillMaxSize()) {
     WorkspaceBackground(Modifier.matchParentSize())
     Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(MaterialTheme.colorScheme.background))
-    Scaffold(containerColor=Color.Transparent,contentColor=MaterialTheme.colorScheme.onBackground,topBar={Box(Modifier.fillMaxWidth(),contentAlignment=Alignment.TopCenter) {TopAppBar(modifier=Modifier.widthIn(max=600.dp).fillMaxWidth(),expandedHeight=headerHeight,title={Column(Modifier.padding(start=8.dp).semantics {if(homeHeader && readFailures.isNotEmpty())contentDescription="同步失败"}.clickable(enabled=homeHeader && readFailures.isNotEmpty()) {syncDetails=true},verticalArrangement=Arrangement.spacedBy(2.dp)) {
+    Scaffold(containerColor=Color.Transparent,contentColor=MaterialTheme.colorScheme.onBackground,topBar={Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)).padding(top=12.dp,bottom=6.dp),contentAlignment=Alignment.TopCenter) {TopAppBar(modifier=Modifier.widthIn(max=600.dp).fillMaxWidth(),expandedHeight=headerHeight,windowInsets=WindowInsets(0,0,0,0),title={Column(Modifier.padding(start=8.dp).semantics {if(homeHeader && readFailures.isNotEmpty())contentDescription="同步失败"}.clickable(enabled=homeHeader && readFailures.isNotEmpty()) {syncDetails=true},verticalArrangement=Arrangement.spacedBy(2.dp)) {
         Text(pageTitle,style=MaterialTheme.typography.headlineSmall,fontFamily=ConsoleDisplay,fontWeight=androidx.compose.ui.text.font.FontWeight.SemiBold)
         if(homeHeader)Text("${today().monthValue}月${today().dayOfMonth}日 · ${listOf("周一","周二","周三","周四","周五","周六","周日")[today().dayOfWeek.value-1]}${if(readFailures.isNotEmpty())"" else if(state.developmentPreview)" · 未连接" else if(state.loading)" · 同步中" else " · 已同步"}",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2)
         if(homeHeader && readFailures.isNotEmpty())Text("同步失败 · ${if(retained)"上次内容" else "查看原因"} ›",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.error,maxLines=2)
@@ -76,11 +79,11 @@ import com.projectpandora.app.data.*
         if(canCreate) {WriteLogButton(enabled=!state.saving,onClick={model.edit()});Spacer(Modifier.width(4.dp))}
         if(state.screen!="profile")InlineAction(if(homeHeader && readFailures.isNotEmpty())"重试" else "刷新",enabled=!state.loading && !state.organizationLoading && !state.saving,icon=R.drawable.console_sync,secondary=true,loading=state.loading || state.organizationLoading) {feedback();if(state.screen=="organization")model.loadOrganization() else model.refresh()}
     },colors=TopAppBarDefaults.topAppBarColors(containerColor=Color.Transparent))}},bottomBar={
-        if(state.editor==null && state.selectedTaskId==null)Column {
+        if(state.editor==null && state.selectedTaskId==null && !state.dispatchOpen)Column {
             HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
             Box(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {NavigationBar(containerColor=MaterialTheme.colorScheme.background,tonalElevation=0.dp,modifier=Modifier.widthIn(max=600.dp).fillMaxWidth().height(72.dp),windowInsets=WindowInsets(0,0,0,0)) {
-                val items=listOf(Triple("home","总览",R.drawable.console_home),Triple("logs","日志",R.drawable.console_log),Triple("day","视图",R.drawable.console_calendar),Triple("profile","我的",R.drawable.console_person))
-                items.forEach {(key,label,icon)->NavigationBarItem(selected=state.screen==key || (key=="home" && state.screen in listOf("tasks","ai","organization")),
+                val items=listOf(Triple("home","总览",R.drawable.console_home),Triple("functions","职能",R.drawable.console_duties),Triple("logs","日志",R.drawable.console_log),Triple("day","视图",R.drawable.console_calendar),Triple("profile","我的",R.drawable.console_person))
+                items.forEach {(key,label,icon)->NavigationBarItem(selected=state.screen==key || (key=="functions" && state.screen in listOf("tasks","organization")) || (key=="home" && state.screen=="ai"),
                     onClick={feedback();model.screen(key)},enabled=!state.saving,
                     icon={Icon(painterResource(icon),contentDescription=null,modifier=Modifier.size(21.dp))},label={Text(label,maxLines=1,softWrap=false,style=MaterialTheme.typography.labelSmall)},
                     colors=NavigationBarItemDefaults.colors(indicatorColor=androidx.compose.ui.graphics.Color.Transparent,
@@ -93,6 +96,7 @@ import com.projectpandora.app.data.*
         if(state.editor!=null)EditorScreen(state,model)
         else when(state.screen) {
             "home" -> HomeScreen(state,model)
+            "functions" -> DutiesScreen(state,model)
             "logs" -> LogsScreen(state,model)
             "tasks" -> TaskScreen(state,model)
             "day" -> CalendarScreen(state,model)
@@ -130,8 +134,8 @@ import com.projectpandora.app.data.*
         "LEADER"->"当前连接旧版演示服务，权限以该服务为准。"
         else->"员工：记录自己的工作，处理分配任务；查看直属上级须申请并获批准。"
     }
-    details?.let {section->AlertDialog(containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={details=null},title={Text(if(section=="access")"账号与权限" else "当前服务")},text={Text(if(section=="access")"$permissionText\n\n资料与组织关系由管理员在 Web 维护；组织查看与申请从总览入口进入。" else "${me.server}\n\n工作记录保存在此服务。无法连接时，请检查网络或联系管理员。")},confirmButton={TextButton(onClick={details=null}) {Text("关闭")}})}
-    if(leaving)AlertDialog(containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={leaving=false},title={Text(if(state.developmentPreview)"退出开发预览？" else "退出当前账号？")},text={Text(if(state.developmentPreview)"预览没有登录业务账号，也未向服务器提交数据。" else "工作记录已保存在当前服务。未提交输入会保留在这台设备，再次登录原账号可继续。")},confirmButton={TextButton(onClick={leaving=false;model.logout()}) {Text("退出登录")}},dismissButton={TextButton(onClick={leaving=false}) {Text("取消")}})
+    details?.let {section->AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={details=null},title={Text(if(section=="access")"账号与权限" else "当前服务")},text={Text(if(section=="access")"$permissionText\n\n资料与组织关系由管理员在 Web 维护；组织查看与申请从职能入口进入。" else "${me.server}\n\n工作记录保存在此服务。无法连接时，请检查网络或联系管理员。")},confirmButton={ControlTextButton(onClick={details=null}) {Text("关闭")}})}
+    if(leaving)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={leaving=false},title={Text(if(state.developmentPreview)"退出开发预览？" else "退出当前账号？")},text={Text(if(state.developmentPreview)"预览没有登录业务账号，也未向服务器提交数据。" else "工作记录已保存在当前服务。未提交输入会保留在这台设备，再次登录原账号可继续。")},confirmButton={ControlTextButton(onClick={leaving=false;model.logout()}) {Text("退出登录")}},dismissButton={ControlTextButton(onClick={leaving=false}) {Text("取消")}})
     Column(Modifier.fillMaxSize()) {
     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal=24.dp).padding(top=12.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth().padding(vertical=12.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
@@ -154,22 +158,24 @@ import com.projectpandora.app.data.*
         Text("操作偏好",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
         Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
             FeedbackRow("按键触感","轻量震动，遵循系统触觉设置",settings.haptic,settings.setHaptic)
-            FeedbackRow("按键声音","短促轻音，静音模式不播放",settings.sound,settings.setSound)
+            FeedbackRow("按键声音","跟随媒体音量；静音/振动模式不播放",settings.sound,settings.setSound)
+            ControlTextButton(onClick={},enabled=settings.sound || settings.haptic) {Text("试听声音与触感")}
+            Text("听不到声音时，请调高媒体音量并检查蓝牙输出；没有触感时，请开启系统触摸反馈。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
-        TextButton(onClick={details="access"},enabled=!state.saving,contentPadding=PaddingValues(0.dp),modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+        ControlTextButton(onClick={details="access"},enabled=!state.saving,contentPadding=PaddingValues(0.dp),modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
             Text("账号与权限",style=MaterialTheme.typography.bodyMedium)
             Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,null,modifier=Modifier.size(20.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
         }}
-        TextButton(onClick={details="service"},enabled=!state.saving,contentPadding=PaddingValues(0.dp),modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+        ControlTextButton(onClick={details="service"},enabled=!state.saving,contentPadding=PaddingValues(0.dp),modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
             Text("当前服务",style=MaterialTheme.typography.bodyMedium)
             Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,null,modifier=Modifier.size(20.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
         }}
     }
     Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background.copy(alpha=0.92f)).padding(horizontal=24.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
         Text("潘多拉",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        TextButton(onClick={leaving=true},enabled=!state.saving,modifier=Modifier.heightIn(min=48.dp),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurfaceVariant)) {Text(if(state.developmentPreview)"退出预览" else "退出登录",style=MaterialTheme.typography.labelMedium)}
+        ControlTextButton(onClick={leaving=true},enabled=!state.saving,modifier=Modifier.heightIn(min=48.dp),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurfaceVariant)) {Text(if(state.developmentPreview)"退出预览" else "退出登录",style=MaterialTheme.typography.labelMedium)}
     }
     }
 }
