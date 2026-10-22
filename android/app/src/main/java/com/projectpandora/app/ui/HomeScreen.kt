@@ -11,29 +11,38 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.projectpandora.app.AppState
 import com.projectpandora.app.PandoraViewModel
+import com.projectpandora.app.BuildConfig
 import com.projectpandora.app.data.*
 
 @Composable fun HomeScreen(state: AppState,model: PandoraViewModel) {
     var selectedPanel by remember {mutableStateOf<String?>(null)}
+    var selectedCompanyId by remember {mutableStateOf<Long?>(null)}
+    var showCompanyExamples by remember {mutableStateOf(false)}
+    val companyExamples=state.developmentPreview || (BuildConfig.DEBUG && showCompanyExamples)
     if(selectedPanel!=null) {
-        PriorityScreen(state,model,selectedPanel=="公司十大事") {selectedPanel=null}
+        PriorityScreen(state,model,selectedPanel=="公司十大事",initialSelectedId=selectedCompanyId,companyExamples=companyExamples) {selectedPanel=null;selectedCompanyId=null}
         return
     }
-    val company=state.panels?.companyImportant.orEmpty().sortedBy {it.sortOrder}
+    val company=if(companyExamples)CompanyPriorityExamples.items else state.panels?.companyImportant.orEmpty().sortedBy {it.sortOrder}
     val taskPositions=orderedTasks(state.tasks).mapIndexed {index,task->task.id to index}.toMap()
     val dispatch=state.panels?.companyDispatch.orEmpty().sortedWith(compareBy<PanelItem> {taskPositions[it.id] ?: Int.MAX_VALUE}.thenBy {it.sortOrder ?: Int.MAX_VALUE})
     val personal=state.localPriorities.personal ?: state.panels?.personalTop.orEmpty().sortedBy {it.sortOrder}
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(top=8.dp,bottom=24.dp)) {
         item {OverviewSection("公司十大事","公司的重点与工作方向",company.size,248.dp,onOpen={selectedPanel="公司十大事"}) {
+            if(companyExamples) {
+                Text("示例预览 · 非公司发布内容",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)
+                if(!state.developmentPreview)ControlTextButton(onClick={showCompanyExamples=false}) {Text("返回公司实际数据")}
+            } else if(BuildConfig.DEBUG && company.isEmpty() && !state.loading) {
+                ControlTextButton(onClick={showCompanyExamples=true}) {Text("查看示例卡片")}
+            }
             if(state.loading)LinearProgressIndicator(Modifier.fillMaxWidth())
             state.panelError?.let {Hint("公司事项读取失败：$it",true,onRetry=model::refresh)}
             if(company.isEmpty() && !state.loading && state.panelError==null)Text("公司尚未发布重点事项",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-            company.take(3).forEachIndexed {index,entry->
-                Column(Modifier.fillMaxWidth().clickable {selectedPanel="公司十大事"}.padding(vertical=6.dp),verticalArrangement=Arrangement.spacedBy(5.dp)) {
-                    Text("${(index+1).toString().padStart(2,'0')}  ${entry.title}",style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
-                    entry.detail?.takeIf {it.isNotBlank()}?.let {Text(it,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)}
+            if(company.isNotEmpty())Row(Modifier.fillMaxWidth().padding(top=4.dp),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                company.take(2).forEachIndexed {index,entry->
+                    CompanyDepthCard(entry,index,Modifier.weight(1f)) {selectedCompanyId=entry.id;selectedPanel="公司十大事"}
                 }
-                if(index<company.take(3).lastIndex)HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
+                if(company.size==1)Spacer(Modifier.weight(1f))
             }
         }}
         item {OverviewSection("公司派发任务","接收组织的工作安排",dispatch.size,168.dp,onOpen={model.screen("tasks")}) {

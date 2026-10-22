@@ -50,10 +50,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         val preview=Session("本地开发预览","",-1,"STAFF","开发预览","developer")
         mutable.value=AppState(session=preview,server=state.value.server,username=state.value.username,
             developmentPreview=true,localPriorities=priorityStore.read(preview),
-            panels=PanelMap(companyImportant=listOf(
-                PanelItem(1,"完善工作日报闭环",0,null,"示例内容：完成日报补录规则、历史只读与团队验收。"),
-                PanelItem(2,"准备本月交付",1,null,"示例内容：汇总项目进度，梳理待解决问题并安排交付。")
-            )),integrityDate=today().toString(),
+            panels=PanelMap(companyImportant=CompanyPriorityExamples.items),integrityDate=today().toString(),
             notice="开发预览：可查看页面及编辑布局，真实数据和保存需登录。")
     }
     private fun savePriorities(value: LocalPriorities) {

@@ -69,3 +69,36 @@ Calendar SHALL offer month/week/day modes sharing one selected date. Month SHALL
 #### Scenario: Return to today
 - **WHEN** Today is pressed in any mode
 - **THEN** the selected date becomes Shanghai today without changing the mode
+
+### Requirement: Native task workflow curve
+Android task details SHALL show actual todo/doing/done stages with a smooth native curve, teal achieved line, muted future line and copper current marker. It SHALL adapt to both themes, expose semantic text and respect animation duration scale. The page SHALL retain authorized feedback and actual timestamps/latest note, without invented percentages or history; unknown statuses SHALL show pending synchronization.
+#### Scenario: Current task stage
+- **WHEN** a task with doing status is opened
+- **THEN** the achieved curve ends at the middle stage and the later segment remains muted
+#### Scenario: Feedback saved
+- **WHEN** an assignee successfully submits a new task status
+- **THEN** the detail curve reflects the returned status and latest feedback
+#### Scenario: Reduced animation
+- **WHEN** Android animation duration scale is zero
+- **THEN** the graph immediately presents the current stage without requiring animation to understand it
+
+### Requirement: Company depth card preview and collection
+Android overview SHALL show only the first two sorted company items side by side as depth cards. View all SHALL show every available company item in a two-column collection. Cards SHALL open read-only details and existing local remarks, retain theme contrast and light-mode black borders, and support subtle pointer tilt without blocking vertical scrolling. Disabled system animation SHALL yield static cards.
+#### Scenario: Ten available items
+- **WHEN** ten company items are loaded
+- **THEN** overview shows two cards and View all exposes all ten in their existing order
+#### Scenario: One or no item
+- **WHEN** fewer than two company items are loaded
+- **THEN** only available cards are shown, with no fabricated placeholder content; empty and failed states remain distinct
+#### Scenario: Open a preview
+- **WHEN** a company preview card is selected
+- **THEN** its full detail and existing local remark are available without editing company content
+
+### Requirement: Explicit local company examples
+Debug Android SHALL offer ten local company card examples through development entry and an opt-in action when authenticated company data is empty. Examples SHALL be labelled, remain separate from server content and allow returning to actual data. Example details SHALL be read-only without remark writes. Release SHALL hide demo entry controls.
+#### Scenario: Preview without a server
+- **WHEN** development entry is selected
+- **THEN** overview shows two example cards and View all exposes all ten without business API requests
+#### Scenario: Empty authenticated company data
+- **WHEN** a Debug user opts into example cards from an empty company panel
+- **THEN** the labelled examples appear locally and returning to actual data restores the server state

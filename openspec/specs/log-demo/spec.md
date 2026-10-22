@@ -15,7 +15,6 @@ The API SHALL accept draft/submitted logs (default submitted). Only authors SHAL
 - **WHEN** an author updates, submits, or moves yesterday's log to today
 - **THEN** the operation returns 403 without mutation, and authorized history reads still succeed
 
-## Requirements
 ### Requirement: Drafts and submitted edits
 Business authors SHALL save draft or submitted logs, submit the same record and edit submitted records without changing ID or reverting to draft. Omitted POST status SHALL default submitted; omitted PUT status SHALL retain state. Content SHALL be nonblank and at most5000 characters. Other viewers SHALL see submitted records only.
 #### Scenario: Draft privacy
@@ -23,7 +22,7 @@ Business authors SHALL save draft or submitted logs, submit the same record and 
 - **THEN** authorized leaders see it only after submission with the same ID
 
 ### Requirement: Shanghai edit window
-Writes SHALL be limited to Shanghai today-7 through today inclusive (8dates), while historical reads SHALL remain available. Updates SHALL check original and proposed dates; old-record update/submit SHALL return403, invalid new/proposed dates400.
+Creation SHALL allow Shanghai today minus three days through today inclusive. Updates and submission SHALL require both the original and proposed log dates to be today. Historical reads SHALL remain available; historical update/submit SHALL return403, and invalid creation/proposed dates400.
 #### Scenario: Move expired record to today
 - **WHEN** an author changes an expired record date to today
 - **THEN** the update returns403 without changing the record

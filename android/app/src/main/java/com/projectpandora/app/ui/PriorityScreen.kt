@@ -24,14 +24,15 @@ import com.projectpandora.app.AppState
 import com.projectpandora.app.PandoraViewModel
 import com.projectpandora.app.data.*
 
-@Composable fun PriorityScreen(state: AppState,model: PandoraViewModel,company: Boolean,onBack: ()->Unit) {
-    val entries=if(company)state.panels?.companyImportant.orEmpty().sortedBy {it.sortOrder} else
+@Composable fun PriorityScreen(state: AppState,model: PandoraViewModel,company: Boolean,initialSelectedId: Long?=null,companyExamples: Boolean=false,onBack: ()->Unit) {
+    val examples=company && companyExamples
+    val entries=if(examples)CompanyPriorityExamples.items else if(company)state.panels?.companyImportant.orEmpty().sortedBy {it.sortOrder} else
         state.localPriorities.personal ?: state.panels?.personalTop.orEmpty().sortedBy {it.sortOrder}
-    var selectedId by rememberSaveable {mutableStateOf<Long?>(null)}
+    var selectedId by rememberSaveable {mutableStateOf(initialSelectedId)}
     var editing by rememberSaveable {mutableStateOf(false)}
     var title by rememberSaveable {mutableStateOf("")}
     var detail by rememberSaveable {mutableStateOf("")}
-    var note by rememberSaveable {mutableStateOf("")}
+    var note by rememberSaveable {mutableStateOf(initialSelectedId?.let {id->state.localPriorities.remarks[id] ?: entries.firstOrNull {it.id==id}?.myRemark}.orEmpty())}
     var deleting by remember {mutableStateOf(false)}
     val selected=entries.firstOrNull {it.id==selectedId}
     val listState=rememberLazyListState()
@@ -96,8 +97,8 @@ import com.projectpandora.app.data.*
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=24.dp).then(dragModifier),state=listState,userScrollEnabled=draggedId==null,verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=32.dp)) {
         item {ControlTextButton(onClick={back()},contentPadding=PaddingValues(0.dp)) {Text(if(editing || selected!=null)"返回事项" else "返回总览")}}
         item {ScreenHeading(if(editing)if(selected==null)"新增个人事项" else "编辑个人事项" else if(selected!=null)"事项详情" else if(company)"公司十大事" else "个人十大事",
-            if(company)"公司重点由 Web 管理端维护，安卓只读。" else "按优先级安排十件重要的事。")}
-        item {Text(if(company)"个人备注仅保存在本机，尚未同步。" else "本机工作清单 · 尚未同步到服务器",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.secondary)}
+            if(examples)"示例预览 · 非公司发布内容" else if(company)"公司重点由 Web 管理端维护，安卓只读。" else "按优先级安排十件重要的事。")}
+        item {Text(if(examples)"仅用于查看卡面效果，不会提交到服务器。" else if(company)"个人备注仅保存在本机，尚未同步。" else "本机工作清单 · 尚未同步到服务器",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.secondary)}
         if(editing) {
             item {OutlinedTextField(title,{title=it.take(120)},label={Text("事项名称")},singleLine=true,modifier=Modifier.fillMaxWidth(),supportingText={Text("${title.length}/120")})}
             item {OutlinedTextField(detail,{detail=it.take(2000)},label={Text("目标与工作安排")},minLines=6,modifier=Modifier.fillMaxWidth(),supportingText={Text("${detail.length}/2000")})}
@@ -105,10 +106,10 @@ import com.projectpandora.app.data.*
         } else if(selected!=null) {
             item {Text(selected.title,style=MaterialTheme.typography.titleLarge)}
             item {Text(selected.detail?.takeIf {it.isNotBlank()} ?: "暂无详细安排",style=MaterialTheme.typography.bodyLarge)}
-            if(company) {
+            if(company && !examples) {
                 item {HorizontalDivider();OutlinedTextField(note,{note=it.take(2000)},label={Text("我的备注")},minLines=4,modifier=Modifier.fillMaxWidth())}
                 item {ControlButton(onClick={model.saveCompanyRemark(selected.id,note)},modifier=Modifier.fillMaxWidth()) {Text("保存备注到本机")}}
-            } else {
+            } else if(!company) {
                 item {Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                     ControlButton(onClick={title=selected.title;detail=selected.detail.orEmpty();editing=true}) {Text("编辑事项")}
                     ControlOutlinedButton(onClick={deleting=true}) {Text("删除事项")}
@@ -122,7 +123,16 @@ import com.projectpandora.app.data.*
             if(!company && entries.size>1)item {Text("长按事项或右侧拖动柄，上下拖动调整顺序",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
             state.panelError?.let {item {Hint("公司事项读取失败：$it",true,onRetry={model.refresh()})}}
             if(entries.isEmpty())item {EmptyCard(if(company)"暂未发布公司事项" else "安排第一件重要的事",if(company)"公司事项数据接口已保留，发布后可在这里阅读并记录个人备注。" else "点击新增事项，写下目标与工作安排。")}
-            itemsIndexed(entries,key={_,item->item.id}) {_,entry->
+            if(company)itemsIndexed(entries.chunked(2),key={_,row->"company-${row.first().id}"}) {rowIndex,row->
+                Row(Modifier.fillMaxWidth().padding(bottom=4.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                    row.forEachIndexed {columnIndex,entry->
+                        CompanyDepthCard(entry,rowIndex*2+columnIndex,Modifier.weight(1f)) {
+                            selectedId=entry.id;note=state.localPriorities.remarks[entry.id] ?: entry.myRemark.orEmpty()
+                        }
+                    }
+                    if(row.size==1)Spacer(Modifier.weight(1f))
+                }
+            } else itemsIndexed(entries,key={_,item->item.id}) {_,entry->
                 val position=entries.indexOfFirst {it.id==entry.id}
                 OutlinedCard(onClick={selectedId=entry.id;note=state.localPriorities.remarks[entry.id] ?: entry.myRemark.orEmpty()},modifier=Modifier.fillMaxWidth()
                     .zIndex(if(draggedId==entry.id)1f else 0f)

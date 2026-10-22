@@ -31,3 +31,16 @@ White-panel follow-up: unify light-theme black outlines for cards, surfaces, cal
 ## 7. Calendar period views
 - [x] 7.1 Remove refresh and calendar navigation borders; expose month/week/day modes, full-week grouped agenda and active-period navigation.
 - [x] 7.2 Verify calendar period boundaries and native mode/day/week navigation; package APK and update documentation.
+
+## 8. Native task progress graph
+- [x] 8.1 Add a Simple Graph-inspired Compose curve to task details, using actual current workflow state and existing theme tokens without fabricated history.
+- [x] 8.2 Verify all three states, small-screen/dark/reduced-motion display and progress feedback; build, package and document the Android deliverable.
+
+## 9. Company depth cards
+- [x] 9.1 Adapt native depth cards for two side-by-side overview previews and the complete company collection; preserve read-only details and local remarks.
+- [x] 9.2 Verify ten/one/zero items, detail navigation, touch scroll, small width, themes and reduced motion; package the Android build and evidence.
+
+## 10. Teammate sync and local company examples
+- [x] 10.1 Fetch and merge teammate zayin, preserve local UI/database compatibility and inspect Web/API for published examples.
+- [x] 10.2 Add ten explicit local examples with Debug development entry and opt-in empty-panel preview; prevent example writes.
+- [x] 10.3 Verify Android/Web/backend and native examples navigation, package APK and record evidence.

@@ -80,12 +80,12 @@ import java.time.format.DateTimeFormatter
                 Text(task.detail.ifBlank {"暂无任务说明"},style=MaterialTheme.typography.bodyLarge)
                 HorizontalDivider()
                 Text("派发人：${task.creatorName}\n责任人：${task.assigneeName}\n截止时间：${dueLabel(task.dueAt)}",style=MaterialTheme.typography.bodyMedium)
-                Text("创建 ${dueLabel(task.createdAt)}\n更新 ${dueLabel(task.updatedAt)}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }}}
-            item {Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            item {TaskProgressGraph(task)}
+            item {OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 Text("最新进度说明",style=MaterialTheme.typography.titleMedium)
                 Text(task.progressNote.ifBlank {"尚未反馈进度"},style=MaterialTheme.typography.bodyLarge)
-            }}
+            }}}
             if(task.assigneeId!=state.session?.userId)item {Hint("仅当前责任人可反馈进度，你可以查看任务详情。")}
             else if(buffer?.taskId==selected) {
                 item {Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {

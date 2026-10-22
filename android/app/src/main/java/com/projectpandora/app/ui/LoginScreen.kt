@@ -58,5 +58,7 @@ import com.projectpandora.app.BuildConfig
     }
     }
     }
+    if(BuildConfig.DEBUG)ControlTextButton(onClick=onDevelopmentEntry,enabled=!state.busyLogin,
+        modifier=Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top=12.dp,end=16.dp)) {Text("开发直接进入")}
     }
 }
