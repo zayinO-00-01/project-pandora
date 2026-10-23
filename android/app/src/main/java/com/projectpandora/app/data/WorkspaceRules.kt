@@ -8,13 +8,16 @@ import java.time.ZoneId
 
 fun canWriteLog(date: String,reference: LocalDate=today()): Boolean = runCatching {
     val parsed=LocalDate.parse(date)
-    parsed>=reference.minusDays(3) && parsed<=reference
+    parsed>=reference.minusDays(2) && parsed<=reference
 }.getOrDefault(false)
 
-fun canModifyLog(date: String,reference: LocalDate=today()): Boolean = date==reference.toString()
+/** Editable for 24 hours after it was written, no matter which day it is dated. */
+fun canModifyLog(log: WorkLog, now: Instant=Instant.now()): Boolean = runCatching {
+    Instant.parse(log.createdAt).plus(24, java.time.temporal.ChronoUnit.HOURS).isAfter(now)
+}.getOrDefault(false)
 
 fun logEditorReadOnly(buffer: EditBuffer,logs: List<WorkLog>): Boolean = buffer.logId!=null &&
-    !canModifyLog(logs.firstOrNull {it.id==buffer.logId}?.logDate ?: "")
+    (logs.firstOrNull {it.id==buffer.logId}?.let {!canModifyLog(it)} ?: true)
 
 object AppRoles {
     fun canViewDown(role: String)=role in setOf("FOUNDER","DEPT_HEAD","TEAM_LEAD")
@@ -40,6 +43,12 @@ fun taskDate(task: DispatchTask): LocalDate?=task.dueAt?.let {
 fun legacyTaskStatus(progress: Int?): String=when(progress) {0,null->"todo";100->"done";else->"doing"}
 fun taskStatusLabel(status: String)=when(status) {"doing"->"进行中";"done"->"已完成";else->"待开始"}
 fun taskFeedbackLabel(task: DispatchTask)=taskStatusLabel(task.status)
+fun taskReviewLabel(reviewStatus: String?): String? = when(reviewStatus) {
+    "pending_done"->"待验收";"pending_change"->"变更待审";"pending_delete"->"删除待审"
+    "rejected"->"已驳回";else->null
+}
+fun isPendingReview(reviewStatus: String?): Boolean =
+    reviewStatus=="pending_done" || reviewStatus=="pending_change" || reviewStatus=="pending_delete"
 
 /** Staff see only their pending work; leaders see their authored assignments, including completed ones. */
 fun dutyTasks(tasks: List<DispatchTask>,userId: Long,leader: Boolean): List<DispatchTask> =

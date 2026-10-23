@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.projectpandora.api.log.WorkLogEntity;
 import com.projectpandora.api.log.WorkLogRepository;
 import com.projectpandora.api.user.*;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Map;
@@ -61,12 +62,13 @@ class IntegratedPolicyTests {
     }
     @Test void expiredDraftCannotBeSubmitted() throws Exception {
         var historic=new WorkLogEntity();historic.setUserId(user("staff").getId());historic.setLogDate(today().minusDays(4));
-        historic.setContent("过期草稿");historic.setStatus("draft");logs.saveAndFlush(historic);
+        historic.setContent("过期草稿");historic.setStatus("draft");
+        historic.setCreatedAt(Instant.now().minus(25, java.time.temporal.ChronoUnit.HOURS));logs.saveAndFlush(historic);
         mvc.perform(post("/api/v1/logs/"+historic.getId()+"/submit").header("Authorization",token("staff")))
             .andExpect(status().isForbidden());
         assertThat(logs.findById(historic.getId()).orElseThrow().getStatus()).isEqualTo("draft");
     }
-    @Test void organizationDistinguishesGlobalReadMembersFromActualDispatchAssignees() throws Exception {
+    @Test void organizationListsEveryCompanyMemberAsDispatcherTarget() throws Exception {
         var external=new UserEntity();external.setUsername("unlinked_assignee");external.setPasswordHash(user("staff").getPasswordHash());
         external.setRole(Role.STAFF);users.saveAndFlush(external);
         var peer=new UserEntity();peer.setUsername("peer_founder");peer.setPasswordHash(external.getPasswordHash());
@@ -77,12 +79,13 @@ class IntegratedPolicyTests {
             .andExpect(status().isOk()).andExpect(jsonPath("$.assignees").isArray()).andReturn().getResponse().getContentAsString());
         assertThat(organization.get("members").findValuesAsText("username"))
             .contains("unlinked_assignee","peer_founder","leader","team_lead","staff").doesNotContain("admin","disabled_assignee","founder");
-        assertThat(organization.get("assignees").findValuesAsText("username")).containsExactly("leader","team_lead","staff");
-        String lead=token("team_lead");var r=request(lead,user("leader").getId());decision(token("leader"),r.get("id").asLong(),"approved",200);
-        mvc.perform(get("/api/v1/users/organization").header("Authorization",lead)).andExpect(status().isOk())
-            .andExpect(jsonPath("$.assignees.length()").value(1)).andExpect(jsonPath("$.assignees[0].username").value("staff"));
-        String staff=token("staff");var staffRequest=request(staff,user("team_lead").getId());decision(lead,staffRequest.get("id").asLong(),"approved",200);
-        mvc.perform(get("/api/v1/users/organization").header("Authorization",staff)).andExpect(status().isOk())
+        assertThat(organization.get("assignees").findValuesAsText("username"))
+            .contains("leader","team_lead","staff","unlinked_assignee","peer_founder").doesNotContain("admin","disabled_assignee","founder");
+        var leadOrg=json.readTree(mvc.perform(get("/api/v1/users/organization").header("Authorization",token("team_lead")))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertThat(leadOrg.get("assignees").findValuesAsText("username"))
+            .contains("founder","leader","staff","unlinked_assignee","peer_founder").doesNotContain("team_lead","admin","disabled_assignee");
+        mvc.perform(get("/api/v1/users/organization").header("Authorization",token("staff"))).andExpect(status().isOk())
             .andExpect(jsonPath("$.assignees.length()").value(0));
     }
     @Test void adminCannotUseAnyBusinessEntryPoint() throws Exception {
@@ -92,14 +95,15 @@ class IntegratedPolicyTests {
         mvc.perform(post("/api/v1/logs").header("Authorization",admin).contentType(MediaType.APPLICATION_JSON).content(logBody(today(),"submitted")))
             .andExpect(status().isForbidden());
     }
-    @Test void writeWindowIncludesFourShanghaiDatesAndBlocksOldOriginalDate() throws Exception {
+    @Test void writeWindowCoversThreeShanghaiDatesAndLocksHistoryAfter24h() throws Exception {
         String staff=token("staff");
-        for(LocalDate date: new LocalDate[]{today().minusDays(3),today()}) createLog(staff,date,"submitted");
-        for(LocalDate date: new LocalDate[]{today().minusDays(4),today().plusDays(1)})
+        for(LocalDate date: new LocalDate[]{today().minusDays(2),today()}) createLog(staff,date,"submitted");
+        for(LocalDate date: new LocalDate[]{today().minusDays(3),today().plusDays(1)})
             mvc.perform(post("/api/v1/logs").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(logBody(date,"draft")))
                 .andExpect(status().isBadRequest());
         var historic=new WorkLogEntity(); historic.setUserId(user("staff").getId());historic.setLogDate(today().minusDays(4));
-        historic.setContent("历史记录");historic.setStatus("draft");logs.saveAndFlush(historic);
+        historic.setContent("历史记录");historic.setStatus("draft");
+        historic.setCreatedAt(Instant.now().minus(25, java.time.temporal.ChronoUnit.HOURS));logs.saveAndFlush(historic);
         mvc.perform(put("/api/v1/logs/"+historic.getId()).header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(logBody(today(),"submitted")))
             .andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/logs/"+historic.getId()+"/submit").header("Authorization",staff)).andExpect(status().isForbidden());

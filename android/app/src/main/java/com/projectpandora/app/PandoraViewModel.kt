@@ -17,8 +17,10 @@ data class AppState(
     val busyLogin: Boolean = false, val loading: Boolean = false, val saving: Boolean = false,
     val logs: List<WorkLog> = emptyList(), val panels: PanelMap? = null,
     val tasks: List<DispatchTask> = emptyList(), val taskLoading: Boolean = false,
+    val reviews: List<DispatchTask> = emptyList(), val reviewsLoading: Boolean = false,
     val taskError: String? = null, val selectedTaskId: Long? = null,
     val organization: Organization? = null,val viewRequests: List<ViewRequest> = emptyList(),val organizationLoading: Boolean = false,
+    val profile: Profile? = null,
     val organizationError: String? = null,val member: UserSummary? = null,val memberLogs: List<WorkLog> = emptyList(),val memberTasks: List<DispatchTask> = emptyList(),
     val dispatchEditor: TaskDispatchBuffer? = null, val dispatchOpen: Boolean = false,
     val dispatchMembers: List<UserSummary> = emptyList(), val dispatchLoading: Boolean = false, val dispatchError: String? = null,
@@ -38,6 +40,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     private var generation = 0
     private var organizationJob: Job? = null
     private var dispatchJob: Job? = null
+    private var reviewsJob: Job? = null
     init { store.session()?.let { restore(it) } }
     private fun api(session: Session): ApiClient {
         check(!state.value.developmentPreview) {"开发预览不提交数据，请退出预览并登录真实账号。"}
@@ -80,8 +83,27 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         } else savePriorities(state.value.localPriorities.copy(personal=current))
     }
     fun saveCompanyRemark(id: Long,note: String) {
-        if(note.length>2000 || state.value.panels?.companyImportant?.none {it.id==id}!=false)return
-        savePriorities(state.value.localPriorities.copy(remarks=state.value.localPriorities.remarks+(id to note)))
+        val current=state.value
+        val me=current.session ?: return
+        if(note.length>2000 || current.saving || current.developmentPreview)return
+        if(current.panels?.companyImportant?.none {it.id==id}!=false)return
+        val gen=generation
+        mutable.update {it.copy(saving=true,notice=null)}
+        viewModelScope.launch {
+            try {
+                val saved=withContext(Dispatchers.IO) {api(me).saveCompanyNote(me,id,note.trim())}
+                if(gen!=generation)return@launch
+                mutable.update {s-> s.copy(saving=false,
+                    panels=s.panels?.let {p->p.copy(companyImportant=p.companyImportant.map {item->if(item.id==id)item.copy(myRemark=saved.myNote) else item})},
+                    notice=if(note.isBlank())"备注已清空。" else "备注已保存，仅本人可见，其他设备登录也能看到。")}
+            } catch(e:CancellationException) {throw e}
+            catch(e:Exception) {
+                if(gen==generation) {
+                    if(e is ApiException && e.status==401)failure(e,false)
+                    else mutable.update {it.copy(saving=false,notice=message(e))}
+                }
+            }
+        }
     }
     fun loadOrganization() {
         val me=state.value.session ?: return
@@ -189,7 +211,56 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         if(state.value.saving || state.value.editor!=null)return
         mutable.update {it.copy(screen=name,selectedTaskId=null,dispatchOpen=false,notice=null)}
         if(name=="organization")loadOrganization()
+        if(name=="profile")loadProfile()
         if(name in listOf("home","tasks","functions"))refresh()
+    }
+    fun loadProfile() {
+        val me=state.value.session ?: return
+        if(state.value.developmentPreview)return
+        val gen=generation
+        viewModelScope.launch {
+            try {
+                val profile=withContext(Dispatchers.IO) {api(me).profile(me)}
+                if(gen==generation)mutable.update {it.copy(profile=profile)}
+            } catch(e:CancellationException) {throw e}
+            catch(e:Exception) {if(gen==generation && e is ApiException && e.status==401)failure(e,false)}
+        }
+    }
+    fun changePassword(currentPassword: String,newPassword: String,onDone: ()->Unit={}) {
+        val me=state.value.session ?: return
+        if(state.value.saving || state.value.developmentPreview)return
+        val gen=generation
+        mutable.update {it.copy(saving=true,notice=null)}
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {api(me).changePassword(me,currentPassword,newPassword)}
+                if(gen==generation) {mutable.update {it.copy(saving=false,notice="密码已修改，请记住新密码。")};onDone()}
+            } catch(e:CancellationException) {throw e}
+            catch(e:Exception) {
+                if(gen==generation) {
+                    if(e is ApiException && e.status==401)failure(e,false)
+                    else mutable.update {it.copy(saving=false,notice=message(e))}
+                }
+            }
+        }
+    }
+    fun changeAvatar(avatar: String) {
+        val me=state.value.session ?: return
+        if(state.value.saving || state.value.developmentPreview)return
+        val gen=generation
+        mutable.update {it.copy(saving=true,notice=null)}
+        viewModelScope.launch {
+            try {
+                val profile=withContext(Dispatchers.IO) {api(me).updateAvatar(me,avatar)}
+                if(gen==generation)mutable.update {it.copy(saving=false,profile=profile,notice="头像已更新。")}
+            } catch(e:CancellationException) {throw e}
+            catch(e:Exception) {
+                if(gen==generation) {
+                    if(e is ApiException && e.status==401)failure(e,false)
+                    else mutable.update {it.copy(saving=false,notice=message(e))}
+                }
+            }
+        }
     }
     fun openDispatch() {
         val current=state.value
@@ -324,6 +395,84 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
               catch(e: Exception) {if(gen==generation && state.value.session==me)failure(e,false,true)}
         }
     }
+    fun loadReviews() {
+        val me=state.value.session ?: return
+        if(state.value.developmentPreview || me.role !in AppRoles.business)return
+        reviewsJob?.cancel()
+        val gen=generation
+        mutable.update {it.copy(reviewsLoading=true)}
+        reviewsJob=viewModelScope.launch {
+            try {
+                val list=withContext(Dispatchers.IO) {api(me).taskReviews(me)}
+                if(gen==generation)mutable.update {it.copy(reviews=list,reviewsLoading=false)}
+            } catch(e:CancellationException) {throw e}
+            catch(e:Exception) {if(gen==generation)mutable.update {it.copy(reviewsLoading=false)}}
+        }
+    }
+    fun approveTask(task: DispatchTask, note: String="")=reviewTask(task,true,note)
+    fun rejectTask(task: DispatchTask, note: String) {
+        if(note.isBlank()) {mutable.update {it.copy(notice="请填写驳回理由")};return}
+        reviewTask(task,false,note)
+    }
+    private fun reviewTask(task: DispatchTask, approve: Boolean, note: String) {
+        val me=state.value.session ?: return
+        if(state.value.saving || state.value.developmentPreview)return
+        val gen=generation
+        mutable.update {it.copy(saving=true,notice=null)}
+        viewModelScope.launch {
+            try {
+                val result=withContext(Dispatchers.IO) {
+                    if(approve)api(me).approveTask(me,task.id,note) else api(me).rejectTask(me,task.id,note)
+                }
+                if(gen!=generation || state.value.session!=me)return@launch
+                mutable.update {s->s.copy(saving=false,tasks=s.tasks.map {if(it.id==result.id)result else it},
+                    reviews=s.reviews.filterNot {it.id==result.id},notice=if(approve)"已通过审核。" else "已驳回。")}
+                refresh()
+            } catch(e:CancellationException) {throw e}
+            catch(e:Exception) {if(gen==generation && state.value.session==me) {
+                if(e is ApiException && e.status==401)failure(e,false) else mutable.update {it.copy(saving=false,notice=message(e))}
+            }}
+        }
+    }
+    fun deleteTask(task: DispatchTask) {
+        val me=state.value.session ?: return
+        if(state.value.saving || state.value.developmentPreview)return
+        val gen=generation
+        mutable.update {it.copy(saving=true,notice=null)}
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {api(me).deleteTask(me,task.id)}
+                if(gen!=generation || state.value.session!=me)return@launch
+                mutable.update {s->s.copy(saving=false,tasks=s.tasks.filterNot {it.id==task.id},
+                    reviews=s.reviews.filterNot {it.id==task.id},
+                    selectedTaskId=if(s.selectedTaskId==task.id)null else s.selectedTaskId,notice="已处理删除请求。")}
+                refresh()
+            } catch(e:CancellationException) {throw e}
+            catch(e:Exception) {if(gen==generation && state.value.session==me) {
+                if(e is ApiException && e.status==401)failure(e,false) else mutable.update {it.copy(saving=false,notice=message(e))}
+            }}
+        }
+    }
+    fun changeTask(task: DispatchTask,title: String,detail: String,priority: String,dueAt: String?) {
+        val me=state.value.session ?: return
+        if(state.value.saving || state.value.developmentPreview)return
+        val input=TaskCreateInput(title.trim(),detail.trim(),priority,task.assigneeId,dueAt)
+        TaskDispatchValidation.inputError(input,me.userId)?.let {mutable.update {s->s.copy(notice=it)};return}
+        val gen=generation
+        mutable.update {it.copy(saving=true,notice=null)}
+        viewModelScope.launch {
+            try {
+                val result=withContext(Dispatchers.IO) {api(me).changeTask(me,task.id,input)}
+                if(gen!=generation || state.value.session!=me)return@launch
+                mutable.update {s->s.copy(saving=false,tasks=s.tasks.map {if(it.id==result.id)result else it},
+                    notice=if(result.reviewStatus=="pending_change")"变更已提交上级审核。" else "任务已更新。")}
+                refresh()
+            } catch(e:CancellationException) {throw e}
+            catch(e:Exception) {if(gen==generation && state.value.session==me) {
+                if(e is ApiException && e.status==401)failure(e,false) else mutable.update {it.copy(saving=false,notice=message(e))}
+            }}
+        }
+    }
     fun selectDate(date: String) {mutable.update {it.copy(selectedDate=date)}}
     fun calendarMode(mode: String) {if(mode in setOf("month","week","day"))mutable.update {it.copy(calendarMode=mode)}}
     fun edit(log: WorkLog? = null) {
@@ -374,7 +523,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     }
     fun submit(log: WorkLog) {
         if(state.value.saving)return
-        if(!canWriteLog(log.logDate)) {mutable.update {it.copy(notice="该日志已超出可修改日期，仅供查看")};return}
+        if(!canModifyLog(log)) {mutable.update {it.copy(notice="该日志已超过 24 小时修改期，仅供查看")};return}
         val me=state.value.session ?: return
         val gen=generation
         mutable.update {it.copy(saving=true,notice=null)}
@@ -407,12 +556,23 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             if((panelResult.exceptionOrNull() as? ApiException)?.status==401) {failure(panelResult.exceptionOrNull()!!,false);return@launch}
             panelResult.onSuccess {panels-> mutable.update {it.copy(panels=panels)} }
                 .onFailure {e->mutable.update {it.copy(panelError=message(e))}}
+            val noticeResult=withContext(Dispatchers.IO) {runCatching {api(me).companyNotices(me)}}
+            ensureActive()
+            if(gen!=generation)return@launch
+            noticeResult.onSuccess {list->
+                val items=list.sortedBy {it.sortOrder ?: Int.MAX_VALUE}.map {PanelItem(it.id,it.title,it.sortOrder,it.myNote,it.content)}
+                mutable.update {s->s.copy(panels=(s.panels ?: PanelMap()).copy(companyImportant=items))}
+            }
             val taskResult=withContext(Dispatchers.IO) {runCatching {api(me).tasks(me)}}
             ensureActive()
             if(gen!=generation)return@launch
             if((taskResult.exceptionOrNull() as? ApiException)?.status==401) {failure(taskResult.exceptionOrNull()!!,false);return@launch}
             taskResult.onSuccess {tasks->mutable.update {it.copy(tasks=tasks)}}
                 .onFailure {e->mutable.update {it.copy(taskError=message(e))}}
+            val reviewResult=withContext(Dispatchers.IO) {runCatching {api(me).taskReviews(me)}}
+            ensureActive()
+            if(gen!=generation)return@launch
+            reviewResult.onSuccess {list->mutable.update {it.copy(reviews=list)}}
             mutable.update {it.copy(loading=false,taskLoading=false)}
         }
     }

@@ -92,8 +92,8 @@ class TaskDemoTests {
         assertThat(list(leader).findValuesAsText("id")).containsExactly(created.get("id").asText(), own.get("id").asText(), direct.get("id").asText());
         assertThat(list(staff).findValuesAsText("id")).containsExactly(created.get("id").asText(), direct.get("id").asText());
         assertThat(list(other).findValuesAsText("id")).containsExactly(hidden.get("id").asText());
-        mvc.perform(post("/api/v1/tasks").header("Authorization", token(leader)).contentType(MediaType.APPLICATION_JSON).content(payload(other, "越权")))
-            .andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/tasks").header("Authorization", token(leader)).contentType(MediaType.APPLICATION_JSON).content(payload(other, "跨队任务")))
+            .andExpect(status().isCreated());
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(leader)).contentType(MediaType.APPLICATION_JSON).content(payload(leader, "自派")))
             .andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(staff)).contentType(MediaType.APPLICATION_JSON).content(payload(staff, "越权")))
@@ -103,7 +103,7 @@ class TaskDemoTests {
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(founder)).contentType(MediaType.APPLICATION_JSON)
             .content("{\"title\":\"不存在\",\"assigneeId\":9223372036854775807}"))
             .andExpect(status().isNotFound());
-        assertThat(list(founder).size()).isEqualTo(4);
+        assertThat(list(founder).size()).isEqualTo(5);
     }
 
     @Test void onlyAssigneeCanUpdateIncludingCreatorAndAdmin() throws Exception {

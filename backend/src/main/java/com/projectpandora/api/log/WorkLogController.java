@@ -3,6 +3,7 @@ package com.projectpandora.api.log;
 import com.projectpandora.api.common.ApiException;
 import com.projectpandora.api.security.AccessService;
 import jakarta.validation.Valid;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
@@ -41,8 +42,8 @@ public class WorkLogController {
     @Transactional
     public WorkLogResponse update(@PathVariable Long id, @Valid @RequestBody CreateLogRequest r) {
         var e=authorLog(id);
-        assertModifiable(e.getLogDate(),403);
-        assertModifiable(r.logDate(),400);
+        assertModifiable(e,403);
+        assertCreatable(r.logDate());
         if("submitted".equals(e.getStatus()) && "draft".equals(r.status()))
             throw new ApiException(400,"已提交日志不能改回草稿");
         e.setLogDate(r.logDate()); e.setContent(r.content().trim());
@@ -52,7 +53,7 @@ public class WorkLogController {
     @PostMapping("/{id}/submit")
     @Transactional
     public WorkLogResponse submit(@PathVariable Long id) {
-        var e=authorLog(id); assertModifiable(e.getLogDate(),403); e.setStatus("submitted");
+        var e=authorLog(id); assertModifiable(e,403); e.setStatus("submitted");
         return WorkLogResponse.from(logs.saveAndFlush(e));
     }
     private WorkLogEntity authorLog(Long id) {
@@ -61,13 +62,16 @@ public class WorkLogController {
             throw new ApiException(403,"只能修改或提交自己的日志");
         return e;
     }
+    /** New entries may only target today, yesterday or the day before (Shanghai dates). */
     private void assertCreatable(LocalDate date) {
         var today=LocalDate.now(ZoneId.of("Asia/Shanghai"));
-        if(date.isBefore(today.minusDays(3)) || date.isAfter(today))
-            throw new ApiException(400,"可创建今天及往前 3 天的日报");
+        if(date.isBefore(today.minusDays(2)) || date.isAfter(today))
+            throw new ApiException(400,"只能新建今天、昨天和前天的日报");
     }
-    private void assertModifiable(LocalDate date,int status) {
-        if(!date.equals(LocalDate.now(ZoneId.of("Asia/Shanghai"))))
-            throw new ApiException(status,"仅能修改或提交今天的日报，历史日报仅供查看");
+    /** Editable within 24 hours of creation, regardless of which day the entry is dated. */
+    private void assertModifiable(WorkLogEntity e,int status) {
+        var createdAt=e.getCreatedAt();
+        if(createdAt==null || createdAt.isBefore(Instant.now().minus(24,java.time.temporal.ChronoUnit.HOURS)))
+            throw new ApiException(status,"仅能修改 24 小时内创建的日报，历史日报仅供查看");
     }
 }
