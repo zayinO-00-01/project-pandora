@@ -1,6 +1,8 @@
 package com.projectpandora.app.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -28,6 +30,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
 import com.projectpandora.app.R
@@ -136,6 +140,8 @@ import com.projectpandora.app.data.*
     var currentPw by remember {mutableStateOf("")}
     var newPw by remember {mutableStateOf("")}
     val avatars=listOf("🦊","🐼","🐯","🐻","🦉","🐳","🌿","⭐","🔥","🍀")
+    val context=LocalContext.current
+    val pickImage=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {uri-> if(uri!=null) {val data=imageUriToDataUrl(context,uri); if(data!=null){model.changeAvatar(data);avatarPicker=false}}}
     val permissionText=when(me.role) {
         "FOUNDER"->"创始人：可查看公司业务成员已提交的日志与任务；可向公司内任意成员派发任务。"
         "DEPT_HEAD"->"部门老总：可穿透查看部门下属；查看直属上级须申请并获批准。"
@@ -148,6 +154,9 @@ import com.projectpandora.app.data.*
         avatars.chunked(5).forEach {row-> Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
             row.forEach {emoji-> Surface(shape=androidx.compose.foundation.shape.CircleShape,color=if(state.profile?.avatar==emoji)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,modifier=Modifier.size(48.dp).clickable(enabled=!state.saving){model.changeAvatar(emoji);avatarPicker=false}) {Box(contentAlignment=Alignment.Center){Text(emoji,style=MaterialTheme.typography.titleLarge)}}
         }}
+        HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
+        ControlTextButton(onClick={pickImage.launch("image/*")},enabled=!state.saving) {Text("从相册上传图片")}
+        Text("可选系统头像，或从相册上传方形照片（会自动压缩）。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }},confirmButton={ControlTextButton(onClick={avatarPicker=false}) {Text("关闭")}})
     if(passwordDialog)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={if(!state.saving)passwordDialog=false},title={Text("修改密码")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
         OutlinedTextField(value=currentPw,onValueChange={currentPw=it},enabled=!state.saving,label={Text("原密码")},singleLine=true,visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth())
@@ -158,9 +167,13 @@ import com.projectpandora.app.data.*
     Column(Modifier.fillMaxSize()) {
     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal=24.dp).padding(top=12.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
         val profile=state.profile
+        val avatarImage=remember(state.profile?.avatarImage){decodeAvatarImage(state.profile?.avatarImage)}
         Row(Modifier.fillMaxWidth().padding(vertical=12.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
             Surface(shape=androidx.compose.foundation.shape.CircleShape,color=MaterialTheme.colorScheme.surfaceVariant,modifier=Modifier.size(56.dp).clickable(enabled=!state.saving && !state.developmentPreview){avatarPicker=true}) {
-                Box(contentAlignment=androidx.compose.ui.Alignment.Center) {Text(profile?.avatar?.takeIf {it.isNotBlank()} ?: (me.displayName ?: me.username).take(1),style=MaterialTheme.typography.titleLarge)}
+                Box(contentAlignment=androidx.compose.ui.Alignment.Center,modifier=Modifier.fillMaxSize()) {
+                    if(avatarImage!=null) Image(bitmap=avatarImage,contentDescription="头像",contentScale=ContentScale.Crop,modifier=Modifier.fillMaxSize().clip(androidx.compose.foundation.shape.CircleShape))
+                    else Text(profile?.avatar?.takeIf {it.isNotBlank()} ?: (me.displayName ?: me.username).take(1),style=MaterialTheme.typography.titleLarge)
+                }
             }
             Column(verticalArrangement=Arrangement.spacedBy(4.dp),modifier=Modifier.weight(1f)) {
                 Text(profile?.displayName ?: me.displayName ?: me.username,style=MaterialTheme.typography.titleMedium)

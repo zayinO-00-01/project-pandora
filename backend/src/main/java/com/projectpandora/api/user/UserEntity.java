@@ -68,12 +68,23 @@ public class UserEntity {
     @Column(length = 16)
     private String avatar;
 
+    @Column(name = "avatar_image", length = 200000)
+    private String avatarImage;
+
     public String getAvatar() {
         return avatar;
     }
 
     public void setAvatar(String avatar) {
         this.avatar = avatar;
+    }
+
+    public String getAvatarImage() {
+        return avatarImage;
+    }
+
+    public void setAvatarImage(String avatarImage) {
+        this.avatarImage = avatarImage;
     }
 
     public Long getId() {

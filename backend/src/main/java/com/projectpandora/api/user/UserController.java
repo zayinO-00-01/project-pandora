@@ -54,7 +54,20 @@ public class UserController {
         var principal=access.currentUser();
         var user=users.findById(principal.getId())
             .orElseThrow(()->new ApiException(404,"用户不存在"));
-        user.setAvatar(request.avatar().trim());
+        String value=request.avatar().trim();
+        if(value.startsWith("data:image/")) {
+            if(!value.matches("^data:image/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$"))
+                throw new ApiException(400,"头像图片格式不支持");
+            if(value.length()>200000)
+                throw new ApiException(400,"头像图片过大，请重新选择");
+            user.setAvatarImage(value);
+            user.setAvatar(null);
+        } else {
+            if(value.codePointCount(0,value.length())>8)
+                throw new ApiException(400,"头像名称过长");
+            user.setAvatar(value);
+            user.setAvatarImage(null);
+        }
         users.saveAndFlush(user);
         String managerName=user.getManagerId()==null ? null
             : users.findById(user.getManagerId()).map(UserEntity::getDisplayName).orElse(null);
@@ -63,13 +76,13 @@ public class UserController {
     public record ChangePasswordRequest(@NotBlank String currentPassword,
         @NotBlank @Size(min=6,max=72) String newPassword) {}
     public record ChangePasswordResult(boolean ok) {}
-    public record AvatarRequest(@NotBlank @Size(max=16) String avatar) {}
+    public record AvatarRequest(@NotBlank @Size(max=200000) String avatar) {}
     public record ProfileResponse(Long id,String username,String role,String displayName,Long managerId,String managerName,
-        String avatar,String phone,String idCard,LocalDate birthDate,String gender,LocalDate hireDate,
+        String avatar,String avatarImage,String phone,String idCard,LocalDate birthDate,String gender,LocalDate hireDate,
         String emergencyContact,String emergencyPhone,String address) {
         static ProfileResponse from(UserEntity u,String managerName) {
             return new ProfileResponse(u.getId(),u.getUsername(),u.getRole().name(),u.getDisplayName(),u.getManagerId(),managerName,
-                u.getAvatar(),u.getPhone(),u.getIdCard(),u.getBirthDate(),u.getGender(),u.getHireDate(),
+                u.getAvatar(),u.getAvatarImage(),u.getPhone(),u.getIdCard(),u.getBirthDate(),u.getGender(),u.getHireDate(),
                 u.getEmergencyContact(),u.getEmergencyPhone(),u.getAddress());
         }
     }

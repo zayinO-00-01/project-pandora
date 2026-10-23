@@ -55,10 +55,19 @@ class ProfileAndNoticeTests {
         var staff=login("staff");var auth=token(staff);
         mvc.perform(put("/api/v1/users/me/avatar").header("Authorization",auth).contentType(MediaType.APPLICATION_JSON)
             .content(json.writeValueAsString(Map.of("avatar","FOX"))))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.avatar").value("FOX"));
+            .andExpect(status().isOk()).andExpect(jsonPath("$.avatar").value("FOX"))
+            .andExpect(jsonPath("$.avatarImage").doesNotExist());
         mvc.perform(get("/api/v1/users/me").header("Authorization",auth))
             .andExpect(status().isOk()).andExpect(jsonPath("$.avatar").value("FOX"))
             .andExpect(jsonPath("$.managerId").isNumber());
+        String image="data:image/png;base64,AAAA";
+        mvc.perform(put("/api/v1/users/me/avatar").header("Authorization",auth).contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("avatar",image))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.avatarImage").value(image))
+            .andExpect(jsonPath("$.avatar").value(org.hamcrest.Matchers.nullValue()));
+        mvc.perform(put("/api/v1/users/me/avatar").header("Authorization",auth).contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("avatar","data:text/plain;base64,AAAA"))))
+            .andExpect(status().isBadRequest());
     }
 
     @Test void profilePhoneIsRequiredUniqueAndValidated() throws Exception {
