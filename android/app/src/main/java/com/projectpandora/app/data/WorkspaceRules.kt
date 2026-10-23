@@ -8,13 +8,16 @@ import java.time.ZoneId
 
 fun canWriteLog(date: String,reference: LocalDate=today()): Boolean = runCatching {
     val parsed=LocalDate.parse(date)
-    parsed>=reference.minusDays(3) && parsed<=reference
+    parsed>=reference.minusDays(2) && parsed<=reference
 }.getOrDefault(false)
 
-fun canModifyLog(date: String,reference: LocalDate=today()): Boolean = date==reference.toString()
+/** Editable for 24 hours after it was written, no matter which day it is dated. */
+fun canModifyLog(log: WorkLog, now: Instant=Instant.now()): Boolean = runCatching {
+    Instant.parse(log.createdAt).plus(24, java.time.temporal.ChronoUnit.HOURS).isAfter(now)
+}.getOrDefault(false)
 
 fun logEditorReadOnly(buffer: EditBuffer,logs: List<WorkLog>): Boolean = buffer.logId!=null &&
-    !canModifyLog(logs.firstOrNull {it.id==buffer.logId}?.logDate ?: "")
+    (logs.firstOrNull {it.id==buffer.logId}?.let {!canModifyLog(it)} ?: true)
 
 object AppRoles {
     fun canViewDown(role: String)=role in setOf("FOUNDER","DEPT_HEAD","TEAM_LEAD")

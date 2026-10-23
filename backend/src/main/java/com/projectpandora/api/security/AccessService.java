@@ -44,9 +44,8 @@ public class AccessService {
         var me=assertBusiness();
         if(!isLeader(me.getRole())) return List.of();
         var all=users.findAll();
-        Map<Long,UserEntity> byId=new HashMap<>();all.forEach(u->byId.put(u.getId(),u));
         return all.stream().filter(this::isActiveBusiness)
-            .filter(u->rank(u.getRole())<rank(me.getRole()) && isAncestor(me.getId(),u.getId(),byId))
+            .filter(u->!u.getId().equals(me.getId()))
             .toList();
     }
     public void assertCanViewUserLogs(Long targetId) {
@@ -65,9 +64,8 @@ public class AccessService {
     }
     public void assertCanDispatch(UserEntity assignee) {
         var me=assertBusiness();
-        if(!isLeader(me.getRole()) || !isActiveBusiness(assignee)
-            || rank(me.getRole())<=rank(assignee.getRole()) || !isAncestor(me.getId(),assignee.getId()))
-            throw new ApiException(403,"只能向实际下级派发任务");
+        if(!isLeader(me.getRole()) || !isActiveBusiness(assignee) || assignee.getId().equals(me.getId()))
+            throw new ApiException(403,"只能向公司内的业务成员派发任务");
     }
     public static boolean isLeader(Role role) { return role==Role.FOUNDER || role==Role.DEPT_HEAD || role==Role.TEAM_LEAD; }
     public static int rank(Role role) {

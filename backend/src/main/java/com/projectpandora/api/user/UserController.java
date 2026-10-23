@@ -2,9 +2,14 @@ package com.projectpandora.api.user;
 
 import com.projectpandora.api.common.ApiException;
 import com.projectpandora.api.security.AccessService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -12,7 +17,10 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
     private final UserRepository users;
     private final AccessService access;
-    public UserController(UserRepository users,AccessService access) {this.users=users;this.access=access;}
+    private final PasswordEncoder passwords;
+    public UserController(UserRepository users,AccessService access,PasswordEncoder passwords) {
+        this.users=users;this.access=access;this.passwords=passwords;
+    }
     @GetMapping
     public List<UserSummary> list() {
         return access.downwardUsers().stream().sorted(Comparator.comparing(UserEntity::getId)).map(UserSummary::from).toList();
@@ -22,14 +30,46 @@ public class UserController {
         var principal=access.currentUser();
         var user=users.findById(principal.getId())
             .orElseThrow(()->new ApiException(404,"用户不存在"));
-        return ProfileResponse.from(user);
+        String managerName=user.getManagerId()==null ? null
+            : users.findById(user.getManagerId()).map(UserEntity::getDisplayName).orElse(null);
+        return ProfileResponse.from(user,managerName);
     }
-    public record ProfileResponse(Long id,String username,String role,String displayName,Long managerId,
-        String phone,String idCard,LocalDate birthDate,String gender,LocalDate hireDate,
+    @PutMapping("/me/password")
+    @Transactional
+    public ChangePasswordResult changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        var principal=access.currentUser();
+        var user=users.findById(principal.getId())
+            .orElseThrow(()->new ApiException(404,"用户不存在"));
+        if(!passwords.matches(request.currentPassword(),user.getPasswordHash()))
+            throw new ApiException(400,"原密码不正确");
+        if(request.currentPassword().equals(request.newPassword()))
+            throw new ApiException(400,"新密码不能与原密码相同");
+        user.setPasswordHash(passwords.encode(request.newPassword()));
+        users.save(user);
+        return new ChangePasswordResult(true);
+    }
+    @PutMapping("/me/avatar")
+    @Transactional
+    public ProfileResponse updateAvatar(@Valid @RequestBody AvatarRequest request) {
+        var principal=access.currentUser();
+        var user=users.findById(principal.getId())
+            .orElseThrow(()->new ApiException(404,"用户不存在"));
+        user.setAvatar(request.avatar().trim());
+        users.saveAndFlush(user);
+        String managerName=user.getManagerId()==null ? null
+            : users.findById(user.getManagerId()).map(UserEntity::getDisplayName).orElse(null);
+        return ProfileResponse.from(user,managerName);
+    }
+    public record ChangePasswordRequest(@NotBlank String currentPassword,
+        @NotBlank @Size(min=6,max=72) String newPassword) {}
+    public record ChangePasswordResult(boolean ok) {}
+    public record AvatarRequest(@NotBlank @Size(max=16) String avatar) {}
+    public record ProfileResponse(Long id,String username,String role,String displayName,Long managerId,String managerName,
+        String avatar,String phone,String idCard,LocalDate birthDate,String gender,LocalDate hireDate,
         String emergencyContact,String emergencyPhone,String address) {
-        static ProfileResponse from(UserEntity u) {
-            return new ProfileResponse(u.getId(),u.getUsername(),u.getRole().name(),u.getDisplayName(),u.getManagerId(),
-                u.getPhone(),u.getIdCard(),u.getBirthDate(),u.getGender(),u.getHireDate(),
+        static ProfileResponse from(UserEntity u,String managerName) {
+            return new ProfileResponse(u.getId(),u.getUsername(),u.getRole().name(),u.getDisplayName(),u.getManagerId(),managerName,
+                u.getAvatar(),u.getPhone(),u.getIdCard(),u.getBirthDate(),u.getGender(),u.getHireDate(),
                 u.getEmergencyContact(),u.getEmergencyPhone(),u.getAddress());
         }
     }

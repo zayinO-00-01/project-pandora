@@ -35,6 +35,32 @@ class ProfileAndNoticeTests {
         return json.writeValueAsString(Map.of("username", username, "password", "demo1234", "role", "STAFF", "phone", phone));
     }
 
+    @Test void ownerCanChangePasswordWithCurrentPassword() throws Exception {
+        var staff=login("staff");var auth=token(staff);
+        mvc.perform(put("/api/v1/users/me/password").header("Authorization",auth).contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("currentPassword","wrong","newPassword","newpass123"))))
+            .andExpect(status().isBadRequest());
+        mvc.perform(put("/api/v1/users/me/password").header("Authorization",auth).contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("currentPassword","demo1234","newPassword","newpass123"))))
+            .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("username","staff","password","newpass123"))))
+            .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("username","staff","password","demo1234"))))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test void ownerCanChangeAvatarAndReadBack() throws Exception {
+        var staff=login("staff");var auth=token(staff);
+        mvc.perform(put("/api/v1/users/me/avatar").header("Authorization",auth).contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("avatar","FOX"))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.avatar").value("FOX"));
+        mvc.perform(get("/api/v1/users/me").header("Authorization",auth))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.avatar").value("FOX"))
+            .andExpect(jsonPath("$.managerId").isNumber());
+    }
+
     @Test void profilePhoneIsRequiredUniqueAndValidated() throws Exception {
         var admin = login("admin");
         // missing phone rejected

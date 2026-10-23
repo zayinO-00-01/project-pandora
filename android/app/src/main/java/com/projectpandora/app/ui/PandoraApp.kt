@@ -76,7 +76,11 @@ import com.projectpandora.app.data.*
         if(homeHeader && readFailures.isNotEmpty())Text("同步失败 · ${if(retained)"上次内容" else "查看原因"} ›",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.error,maxLines=2)
         if(state.developmentPreview)Text("本地预览",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }},actions={
-        if(canCreate) {WriteLogButton(enabled=!state.saving,onClick={model.edit()});Spacer(Modifier.width(4.dp))}
+        if(canCreate) {
+            if(state.screen=="day") {
+                if(AppRoles.canDispatch(state.session.role)) {InlineAction("派发任务",enabled=!state.saving,icon=R.drawable.console_add) {feedback();model.openDispatch()};Spacer(Modifier.width(4.dp))}
+            } else {WriteLogButton(enabled=!state.saving,onClick={model.edit()});Spacer(Modifier.width(4.dp))}
+        }
         if(state.screen!="profile")InlineAction(if(homeHeader && readFailures.isNotEmpty())"重试" else "刷新",enabled=!state.loading && !state.organizationLoading && !state.saving,icon=R.drawable.console_sync,secondary=true,loading=state.loading || state.organizationLoading) {feedback();if(state.screen=="organization")model.loadOrganization() else model.refresh()}
     },colors=TopAppBarDefaults.topAppBarColors(containerColor=Color.Transparent))}},bottomBar={
         if(state.editor==null && state.selectedTaskId==null && !state.dispatchOpen)Column {
@@ -127,22 +131,43 @@ import com.projectpandora.app.data.*
     val appearance=LocalAppearance.current
     var leaving by remember {mutableStateOf(false)}
     var details by remember {mutableStateOf<String?>(null)}
+    var avatarPicker by remember {mutableStateOf(false)}
+    var passwordDialog by remember {mutableStateOf(false)}
+    var currentPw by remember {mutableStateOf("")}
+    var newPw by remember {mutableStateOf("")}
+    val avatars=listOf("🦊","🐼","🐯","🐻","🦉","🐳","🌿","⭐","🔥","🍀")
     val permissionText=when(me.role) {
-        "FOUNDER"->"创始人：可查看公司业务成员已提交的日志与任务；仅向自己组织下的下级派发任务。"
+        "FOUNDER"->"创始人：可查看公司业务成员已提交的日志与任务；可向公司内任意成员派发任务。"
         "DEPT_HEAD"->"部门老总：可穿透查看部门下属；查看直属上级须申请并获批准。"
         "TEAM_LEAD"->"团队长：可查看团队下属；查看直属上级须申请并获批准。"
         "LEADER"->"当前连接旧版演示服务，权限以该服务为准。"
         else->"员工：记录自己的工作，处理分配任务；查看直属上级须申请并获批准。"
     }
     details?.let {section->AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={details=null},title={Text(if(section=="access")"账号与权限" else "当前服务")},text={Text(if(section=="access")"$permissionText\n\n资料与组织关系由管理员在 Web 维护；组织查看与申请从职能入口进入。" else "${me.server}\n\n工作记录保存在此服务。无法连接时，请检查网络或联系管理员。")},confirmButton={ControlTextButton(onClick={details=null}) {Text("关闭")}})}
+    if(avatarPicker)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={avatarPicker=false},title={Text("选择头像")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+        avatars.chunked(5).forEach {row-> Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+            row.forEach {emoji-> Surface(shape=androidx.compose.foundation.shape.CircleShape,color=if(state.profile?.avatar==emoji)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,modifier=Modifier.size(48.dp).clickable(enabled=!state.saving){model.changeAvatar(emoji);avatarPicker=false}) {Box(contentAlignment=Alignment.Center){Text(emoji,style=MaterialTheme.typography.titleLarge)}}
+        }}
+    }},confirmButton={ControlTextButton(onClick={avatarPicker=false}) {Text("关闭")}})
+    if(passwordDialog)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={if(!state.saving)passwordDialog=false},title={Text("修改密码")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+        OutlinedTextField(value=currentPw,onValueChange={currentPw=it},enabled=!state.saving,label={Text("原密码")},singleLine=true,visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth())
+        OutlinedTextField(value=newPw,onValueChange={newPw=it.take(72)},enabled=!state.saving,label={Text("新密码（6-72 位）")},singleLine=true,visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth())
+        Text("忘记密码请联系管理员在 Web 重置。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    }},confirmButton={ControlTextButton(onClick={model.changePassword(currentPw,newPw){passwordDialog=false;currentPw="";newPw=""}},enabled=!state.saving && currentPw.isNotBlank() && newPw.length in 6..72) {Text(if(state.saving)"提交中…" else "确认修改")}},dismissButton={ControlTextButton(onClick={passwordDialog=false},enabled=!state.saving) {Text("取消")}})
     if(leaving)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={leaving=false},title={Text(if(state.developmentPreview)"退出开发预览？" else "退出当前账号？")},text={Text(if(state.developmentPreview)"预览没有登录业务账号，也未向服务器提交数据。" else "工作记录已保存在当前服务。未提交输入会保留在这台设备，再次登录原账号可继续。")},confirmButton={ControlTextButton(onClick={leaving=false;model.logout()}) {Text("退出登录")}},dismissButton={ControlTextButton(onClick={leaving=false}) {Text("取消")}})
     Column(Modifier.fillMaxSize()) {
     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal=24.dp).padding(top=12.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+        val profile=state.profile
         Row(Modifier.fillMaxWidth().padding(vertical=12.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
-            Icon(painterResource(R.drawable.console_person),null,tint=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.size(28.dp))
-            Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                Text(me.displayName ?: me.username,style=MaterialTheme.typography.titleMedium)
-                Text("${me.username} · ${AppRoles.label(me.role)}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            Surface(shape=androidx.compose.foundation.shape.CircleShape,color=MaterialTheme.colorScheme.surfaceVariant,modifier=Modifier.size(56.dp).clickable(enabled=!state.saving && !state.developmentPreview){avatarPicker=true}) {
+                Box(contentAlignment=androidx.compose.ui.Alignment.Center) {Text(profile?.avatar?.takeIf {it.isNotBlank()} ?: (me.displayName ?: me.username).take(1),style=MaterialTheme.typography.titleLarge)}
+            }
+            Column(verticalArrangement=Arrangement.spacedBy(4.dp),modifier=Modifier.weight(1f)) {
+                Text(profile?.displayName ?: me.displayName ?: me.username,style=MaterialTheme.typography.titleMedium)
+                Text("手机号：${profile?.phone?.takeIf {it.isNotBlank()} ?: "未填写"}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                val manager=profile?.managerName
+                val managerText=when {profile?.managerId==null->"未设置";manager.isNullOrBlank()->"#${profile.managerId}";else->"$manager（#${profile.managerId}）"}
+                Text("直属上级：$managerText",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
@@ -166,6 +191,10 @@ import com.projectpandora.app.data.*
         HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
         ControlTextButton(onClick={details="access"},enabled=!state.saving,contentPadding=PaddingValues(0.dp),modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
             Text("账号与权限",style=MaterialTheme.typography.bodyMedium)
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,null,modifier=Modifier.size(20.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
+        }}
+        ControlTextButton(onClick={currentPw="";newPw="";passwordDialog=true},enabled=!state.saving && !state.developmentPreview,contentPadding=PaddingValues(0.dp),modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+            Text("修改密码",style=MaterialTheme.typography.bodyMedium)
             Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,null,modifier=Modifier.size(20.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
         }}
         ControlTextButton(onClick={details="service"},enabled=!state.saving,contentPadding=PaddingValues(0.dp),modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
