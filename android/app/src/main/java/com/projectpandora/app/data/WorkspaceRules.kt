@@ -43,6 +43,12 @@ fun taskDate(task: DispatchTask): LocalDate?=task.dueAt?.let {
 fun legacyTaskStatus(progress: Int?): String=when(progress) {0,null->"todo";100->"done";else->"doing"}
 fun taskStatusLabel(status: String)=when(status) {"doing"->"进行中";"done"->"已完成";else->"待开始"}
 fun taskFeedbackLabel(task: DispatchTask)=taskStatusLabel(task.status)
+fun taskReviewLabel(reviewStatus: String?): String? = when(reviewStatus) {
+    "pending_done"->"待验收";"pending_change"->"变更待审";"pending_delete"->"删除待审"
+    "rejected"->"已驳回";else->null
+}
+fun isPendingReview(reviewStatus: String?): Boolean =
+    reviewStatus=="pending_done" || reviewStatus=="pending_change" || reviewStatus=="pending_delete"
 
 /** Staff see only their pending work; leaders see their authored assignments, including completed ones. */
 fun dutyTasks(tasks: List<DispatchTask>,userId: Long,leader: Boolean): List<DispatchTask> =
