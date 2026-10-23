@@ -46,8 +46,24 @@ class ApiClientTest {
             }
         }
     }
+    @Test fun saveCompanyNoteUsesPutWithContent() {
+        MockWebServer().use {server->
+            server.enqueue(MockResponse().setBody("""{"token":"abc","userId":3,"role":"STAFF","displayName":"员工"}"""))
+            server.enqueue(MockResponse().setBody("""{"id":12,"title":"事项","content":"正文","sortOrder":0,"enabled":true,"updatedAt":"2026-10-23T01:00:00Z","myNote":"我的备注"}"""))
+            server.start()
+            val api=ApiClient(server.url("/").toString())
+            val me=api.login("staff","demo1234")
+            val saved=api.saveCompanyNote(me,12,"我的备注")
+            assertEquals("我的备注",saved.myNote)
+            server.takeRequest()
+            val request=server.takeRequest()
+            assertEquals("/api/v1/company-notices/12/note",request.path)
+            assertEquals("PUT",request.method)
+            assertTrue(request.body.readUtf8().contains("我的备注"))
+        }
+    }
     @Test fun apiErrorKeepsReadableStatus() {
-        MockWebServer().use {server ->
+        MockWebServer().use {server->
             server.enqueue(MockResponse().setResponseCode(401).setBody("""{"message":"登录已过期"}"""));server.start()
             try {ApiClient(server.url("/").toString()).login("staff","bad");fail("expected 401")}
             catch(e:ApiException) {assertEquals(401,e.status);assertEquals("登录已过期",e.message)}

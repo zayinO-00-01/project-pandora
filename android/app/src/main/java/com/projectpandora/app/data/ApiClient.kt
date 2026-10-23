@@ -84,6 +84,12 @@ class ApiClient(address: String) {
         return result
     }
     fun panels(session: Session): PanelMap = request("/panels/map","GET",null,session,PanelMap::class.java)
+    fun companyNotices(session: Session): List<CompanyNotice> = request("/company-notices","GET",null,session,object:TypeToken<List<CompanyNotice>>(){}.type)
+    fun saveCompanyNote(session: Session, id: Long, content: String): CompanyNotice {
+        require(id>0) {"无效的事项编号"}
+        if(content.length>2000)throw IllegalArgumentException("备注不能超过2000字")
+        return request("/company-notices/$id/note","PUT",mapOf("content" to content),session,CompanyNotice::class.java)
+    }
     fun save(session: Session, id: Long?, input: LogInput): WorkLog {
         LogValidation.error(input.logDate,input.content,input.status)?.let {throw IllegalArgumentException(it)}
         if(id!=null) {

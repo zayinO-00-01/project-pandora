@@ -80,8 +80,27 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         } else savePriorities(state.value.localPriorities.copy(personal=current))
     }
     fun saveCompanyRemark(id: Long,note: String) {
-        if(note.length>2000 || state.value.panels?.companyImportant?.none {it.id==id}!=false)return
-        savePriorities(state.value.localPriorities.copy(remarks=state.value.localPriorities.remarks+(id to note)))
+        val current=state.value
+        val me=current.session ?: return
+        if(note.length>2000 || current.saving || current.developmentPreview)return
+        if(current.panels?.companyImportant?.none {it.id==id}!=false)return
+        val gen=generation
+        mutable.update {it.copy(saving=true,notice=null)}
+        viewModelScope.launch {
+            try {
+                val saved=withContext(Dispatchers.IO) {api(me).saveCompanyNote(me,id,note.trim())}
+                if(gen!=generation)return@launch
+                mutable.update {s-> s.copy(saving=false,
+                    panels=s.panels?.let {p->p.copy(companyImportant=p.companyImportant.map {item->if(item.id==id)item.copy(myRemark=saved.myNote) else item})},
+                    notice=if(note.isBlank())"备注已清空。" else "备注已保存，仅本人可见，其他设备登录也能看到。")}
+            } catch(e:CancellationException) {throw e}
+            catch(e:Exception) {
+                if(gen==generation) {
+                    if(e is ApiException && e.status==401)failure(e,false)
+                    else mutable.update {it.copy(saving=false,notice=message(e))}
+                }
+            }
+        }
     }
     fun loadOrganization() {
         val me=state.value.session ?: return
@@ -407,6 +426,13 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             if((panelResult.exceptionOrNull() as? ApiException)?.status==401) {failure(panelResult.exceptionOrNull()!!,false);return@launch}
             panelResult.onSuccess {panels-> mutable.update {it.copy(panels=panels)} }
                 .onFailure {e->mutable.update {it.copy(panelError=message(e))}}
+            val noticeResult=withContext(Dispatchers.IO) {runCatching {api(me).companyNotices(me)}}
+            ensureActive()
+            if(gen!=generation)return@launch
+            noticeResult.onSuccess {list->
+                val items=list.sortedBy {it.sortOrder ?: Int.MAX_VALUE}.map {PanelItem(it.id,it.title,it.sortOrder,it.myNote,it.content)}
+                mutable.update {s->s.copy(panels=(s.panels ?: PanelMap()).copy(companyImportant=items))}
+            }
             val taskResult=withContext(Dispatchers.IO) {runCatching {api(me).tasks(me)}}
             ensureActive()
             if(gen!=generation)return@launch
