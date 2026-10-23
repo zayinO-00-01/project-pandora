@@ -26,7 +26,7 @@ object LogValidation {
     fun error(date: String, content: String, status: String): String? {
         val parsed=try {LocalDate.parse(date)} catch(_:Exception) {return "请选择有效的日志日期"}
         if(parsed>today())return "日志日期不能晚于今天"
-        if(!canWriteLog(date))return "可创建今天及往前 3 天的日报"
+        if(!canWriteLog(date))return "只能新建今天、昨天和前天的日报"
         if(content.isBlank())return "工作记录不能为空"
         if(content.length>5000)return "工作记录不能超过5000字"
         if(status !in listOf("draft","submitted"))return "无效的日志状态"
@@ -59,6 +59,13 @@ class ApiClient(address: String) {
         return Session(server,result.token,result.userId,result.role,result.displayName,username)
     }
     fun users(session: Session): List<UserSummary> = request("/users","GET",null,session,object:TypeToken<List<UserSummary>>(){}.type)
+    fun profile(session: Session): Profile = request("/users/me","GET",null,session,Profile::class.java)
+    fun changePassword(session: Session, currentPassword: String, newPassword: String) {
+        require(newPassword.length in 6..72) {"新密码需为 6-72 位"}
+        val ignored: Map<String,Any?> = request("/users/me/password","PUT",mapOf("currentPassword" to currentPassword,"newPassword" to newPassword),session,object:TypeToken<Map<String,Any?>>(){}.type)
+        ignored.size
+    }
+    fun updateAvatar(session: Session, avatar: String): Profile = request("/users/me/avatar","PUT",mapOf("avatar" to avatar),session,Profile::class.java)
     fun organization(session: Session): Organization = request("/users/organization","GET",null,session,Organization::class.java)
     fun viewRequests(session: Session): List<ViewRequest> = request("/view-requests","GET",null,session,object:TypeToken<List<ViewRequest>>(){}.type)
     fun requestView(session: Session,targetId: Long,reason: String): ViewRequest = request("/view-requests","POST",mapOf("targetId" to targetId,"reason" to reason),session,ViewRequest::class.java)
@@ -84,11 +91,16 @@ class ApiClient(address: String) {
         return result
     }
     fun panels(session: Session): PanelMap = request("/panels/map","GET",null,session,PanelMap::class.java)
+    fun companyNotices(session: Session): List<CompanyNotice> = request("/company-notices","GET",null,session,object:TypeToken<List<CompanyNotice>>(){}.type)
+    fun saveCompanyNote(session: Session, id: Long, content: String): CompanyNotice {
+        require(id>0) {"无效的事项编号"}
+        if(content.length>2000)throw IllegalArgumentException("备注不能超过2000字")
+        return request("/company-notices/$id/note","PUT",mapOf("content" to content),session,CompanyNotice::class.java)
+    }
     fun save(session: Session, id: Long?, input: LogInput): WorkLog {
         LogValidation.error(input.logDate,input.content,input.status)?.let {throw IllegalArgumentException(it)}
         if(id!=null) {
             require(id>0) {"无效的日志编号"}
-            require(canModifyLog(input.logDate)) {"仅能修改今天的日报"}
         }
         return request(if(id==null)"/logs" else "/logs/$id",if(id==null)"POST" else "PUT",input,session,WorkLog::class.java)
     }

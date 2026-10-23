@@ -96,10 +96,10 @@ import androidx.compose.ui.semantics.contentDescription
     if(discard)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={discard=false},title={Text("放弃这次修改？")},text={Text("未保存内容会被清除，服务器里的日志不会改变。")},confirmButton={ControlTextButton(onClick={discard=false;model.discardEditor()}) {Text("放弃修改")}},dismissButton={ControlTextButton(onClick={discard=false}) {Text("继续编辑")}})
     Column(Modifier.fillMaxSize().imePadding().padding(horizontal=20.dp)) {
         LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=20.dp)) {
-            item {ScreenHeading(if(readOnly)"查看工作日志" else if(editor.logId==null)"新建工作日志" else "编辑工作日志",if(readOnly)"此记录已超出修改期限，内容仅供查看。" else "可补录今天及往前 3 天；仅当天日报可修改。")}
+            item {ScreenHeading(if(readOnly)"查看工作日志" else if(editor.logId==null)"新建工作日志" else "编辑工作日志",if(readOnly)"此记录已超过 24 小时修改期，内容仅供查看。" else "可新建今天、昨天和前天的日报；创建后 24 小时内可修改。")}
             item {Text(if(readOnly)"历史日志完整保留。" else if(editor.status=="submitted")"保存后，领导刷新即可看到最新内容。" else "草稿仅自己可见，提交后领导才能查看。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-            item {DateButton(editor.date,!state.saving && !readOnly && editor.logId==null,minDate=if(readOnly)null else today().minusDays(3)) {model.changeEditor(date=it)}}
-            if(editor.logId==null && editor.date!=today().toString())item {Hint("补录历史日报后将立即只读，不能再次修改。请确认内容后直接提交。")}
+            item {DateButton(editor.date,!state.saving && !readOnly && editor.logId==null,minDate=if(readOnly)null else today().minusDays(2)) {model.changeEditor(date=it)}}
+            if(editor.logId==null && editor.date!=today().toString())item {Hint("补录的历史日报在创建后 24 小时内仍可修改；超过后将只读。")}
             item {OutlinedTextField(value=editor.content,onValueChange={if(it.length<=5000)model.changeEditor(content=it)},readOnly=readOnly,label={Text("工作记录")},placeholder={Text("今天完成了什么？遇到哪些问题？下一步准备做什么？")},enabled=!state.saving,modifier=Modifier.fillMaxWidth().heightIn(min=260.dp),minLines=9,supportingText={Text("${editor.content.length} / 5000")})}
             state.editorError?.let {item {Hint(it,true)}}
         }
