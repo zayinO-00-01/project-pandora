@@ -43,6 +43,21 @@ public class TaskEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "review_status", nullable = false, length = 24)
+    private String reviewStatus = "none";
+    @Column(name = "review_reason", columnDefinition = "TEXT")
+    private String reviewReason;
+    @Column(name = "reviewed_by")
+    private Long reviewedBy;
+    @Column(name = "reviewed_at")
+    private Instant reviewedAt;
+    @Column(name = "pending_change", columnDefinition = "TEXT")
+    private String pendingChange;
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+    @Column(name = "deleted_by")
+    private Long deletedBy;
+
     protected TaskEntity() {}
 
     TaskEntity(CreateTaskRequest request, UserEntity creator, UserEntity assignee) {
@@ -55,6 +70,11 @@ public class TaskEntity {
     @PreUpdate
     void onUpdate() { updatedAt = Instant.now(); }
     void updateProgress(String state, Integer value, String note) { status = state; progress = value; progressNote = note; }
+    void applyDefinition(String title, String detail, String priority, Instant dueAt) {
+        this.title = title; this.detail = detail; this.priority = priority; this.dueAt = dueAt;
+    }
+    void softDelete(Long actor) { this.deletedAt = Instant.now(); this.deletedBy = actor; }
+    boolean isDeleted() { return deletedAt != null; }
 
     public Long getId() { return id; }
     public String getTitle() { return title; }
@@ -68,4 +88,17 @@ public class TaskEntity {
     public UserEntity getAssignee() { return assignee; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    public String getReviewStatus() { return reviewStatus; }
+    public void setReviewStatus(String reviewStatus) { this.reviewStatus = reviewStatus; }
+    public String getReviewReason() { return reviewReason; }
+    public void setReviewReason(String reviewReason) { this.reviewReason = reviewReason; }
+    public Long getReviewedBy() { return reviewedBy; }
+    public void setReviewedBy(Long reviewedBy) { this.reviewedBy = reviewedBy; }
+    public Instant getReviewedAt() { return reviewedAt; }
+    public void setReviewedAt(Instant reviewedAt) { this.reviewedAt = reviewedAt; }
+    public String getPendingChange() { return pendingChange; }
+    public void setPendingChange(String pendingChange) { this.pendingChange = pendingChange; }
+    public Instant getDeletedAt() { return deletedAt; }
+    public Long getDeletedBy() { return deletedBy; }
 }
