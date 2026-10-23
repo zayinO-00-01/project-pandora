@@ -41,6 +41,12 @@ import androidx.compose.ui.semantics.selected
 import com.projectpandora.app.AppState
 import com.projectpandora.app.PandoraViewModel
 import com.projectpandora.app.data.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.text.style.TextOverflow
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun PandoraApp(state: AppState, model: PandoraViewModel) {
@@ -74,7 +80,7 @@ import com.projectpandora.app.data.*
     Box(Modifier.fillMaxSize()) {
     WorkspaceBackground(Modifier.matchParentSize())
     Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(MaterialTheme.colorScheme.background))
-    Scaffold(containerColor=Color.Transparent,contentColor=MaterialTheme.colorScheme.onBackground,topBar={Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)).padding(top=12.dp,bottom=6.dp),contentAlignment=Alignment.TopCenter) {TopAppBar(modifier=Modifier.widthIn(max=600.dp).fillMaxWidth(),expandedHeight=headerHeight,windowInsets=WindowInsets(0,0,0,0),title={Column(Modifier.padding(start=8.dp).semantics {if(homeHeader && readFailures.isNotEmpty())contentDescription="同步失败"}.clickable(enabled=homeHeader && readFailures.isNotEmpty()) {syncDetails=true},verticalArrangement=Arrangement.spacedBy(2.dp)) {
+    Scaffold(containerColor=Color.Transparent,contentColor=MaterialTheme.colorScheme.onBackground,topBar={Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)).padding(top=12.dp,bottom=6.dp),contentAlignment=Alignment.TopCenter) {TopAppBar(modifier=Modifier.widthIn(max=600.dp).fillMaxWidth(),expandedHeight=headerHeight,windowInsets=WindowInsets(0,0,0,0),navigationIcon={if(state.screen!="profile")Box(contentAlignment=Alignment.TopEnd){IconButton(onClick={feedback();model.loadNotifications();model.screen("notifications")},enabled=!state.saving){Icon(painterResource(R.drawable.console_bell),contentDescription="消息",modifier=Modifier.size(21.dp))};if(state.unreadCount>0)Badge(modifier=Modifier.align(Alignment.TopEnd).offset(x=6.dp,y=(-6).dp)){Text(if(state.unreadCount>99)"99+" else state.unreadCount.toString())}}},title={Column(Modifier.padding(start=8.dp).semantics {if(homeHeader && readFailures.isNotEmpty())contentDescription="同步失败"}.clickable(enabled=homeHeader && readFailures.isNotEmpty()) {syncDetails=true},verticalArrangement=Arrangement.spacedBy(2.dp)) {
         Text(pageTitle,style=MaterialTheme.typography.headlineSmall,fontFamily=ConsoleDisplay,fontWeight=androidx.compose.ui.text.font.FontWeight.SemiBold)
         if(homeHeader)Text("${today().monthValue}月${today().dayOfMonth}日 · ${listOf("周一","周二","周三","周四","周五","周六","周日")[today().dayOfWeek.value-1]}${if(readFailures.isNotEmpty())"" else if(state.developmentPreview)" · 未连接" else if(state.loading)" · 同步中" else " · 已同步"}",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2)
         if(homeHeader && readFailures.isNotEmpty())Text("同步失败 · ${if(retained)"上次内容" else "查看原因"} ›",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.error,maxLines=2)
@@ -110,11 +116,39 @@ import com.projectpandora.app.data.*
             "day" -> CalendarScreen(state,model)
             "ai" -> HomeScreen(state,model)
             "profile" -> ProfileScreen(state,model)
+            "notifications" -> NotificationsScreen(state,model)
             "organization" -> OrganizationScreen(state,model)
         }
     }}}
     }
 }
+
+@Composable private fun NotificationsScreen(state: AppState, model: PandoraViewModel) {
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp),contentPadding=PaddingValues(top=4.dp,bottom=28.dp)) {
+        item {Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            ScreenHeading("消息中心","派发、验收、变更与删除的提醒都会出现在这里。")
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+                Text(if(state.unreadCount>0)"未读 ${state.unreadCount} 条" else "全部已读",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                ControlTextButton(onClick=model::markAllNotificationsRead,enabled=!state.saving && state.unreadCount>0) {Text("全部已读")}
+            }
+            if(state.notificationsLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
+        }}
+        if(state.notifications.isEmpty() && !state.notificationsLoading)item {EmptyCard("暂无消息","有新的派发或审核进展时会在这里提醒你。")}
+        items(state.notifications,key={it.id}) {n->OutlinedCard(onClick={model.openNotification(n)},enabled=!state.saving,modifier=Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+                    Text(n.title,style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis,modifier=Modifier.weight(1f),color=if(n.read)MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.secondary)
+                    if(!n.read)Badge {Text("新")}
+                }
+                Text(n.body,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(notificationTime(n.createdAt),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }}
+    }
+}
+private fun notificationTime(value: String): String = runCatching {
+    DateTimeFormatter.ofPattern("MM-dd HH:mm").withZone(ZoneId.of("Asia/Shanghai")).format(Instant.parse(value))
+}.getOrDefault(value)
 
 @Composable private fun WorkspaceBackground(modifier: Modifier) {
     val dark=LocalAppearance.current.mode==Appearance.DARK

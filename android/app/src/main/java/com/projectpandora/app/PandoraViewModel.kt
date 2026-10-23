@@ -18,6 +18,7 @@ data class AppState(
     val logs: List<WorkLog> = emptyList(), val panels: PanelMap? = null,
     val tasks: List<DispatchTask> = emptyList(), val taskLoading: Boolean = false,
     val reviews: List<DispatchTask> = emptyList(), val reviewsLoading: Boolean = false,
+    val notifications: List<AppNotification> = emptyList(), val unreadCount: Long = 0, val notificationsLoading: Boolean = false,
     val taskError: String? = null, val selectedTaskId: Long? = null,
     val organization: Organization? = null,val viewRequests: List<ViewRequest> = emptyList(),val organizationLoading: Boolean = false,
     val profile: Profile? = null,
@@ -473,6 +474,35 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             }}
         }
     }
+    fun loadNotifications() {
+        val me=state.value.session ?: return
+        if(state.value.developmentPreview || me.role !in AppRoles.business)return
+        val gen=generation
+        mutable.update {it.copy(notificationsLoading=true)}
+        viewModelScope.launch {
+            try {
+                val result=withContext(Dispatchers.IO) {api(me).notifications(me)}
+                if(gen==generation)mutable.update {it.copy(notifications=result.items,unreadCount=result.unreadCount,notificationsLoading=false)}
+            } catch(e:CancellationException) {throw e}
+            catch(e:Exception) {if(gen==generation)mutable.update {it.copy(notificationsLoading=false)}}
+        }
+    }
+    fun openNotification(n: AppNotification) {
+        val me=state.value.session ?: return
+        if(!n.read) {
+            mutable.update {s->s.copy(notifications=s.notifications.map {if(it.id==n.id)it.copy(read=true) else it},unreadCount=(s.unreadCount-1).coerceAtLeast(0))}
+            if(!state.value.developmentPreview) viewModelScope.launch {
+                runCatching {withContext(Dispatchers.IO) {api(me).readNotification(me,n.id)}}
+            }
+        }
+        if(n.taskId!=null)openTask(n.taskId) else screen("notifications")
+    }
+    fun markAllNotificationsRead() {
+        val me=state.value.session ?: return
+        mutable.update {s->s.copy(notifications=s.notifications.map {it.copy(read=true)},unreadCount=0)}
+        if(state.value.developmentPreview)return
+        viewModelScope.launch {runCatching {withContext(Dispatchers.IO) {api(me).readAllNotifications(me)}}}
+    }
     fun selectDate(date: String) {mutable.update {it.copy(selectedDate=date)}}
     fun calendarMode(mode: String) {if(mode in setOf("month","week","day"))mutable.update {it.copy(calendarMode=mode)}}
     fun edit(log: WorkLog? = null) {
@@ -573,6 +603,10 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             ensureActive()
             if(gen!=generation)return@launch
             reviewResult.onSuccess {list->mutable.update {it.copy(reviews=list)}}
+            val notifResult=withContext(Dispatchers.IO) {runCatching {api(me).notifications(me)}}
+            ensureActive()
+            if(gen!=generation)return@launch
+            notifResult.onSuccess {list->mutable.update {it.copy(notifications=list.items,unreadCount=list.unreadCount)}}
             mutable.update {it.copy(loading=false,taskLoading=false)}
         }
     }

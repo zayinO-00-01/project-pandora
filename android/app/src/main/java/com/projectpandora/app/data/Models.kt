@@ -17,6 +17,8 @@ data class PanelItem(val id: Long, val title: String, val sortOrder: Int?, val m
 data class CompanyNotice(val id: Long, val title: String, val content: String, val sortOrder: Int?, val enabled: Boolean, val updatedAt: String, val myNote: String?)
 data class IntegrityResponse(val ok: Boolean, val message: String?)
 data class PanelMap(val companyImportant: List<PanelItem> = emptyList(), val companyDispatch: List<PanelItem> = emptyList(), val personalTop: List<PanelItem> = emptyList(), val todayLogs: List<WorkLog> = emptyList())
+data class AppNotification(val id: Long, val type: String, val title: String, val body: String, val taskId: Long?, val read: Boolean, val createdAt: String)
+data class NotificationList(val items: List<AppNotification> = emptyList(), val unreadCount: Long = 0)
 data class LogInput(val logDate: String, val content: String, val status: String)
 data class EditBuffer(val server: String, val userId: Long, val logId: Long?, val date: String, val content: String, val status: String)
 
