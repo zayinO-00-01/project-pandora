@@ -27,7 +27,8 @@ data class AppState(
     val editor: EditBuffer? = null, val editorError: String? = null,
     val screen: String = "home", val selectedDate: String = today().toString(), val calendarMode: String = "month",
     val checkingIntegrity: Boolean = false, val integrityDate: String? = null, val integrityError: String? = null,
-    val notice: String? = null
+    val notice: String? = null,
+    val remarkSaving: Boolean = false
 )
 class PandoraViewModel(app: Application): AndroidViewModel(app) {
     private val store = SessionStore(app)
@@ -81,7 +82,21 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     }
     fun saveCompanyRemark(id: Long,note: String) {
         if(note.length>2000 || state.value.panels?.companyImportant?.none {it.id==id}!=false)return
-        savePriorities(state.value.localPriorities.copy(remarks=state.value.localPriorities.remarks+(id to note)))
+        val me=state.value.session ?: return
+        if(state.value.developmentPreview) {mutable.update {it.copy(notice="开发预览不提交数据，请登录真实账号后再保存备注。")};return}
+        val clean=note.trim()
+        if(clean.isEmpty())return
+        val gen=generation
+        mutable.update {it.copy(remarkSaving=true)}
+        viewModelScope.launch {
+            try {
+                val saved=withContext(Dispatchers.IO) {api(me).saveNoticeNote(me,id,clean)}
+                if(gen==generation)mutable.update {st->st.copy(remarkSaving=false,
+                    panels=st.panels?.let {panel->panel.copy(companyImportant=panel.companyImportant.map {if(it.id==id)it.copy(myRemark=saved.myNote) else it})},
+                    notice="备注已保存，仅本人可见。")}
+            } catch(e:CancellationException) {throw e}
+            catch(e:Exception) {if(gen==generation)mutable.update {it.copy(remarkSaving=false,notice=message(e))}}
+        }
     }
     fun loadOrganization() {
         val me=state.value.session ?: return

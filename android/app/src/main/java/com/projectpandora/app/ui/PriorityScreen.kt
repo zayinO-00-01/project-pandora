@@ -32,7 +32,7 @@ import com.projectpandora.app.data.*
     var editing by rememberSaveable {mutableStateOf(false)}
     var title by rememberSaveable {mutableStateOf("")}
     var detail by rememberSaveable {mutableStateOf("")}
-    var note by rememberSaveable {mutableStateOf(initialSelectedId?.let {id->state.localPriorities.remarks[id] ?: entries.firstOrNull {it.id==id}?.myRemark}.orEmpty())}
+    var note by rememberSaveable {mutableStateOf(initialSelectedId?.let {id->entries.firstOrNull {it.id==id}?.myRemark}.orEmpty())}
     var deleting by remember {mutableStateOf(false)}
     val selected=entries.firstOrNull {it.id==selectedId}
     val listState=rememberLazyListState()
@@ -98,7 +98,7 @@ import com.projectpandora.app.data.*
         item {ControlTextButton(onClick={back()},contentPadding=PaddingValues(0.dp)) {Text(if(editing || selected!=null)"返回事项" else "返回总览")}}
         item {ScreenHeading(if(editing)if(selected==null)"新增个人事项" else "编辑个人事项" else if(selected!=null)"事项详情" else if(company)"公司十大事" else "个人十大事",
             if(examples)"示例预览 · 非公司发布内容" else if(company)"公司重点由 Web 管理端维护，安卓只读。" else "按优先级安排十件重要的事。")}
-        item {Text(if(examples)"仅用于查看卡面效果，不会提交到服务器。" else if(company)"个人备注仅保存在本机，尚未同步。" else "本机工作清单 · 尚未同步到服务器",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.secondary)}
+        item {Text(if(examples)"仅用于查看卡面效果，不会提交到服务器。" else if(company)"公司重点由 Web 管理端维护，安卓只读；我的备注保存在服务端，仅本人可见。" else "本机工作清单 · 尚未同步到服务器",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.secondary)}
         if(editing) {
             item {OutlinedTextField(title,{title=it.take(120)},label={Text("事项名称")},singleLine=true,modifier=Modifier.fillMaxWidth(),supportingText={Text("${title.length}/120")})}
             item {OutlinedTextField(detail,{detail=it.take(2000)},label={Text("目标与工作安排")},minLines=6,modifier=Modifier.fillMaxWidth(),supportingText={Text("${detail.length}/2000")})}
@@ -108,7 +108,7 @@ import com.projectpandora.app.data.*
             item {Text(selected.detail?.takeIf {it.isNotBlank()} ?: "暂无详细安排",style=MaterialTheme.typography.bodyLarge)}
             if(company && !examples) {
                 item {HorizontalDivider();OutlinedTextField(note,{note=it.take(2000)},label={Text("我的备注")},minLines=4,modifier=Modifier.fillMaxWidth())}
-                item {ControlButton(onClick={model.saveCompanyRemark(selected.id,note)},modifier=Modifier.fillMaxWidth()) {Text("保存备注到本机")}}
+                item {ControlButton(onClick={model.saveCompanyRemark(selected.id,note)},enabled=note.isNotBlank() && !state.remarkSaving,modifier=Modifier.fillMaxWidth()) {Text(if(state.remarkSaving)"正在保存…" else "保存我的备注（仅本人可见）")}}
             } else if(!company) {
                 item {Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                     ControlButton(onClick={title=selected.title;detail=selected.detail.orEmpty();editing=true}) {Text("编辑事项")}
@@ -127,14 +127,14 @@ import com.projectpandora.app.data.*
                 Row(Modifier.fillMaxWidth().padding(bottom=4.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                     row.forEachIndexed {columnIndex,entry->
                         CompanyDepthCard(entry,rowIndex*2+columnIndex,Modifier.weight(1f)) {
-                            selectedId=entry.id;note=state.localPriorities.remarks[entry.id] ?: entry.myRemark.orEmpty()
+                            selectedId=entry.id;note=entry.myRemark.orEmpty()
                         }
                     }
                     if(row.size==1)Spacer(Modifier.weight(1f))
                 }
             } else itemsIndexed(entries,key={_,item->item.id}) {_,entry->
                 val position=entries.indexOfFirst {it.id==entry.id}
-                OutlinedCard(onClick={selectedId=entry.id;note=state.localPriorities.remarks[entry.id] ?: entry.myRemark.orEmpty()},modifier=Modifier.fillMaxWidth()
+                OutlinedCard(onClick={selectedId=entry.id;note=entry.myRemark.orEmpty()},modifier=Modifier.fillMaxWidth()
                     .zIndex(if(draggedId==entry.id)1f else 0f)
                     .graphicsLayer {
                         translationY=if(draggedId==entry.id)dragTop+dragDistance-(listState.layoutInfo.visibleItemsInfo.firstOrNull {it.key==entry.id}?.offset ?: 0) else 0f
@@ -146,7 +146,7 @@ import com.projectpandora.app.data.*
                             if(!company)Box(Modifier.size(32.dp),contentAlignment=androidx.compose.ui.Alignment.Center) {Icon(Icons.Default.Menu,"拖动${entry.title}",tint=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.size(20.dp))}
                         }
                         Text(entry.detail?.takeIf {it.isNotBlank()} ?: "查看事项详情",maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                        if(company && !state.localPriorities.remarks[entry.id].isNullOrBlank())Text("有我的本机备注",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.secondary)
+                        if(company && !entry.myRemark.isNullOrBlank())Text("有我的备注",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.secondary)
 
                     }
                 }

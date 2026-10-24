@@ -29,3 +29,5 @@ data class TaskDispatchBuffer(val server: String, val userId: Long, val title: S
 
 data class PersonalPrioritiesInput(val items: List<PanelItem>)
 data class CompanyRemarkInput(val remark: String)
+/** PUT /company-notices/{id}/note 的返回：只包含调用者自己的备注。 */
+data class NoticeNote(val id: Long, val myNote: String?)

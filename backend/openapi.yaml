@@ -668,6 +668,56 @@ paths:
                 $ref: "#/components/schemas/CompanyNotice"
         "400":
           $ref: "#/components/responses/Error400"
+  /admin/company-notices/{id}/note:
+    get:
+      summary: 仅 ADMIN：读本人在该事项上的备注
+      description: 业务端 /company-notices/{id}/note 会以 403 拒绝 ADMIN；管理员改用本端点维护自己的备注，停用事项同样可读。
+      security:
+        - bearer: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNote"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+    put:
+      summary: 仅 ADMIN：写本人在该事项上的备注（每人每条唯一）
+      security:
+        - bearer: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteInput"
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNote"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
   /users/me:
     get:
       summary: 本人完整档案（含敏感字段）
@@ -992,6 +1042,16 @@ components:
           maxLength: 2000
       required:
         - content
+    AdminNote:
+      type: object
+      description: ADMIN 本人的事项备注；只返回调用者自己的备注，不含他人内容。
+      properties:
+        id:
+          type: integer
+          format: int64
+        myNote:
+          type: string
+          nullable: true
     LogInput:
       type: object
       properties:
