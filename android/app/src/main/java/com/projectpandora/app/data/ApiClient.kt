@@ -84,6 +84,9 @@ class ApiClient(address: String) {
         return result
     }
     fun panels(session: Session): PanelMap = request("/panels/map","GET",null,session,PanelMap::class.java)
+    /** 公司事项的个人备注存在服务端，只有本人能读回；不再是本机草稿。 */
+    fun saveNoticeNote(session: Session, id: Long, content: String): NoticeNote =
+        request("/company-notices/$id/note","PUT",mapOf("content" to content),session,NoticeNote::class.java)
     fun save(session: Session, id: Long?, input: LogInput): WorkLog {
         LogValidation.error(input.logDate,input.content,input.status)?.let {throw IllegalArgumentException(it)}
         if(id!=null) {

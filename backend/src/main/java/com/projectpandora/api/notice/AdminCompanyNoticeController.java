@@ -41,6 +41,28 @@ public class AdminCompanyNoticeController {
         return AdminNoticeResponse.from(notice);
     }
 
+    /**
+     * ADMIN 自己的个人备注。业务端 {@code /company-notices/{id}/note} 会以 403 拒绝 ADMIN
+     * （系统管理员不办理业务），但 ADMIN 同样是「用户」，也要能对事项写本人备注。
+     */
+    @GetMapping("/{id}/note")
+    public AdminNoteResponse myNote(@PathVariable Long id) {
+        access.assertAdmin();
+        Long me = access.currentUser().getId();
+        service.require(id);
+        return new AdminNoteResponse(id, service.noteOf(id, me));
+    }
+
+    @PutMapping("/{id}/note")
+    public AdminNoteResponse saveNote(@PathVariable Long id, @Valid @RequestBody CompanyNoticeController.NoteRequest request) {
+        access.assertAdmin();
+        Long me = access.currentUser().getId();
+        service.require(id);
+        return new AdminNoteResponse(id, service.saveNote(id, me, request.content()));
+    }
+
+    public record AdminNoteResponse(Long id, String myNote) {}
+
     public record UpsertRequest(@NotBlank @Size(max = 128) String title, @NotBlank String content,
                                 Integer sortOrder, Boolean enabled) {}
 

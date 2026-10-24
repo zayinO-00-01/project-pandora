@@ -16,6 +16,8 @@ const dirty = computed(() => JSON.stringify(form) !== baseline.value);
 const isAdmin = computed(() => session.value?.role === 'ADMIN');
 const activeTab = ref('accounts');
 const notices = ref([]), noticeLoading = ref(false), noticeSaving = ref(false), noticeError = ref(''), noticeSuccess = ref('');
+const myNote = ref(''), noteBaseline = ref(''), noteLoading = ref(false), noteSaving = ref(false), noteError = ref(''), noteSuccess = ref('');
+const noteDirty = computed(() => myNote.value !== noteBaseline.value);
 const emptyNotice = () => ({ id: null, title: '', content: '', sortOrder: 0, enabled: true });
 const noticeForm = reactive(emptyNotice());
 const enabledNoticeCount = computed(() => notices.value.filter(notice => notice.enabled).length);
@@ -23,6 +25,29 @@ function sortNotices() { notices.value = [...notices.value].sort((a, b) => a.sor
 function chooseNotice(notice = null) {
   Object.assign(noticeForm, emptyNotice(), notice ? { id: notice.id, title: notice.title, content: notice.content, sortOrder: notice.sortOrder, enabled: notice.enabled } : {});
   noticeError.value = ''; noticeSuccess.value = '';
+  myNote.value = ''; noteBaseline.value = ''; noteError.value = ''; noteSuccess.value = '';
+  if (notice?.id) loadNote(notice.id);
+}
+async function loadNote(id) {
+  noteLoading.value = true; noteError.value = '';
+  try {
+    const result = await api(`/admin/company-notices/${id}/note`, { token: session.value.token });
+    if (noticeForm.id === id) { myNote.value = result.myNote || ''; noteBaseline.value = myNote.value; }
+  } catch (error) { if ([401, 403].includes(error.status)) expire(error); else noteError.value = error.message; }
+  finally { noteLoading.value = false; }
+}
+async function saveNote() {
+  if (!noticeForm.id || noteSaving.value || !isAdmin.value) return;
+  const content = myNote.value.trim();
+  noteError.value = ''; noteSuccess.value = '';
+  if (!content) { noteError.value = '备注不能为空。'; return; }
+  noteSaving.value = true;
+  try {
+    const result = await api(`/admin/company-notices/${noticeForm.id}/note`, { token: session.value.token, method: 'PUT', body: { content } });
+    myNote.value = result.myNote || ''; noteBaseline.value = myNote.value;
+    noteSuccess.value = '备注已保存，仅本人可见。';
+  } catch (error) { if ([401, 403].includes(error.status)) expire(error); else noteError.value = error.message; }
+  finally { noteSaving.value = false; }
 }
 async function loadNotices() {
   if (!isAdmin.value) return;
@@ -232,6 +257,7 @@ onBeforeUnmount(() => { loadController?.abort(); window.removeEventListener('bef
       <div class="account-grid"><section class="panel directory"><div class="section-heading"><h2>全部事项 <span>{{ notices.length }}</span></h2><button class="button secondary small" @click="loadNotices" :disabled="noticeLoading || noticeSaving">{{ noticeLoading ? '刷新中…' : '↻ 刷新' }}</button></div><p v-if="noticeLoading && !notices.length" class="empty-state" role="status">正在读取事项…</p><p v-else-if="!notices.length" class="empty-state">暂无公司事项，右侧可发布第一条。</p><ul v-else class="notice-list"><li v-for="notice in notices" :key="notice.id" class="notice-row" :class="{ selected: noticeForm.id === notice.id }" @click="chooseNotice(notice)"><div class="notice-main"><strong>{{ notice.sortOrder }}. {{ notice.title }}</strong><span class="notice-state" :class="{ disabled: !notice.enabled }">{{ notice.enabled ? '已在列' : '已停用' }}</span></div><button class="text-button" :disabled="noticeSaving" @click.stop="toggleNotice(notice)">{{ notice.enabled ? '停用' : '启用' }}</button></li></ul></section>
         <section class="panel account-editor"><div class="editor-heading"><div><span class="eyebrow">{{ noticeForm.id ? `NOTICE / ${noticeForm.id}` : 'NEW NOTICE' }}</span><h2>{{ noticeForm.id ? '编辑事项' : '发布事项' }}</h2></div><button v-if="noticeForm.id" class="button secondary small" @click="chooseNotice()" :disabled="noticeSaving">＋ 新建</button></div><p class="muted">{{ noticeForm.id ? '修改事项内容、排序或状态。' : '标题与内容将展示给全体员工。' }}</p>
           <form @submit.prevent="saveNotice"><fieldset :disabled="noticeSaving"><label for="notice-title">标题</label><input id="notice-title" v-model="noticeForm.title" maxlength="128" required placeholder="例如：本月安全巡查"><label for="notice-content">内容</label><textarea id="notice-content" v-model="noticeForm.content" rows="6" required placeholder="填写事项说明"></textarea><div class="form-pair"><div><label for="notice-order">排序 <span>数字越小越靠前</span></label><input id="notice-order" v-model.number="noticeForm.sortOrder" type="number" min="0" max="999"></div><div><label for="notice-enabled">状态</label><select id="notice-enabled" v-model="noticeForm.enabled"><option :value="true">启用</option><option :value="false">停用</option></select></div></div><div class="editor-actions"><button class="button primary" :disabled="noticeSaving || noticeLoading">{{ noticeSaving ? '正在保存…' : noticeForm.id ? '保存事项' : '发布事项' }}</button></div></fieldset></form>
+          <div class="note-editor"><h3>我的备注 <span>仅本人可见</span></h3><p v-if="!noticeForm.id" class="muted">先选择左侧一条事项，再写自己的备注。</p><template v-else><p v-if="noteLoading" class="muted" role="status">正在读取备注…</p><label for="notice-note">备注内容 <span>最多 2000 字，仅本人可见</span></label><textarea id="notice-note" v-model="myNote" maxlength="2000" rows="4" :disabled="noteSaving || noteLoading" placeholder="写下你对这条事项的理解或待办"></textarea><p v-if="noteError" class="error" role="alert">{{ noteError }}</p><p v-if="noteSuccess" class="success" role="status">✓ {{ noteSuccess }}</p><div class="editor-actions"><button type="button" class="button secondary" :disabled="noteSaving || noteLoading || !noteDirty" @click="saveNote">{{ noteSaving ? '正在保存…' : noteDirty ? '保存我的备注' : '备注已保存' }}</button></div></template></div>
         </section></div></template><footer class="page-footer"><span>PANDORA / 管理空间</span><span>账号与公司事项集中维护。</span></footer>
     </main>
   </div>
