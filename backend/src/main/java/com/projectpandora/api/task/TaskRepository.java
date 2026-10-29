@@ -1,5 +1,6 @@
 package com.projectpandora.api.task;
 
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -14,6 +15,10 @@ public interface TaskRepository extends JpaRepository<TaskEntity,Long> {
     List<TaskEntity> findByAssigneeIdInOrderByCreatedAtDescIdDesc(List<Long> assigneeIds,Pageable pageable);
     /** Tasks assigned within my scope plus any task I created, so dispatching outside my subtree stays visible. */
     @EntityGraph(attributePaths={"creator","assignee"})
-    @Query("select t from TaskEntity t where t.assignee.id in :assigneeIds or t.creator.id = :creatorId order by t.createdAt desc, t.id desc")
+    @Query("select t from TaskEntity t where t.deletedAt is null and (t.assignee.id in :assigneeIds or t.creator.id = :creatorId) order by t.createdAt desc, t.id desc")
     List<TaskEntity> findByScope(@Param("assigneeIds") List<Long> assigneeIds,@Param("creatorId") Long creatorId,Pageable pageable);
+    /** Tasks waiting for review, used to build each reviewer's inbox. */
+    @EntityGraph(attributePaths={"creator","assignee"})
+    @Query("select t from TaskEntity t where t.deletedAt is null and t.reviewStatus in :statuses order by t.updatedAt desc, t.id desc")
+    List<TaskEntity> findByReviewStatusIn(@Param("statuses") Collection<String> statuses);
 }

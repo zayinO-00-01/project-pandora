@@ -23,7 +23,9 @@ data class EditBuffer(val server: String, val userId: Long, val logId: Long?, va
 data class DispatchTask(val id: Long, val title: String, val detail: String, val priority: String,
     val status: String, val dueAt: String?, val progress: Int?, val progressNote: String,
     val createdBy: Long, val assigneeId: Long, val creatorName: String, val assigneeName: String,
-    val createdAt: String, val updatedAt: String)
+    val createdAt: String, val updatedAt: String,
+    val reviewStatus: String = "none", val reviewReason: String? = null, val reviewedBy: Long? = null,
+    val reviewedAt: String? = null, val deleted: Boolean = false, val pendingChange: String? = null)
 data class TaskProgressInput(val progress: Int?, val progressNote: String, val status: String? = null)
 data class TaskEditBuffer(val server: String, val userId: Long, val taskId: Long, val progress: String, val note: String, val status: String? = null)
 
