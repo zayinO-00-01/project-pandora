@@ -28,9 +28,10 @@ public class TaskService {
     }
     public List<TaskResponse> newest(int count) {return authorizedTasks(PageRequest.of(0,count));}
     private List<TaskResponse> authorizedTasks(Pageable pageable) {
+        var me=access.assertBusiness();
         var ids=access.downwardUsers().stream().map(UserEntity::getId).toList();
         if(ids.isEmpty()) return List.of();
-        return tasks.findByAssigneeIdInOrderByCreatedAtDescIdDesc(ids,pageable).stream().map(TaskResponse::from).toList();
+        return tasks.findByScope(ids, me.getId(), pageable).stream().map(TaskResponse::from).toList();
     }
     @Transactional
     public TaskResponse create(CreateTaskRequest request) {

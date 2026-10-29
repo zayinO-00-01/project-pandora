@@ -119,24 +119,28 @@ private fun dueLabel(value: String?): String = if(value==null)"未设置" else r
     var assigneesExpanded by remember {mutableStateOf(false)}
     var discard by remember {mutableStateOf(false)}
     val selected=state.dispatchMembers.firstOrNull {it.id==draft.assigneeId}
+    var memberQuery by remember {mutableStateOf("")}
+    val filteredMembers=filterMembers(state.dispatchMembers,memberQuery)
     if(discard)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={discard=false},title={Text("放弃未派发的任务？")},text={Text("本机保存的派发输入将被清除。")},
         confirmButton={ControlTextButton(onClick={discard=false;model.discardDispatch()}) {Text("放弃")}},dismissButton={ControlTextButton(onClick={discard=false}) {Text("继续填写")}})
     LazyColumn(Modifier.fillMaxSize().imePadding().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=28.dp)) {
         item {ControlTextButton(onClick=model::closeDispatch,enabled=enabled) {Text("返回任务工作台 · 保留输入")}}
-        item {ScreenHeading("派发任务","选择下级责任人，说明要完成的工作。")}
+        item {ScreenHeading("派发任务","选择公司内的责任人，说明要完成的工作。")}
         item {OutlinedTextField(value=draft.title,onValueChange={model.changeDispatch(title=it.take(128))},enabled=enabled,label={Text("事项名称（必填）")},singleLine=true,supportingText={Text("${draft.title.length} / 128")},modifier=Modifier.fillMaxWidth())}
         item {Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
             Text("责任人（必选）",style=MaterialTheme.typography.labelLarge)
             if(state.dispatchLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
+            OutlinedTextField(value=memberQuery,onValueChange={memberQuery=it},enabled=enabled,label={Text("搜索姓名或账号")},singleLine=true,modifier=Modifier.fillMaxWidth())
             Box {
                 ControlOutlinedButton(onClick={assigneesExpanded=true},enabled=enabled && !state.dispatchLoading && state.dispatchMembers.isNotEmpty(),modifier=Modifier.fillMaxWidth()) {
-                    Text(selected?.let {"${it.displayName ?: it.username} · ${AppRoles.label(it.role)}"} ?: if(draft.assigneeId!=null)"原责任人不在当前范围，请重新选择" else "选择下级责任人")
+                    Text(selected?.let {"${it.displayName ?: it.username} · ${AppRoles.label(it.role)}"} ?: if(draft.assigneeId!=null)"原责任人已不在名单，请重新选择" else "选择责任人")
                 }
                 DropdownMenu(expanded=assigneesExpanded,onDismissRequest={assigneesExpanded=false},modifier=Modifier.heightIn(max=320.dp)) {
-                    state.dispatchMembers.forEach {member->DropdownMenuItem(text={Text("${member.displayName ?: member.username} · ${AppRoles.label(member.role)}")},onClick={model.changeDispatch(assigneeId=member.id);assigneesExpanded=false})}
+                    filteredMembers.forEach {member->DropdownMenuItem(text={Text("${member.displayName ?: member.username} · ${AppRoles.label(member.role)}")},onClick={model.changeDispatch(assigneeId=member.id);assigneesExpanded=false})}
+                    if(filteredMembers.isEmpty())DropdownMenuItem(text={Text("没有匹配的成员")},enabled=false,onClick={})
                 }
             }
-            if(!state.dispatchLoading && state.dispatchMembers.isEmpty())Text("暂无可派发的下级，请管理员检查组织关系。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            if(!state.dispatchLoading && state.dispatchMembers.isEmpty())Text("暂无其他成员可派发。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             ControlTextButton(onClick=model::loadDispatchMembers,enabled=enabled && !state.dispatchLoading) {Text("刷新人员列表")}
         }}
         item {Column {Text("优先级",style=MaterialTheme.typography.labelLarge);Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {

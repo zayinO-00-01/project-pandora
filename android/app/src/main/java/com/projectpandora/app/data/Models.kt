@@ -7,6 +7,9 @@ fun today(): LocalDate = LocalDate.now(ZoneId.of("Asia/Shanghai"))
 data class Session(val server: String, val token: String, val userId: Long, val role: String, val displayName: String?, val username: String)
 data class LoginResponse(val token: String, val role: String, val displayName: String?, val userId: Long)
 data class UserSummary(val id: Long, val username: String, val displayName: String?, val role: String)
+data class Profile(val id: Long, val username: String, val role: String, val displayName: String?, val managerId: Long?,
+    val managerName: String?, val avatar: String?, val avatarImage: String?, val phone: String?, val idCard: String?, val birthDate: String?,
+    val gender: String?, val hireDate: String?, val emergencyContact: String?, val emergencyPhone: String?, val address: String?)
 data class Organization(val members: List<UserSummary> = emptyList(),val manager: UserSummary? = null, val assignees: List<UserSummary> = emptyList())
 data class ViewRequest(val id: Long,val requester: UserSummary,val target: UserSummary,val reason: String,val status: String,val updatedAt: String)
 data class WorkLog(val id: Long, val userId: Long, val logDate: String, val content: String, val status: String, val createdAt: String, val updatedAt: String)

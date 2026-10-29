@@ -40,7 +40,7 @@ public class WorkLogEntity {
     @PrePersist
     void onCreate() {
         Instant now = Instant.now();
-        createdAt = now;
+        if (createdAt == null) createdAt = now;
         updatedAt = now;
     }
 
@@ -87,6 +87,10 @@ public class WorkLogEntity {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
     }
 
     public Instant getUpdatedAt() {
