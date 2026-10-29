@@ -163,3 +163,13 @@ Month/week/day calendar SHALL show approved tasks by deadline, with label colors
 #### Scenario: Leap-year navigation
 - **WHEN** a user chooses another year and month from a selected month-end day
 - **THEN** the date clamps to the valid last day without losing the selected calendar mode
+
+
+## Task private notes and reliable notification handling (0.8.2)
+Each authenticated business viewer with normal access to an approved, nondeleted task SHALL read and write only their own private note, up to 2000 characters. A blank save SHALL clear it. Notes SHALL persist across sessions and client failures SHALL retain unsent input under the original server/user/task identity. Temporary access as an application reviewer SHALL NOT grant note access.
+
+A task's current valid reviewer SHALL read its single-task detail while their review is pending. Approval, rejection, cancellation and organization changes SHALL revoke temporary access when no independent permission remains, without expanding normal task lists or log access.
+
+View-request notifications SHALL preserve a separate referenceId and open the organization application; old messages without an ID SHALL open the application list. Task notifications SHALL continue using taskId. Failed read/mark-all actions SHALL retain unread state and show a retry action; stale account responses SHALL NOT update the new session.
+
+Web company-notice reads and writes SHALL bind results and loading/error state to their originating session/request. Out-of-order lists and expired authorization responses SHALL NOT replace a newer form or log out a newly authenticated user. Saving a private note SHALL prevent switching away and losing its input.

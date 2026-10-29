@@ -26,11 +26,46 @@ public class TaskService {
     private final com.projectpandora.api.label.LabelService labels;
     private final TaskKeywordRepository keywords;
     private final TaskReviewRepository keywordReviews;
+    private final TaskNoteRepository notes;
     public TaskService(TaskRepository tasks,UserRepository users,AccessService access,OrganizationGuard organization,
             TaskEventRepository events,NotificationService notifications,ObjectMapper json,
-            com.projectpandora.api.label.LabelService labels,TaskKeywordRepository keywords,TaskReviewRepository keywordReviews) {
+            com.projectpandora.api.label.LabelService labels,TaskKeywordRepository keywords,TaskReviewRepository keywordReviews,TaskNoteRepository notes) {
         this.tasks=tasks;this.users=users;this.access=access;this.organization=organization;this.events=events;
         this.notifications=notifications;this.json=json;this.labels=labels;this.keywords=keywords;this.keywordReviews=keywordReviews;
+        this.notes=notes;
+    }
+    public TaskResponse detail(Long id) {
+        var me=access.assertBusiness();var task=activeTask(id);
+        if(normallyVisible(task) || (PENDING.contains(task.getReviewStatus()) && me.getId().equals(reviewerFor(task)))
+                || keywordReviews.findByTaskIdAndStatus(id,"pending").stream()
+                .anyMatch(review->me.getId().equals(currentReviewerId(review)))) return TaskResponse.from(task);
+        throw new ApiException(403,"无权查看该任务");
+    }
+    private boolean normallyVisible(TaskEntity task) {
+        if(authorizedTasks().stream().anyMatch(item->item.id().equals(task.getId()))) return true;
+        // Member-task views also include an approved request to view one's current direct manager.
+        var me=access.assertBusiness();
+        if(!initialVisible(task,me.getId(),me.getRole())) return false;
+        try {access.assertCanViewUserLogs(task.getAssignee().getId());return true;}
+        catch(ApiException e) {if(e.getStatus()==403) return false;throw e;}
+    }
+    private void assertNoteAccess(Long id) {
+        access.assertBusiness();var task=activeTask(id);
+        if(!"approved".equals(task.getApprovalStatus())) throw new ApiException(409,"任务审批通过后才能使用备注");
+        if(!normallyVisible(task)) throw new ApiException(403,"无权查看该任务备注");
+    }
+    public TaskNoteResponse note(Long id) {
+        var me=access.assertBusiness();assertNoteAccess(id);
+        return notes.findByTaskIdAndUserId(id,me.getId()).map(TaskNote::response).orElseGet(()->new TaskNoteResponse(id,"",null));
+    }
+    @Transactional
+    public TaskNoteResponse saveNote(Long id,String content) {
+        // Serialize first creation and permission checks with organization changes and task deletion.
+        organization.lock();var me=access.assertBusiness();assertNoteAccess(id);
+        if(content==null || content.length()>2000) throw new ApiException(400,"备注不能为空值且最多2000字");
+        var note=notes.findByTaskIdAndUserId(id,me.getId()).orElseGet(()->new TaskNote(id,me.getId()));
+        note.update(content.isBlank()?"":content);
+        return notes.saveAndFlush(note).response();
     }
     public List<TaskResponse> list(Long userId) {
         var me=access.assertBusiness();

@@ -13,10 +13,13 @@ public class NotificationService {
 
     @Transactional
     public void notifyUser(Long userId,String type,String title,String body,Long taskId) {
+        notifyUser(userId,type,title,body,taskId,null);
+    }
+    private void notifyUser(Long userId,String type,String title,String body,Long taskId,Long referenceId) {
         if(userId==null) return;
         String safeTitle=title.length()>200 ? title.substring(0,200) : title;
         String safeBody=body.length()>500 ? body.substring(0,500) : body;
-        repo.save(new NotificationEntity(userId,type,safeTitle,safeBody,taskId));
+        repo.save(new NotificationEntity(userId,type,safeTitle,safeBody,taskId,referenceId));
     }
 
     @Transactional(readOnly=true)
@@ -43,7 +46,8 @@ public class NotificationService {
     /** Bridge new feature notifications onto the existing notification schema. */
     @Transactional
     public void send(Long recipient,String title,String message,String type,Long reference) {
-        notifyUser(recipient,type,title,message,"view-request".equals(type)?null:reference);
+        boolean viewRequest="view-request".equals(type);
+        notifyUser(recipient,type,title,message,viewRequest?null:reference,viewRequest?reference:null);
     }
 
 }
