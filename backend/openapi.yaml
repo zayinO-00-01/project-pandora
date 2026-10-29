@@ -1,16 +1,16 @@
 openapi: 3.0.3
 info:
   title: Pandora API
-  version: 0.6.0
-  description: 五角色本地原型。Web 仅 ADMIN：账号管理、档案维护与公司十大事项发布；Android 四业务角色。公开注册关闭；公司事项全员只读并可写个人备注。业务账号新增手机号（必填唯一）、身份证号、出生年月等档案字段。
+  version: 0.8.1
+  description: 老师方案整合版：保留用户自建审批、年月直选和清单同步；全公司业务成员选人，非创始人创建与进度提交由当前直属上级审批；创始人本人操作免审。删除暂按创建人条件直删/上级审核。日志按创建后24小时修改，任务日历与日志分离。
 servers:
-  - url: /api/v1
+- url: /api/v1
 paths:
   /health:
     get:
       summary: 健康检查
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
@@ -19,667 +19,1316 @@ paths:
                 properties:
                   status:
                     type: string
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
   /auth/login:
     post:
       summary: 登录，停用账号拒绝
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Session"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Login"
+              $ref: '#/components/schemas/Login'
   /admin/users:
     get:
       summary: 仅 ADMIN：账号列表
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/AdminUser"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                  $ref: '#/components/schemas/AdminUser'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       security:
-        - bearer: []
+      - bearer: []
     post:
       summary: 仅 ADMIN：建号
       responses:
-        "201":
+        '201':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminUser"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                $ref: '#/components/schemas/AdminUser'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       security:
-        - bearer: []
+      - bearer: []
       description: 用户名trim后唯一；上级必须为启用的更高业务角色。ADMIN/FOUNDER无上级。
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateUser"
+              $ref: '#/components/schemas/CreateUser'
   /admin/users/{id}:
     patch:
       summary: 仅 ADMIN：修改账号、角色、组织与停用
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminUser"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                $ref: '#/components/schemas/AdminUser'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       security:
-        - bearer: []
+      - bearer: []
       description: 防止层级错误和组织环。相关角色/上级/停用变化撤销pending/approved查看申请；重新启用不恢复授权。
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-            format: int64
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/PatchUser"
+              $ref: '#/components/schemas/PatchUser'
   /users:
     get:
       summary: 业务账号可读成员，含本人
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/UserSummary"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                  $ref: '#/components/schemas/UserSummary'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       security:
-        - bearer: []
+      - bearer: []
       description: FOUNDER全公司启用业务成员；部门/团队领导实际下级树；STAFF仅本人。ADMIN403。
   /users/organization:
     get:
       summary: 业务组织与可派发责任人
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Organization"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                $ref: '#/components/schemas/Organization'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       security:
-        - bearer: []
+      - bearer: []
       description: members为可读成员且不含本人；manager为直属上级；assignees仅实际较低角色下级。FOUNDER全公司可读不代表均可派发。
   /logs:
     get:
       summary: 本人及授权目标日志
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/WorkLog"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                  $ref: '#/components/schemas/WorkLog'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       security:
-        - bearer: []
+      - bearer: []
       description: 默认本人；历史不限日期。他人仅submitted，含获批直属上级只读。ADMIN403。
       parameters:
-        - in: query
-          name: userId
-          schema:
-            type: integer
-            format: int64
-        - in: query
-          name: date
-          schema:
-            type: string
-            format: date
+      - in: query
+        name: userId
+        schema:
+          type: integer
+          format: int64
+      - in: query
+        name: date
+        schema:
+          type: string
+          format: date
     post:
       summary: 新建草稿/提交日志
       responses:
-        "201":
+        '201':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/WorkLog"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                $ref: '#/components/schemas/WorkLog'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       security:
-        - bearer: []
-      description: 仅上海today-7..today两端包含的8日期；非法新建日期400。作者来自当前身份。
+      - bearer: []
+      description: 上海今天及前三天可创建单日/连续多日日志，起止日期均须在范围内；draft保持私密，submitted可供授权上级查看。创建后24小时内允许作者编辑或提交。
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/LogInput"
+              $ref: '#/components/schemas/LogInput'
   /logs/{id}:
     put:
       summary: 作者编辑日志
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/WorkLog"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                $ref: '#/components/schemas/WorkLog'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       security:
-        - bearer: []
-      description: 原日期必须仍可编辑，否则403；目标日期非法400。已提交不可回草稿，保持同ID。
+      - bearer: []
+      description: 仅作者可在createdAt≤当前时间<createdAt+24小时内修改（含历史/跨日和已提交日志）。日期范围固定，updatedAt不延长窗口；submitted不能退回draft，超时403。
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-            format: int64
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/LogInput"
+              $ref: '#/components/schemas/LogInput'
   /logs/{id}/submit:
     post:
       summary: 作者提交原草稿
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/WorkLog"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                $ref: '#/components/schemas/WorkLog'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       security:
-        - bearer: []
-      description: 旧记录超出窗口403；重复提交保持同ID。
+      - bearer: []
+      description: 仅作者在创建后24小时内可提交，适用于历史和跨日草稿；提交不延长编辑窗口。
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-            format: int64
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
   /logs/integrity:
     get:
-      summary: 历史占位接口，无真实完整性校验
-      deprecated: true
+      summary: 日志能力探测
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Integrity"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                $ref: '#/components/schemas/Integrity'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       security:
-        - bearer: []
+      - bearer: []
+      description: supportsDateRanges用于客户端能力协商。完整性校验文案仍为占位返回，不代表已实现额外业务校验。
   /view-requests:
     get:
       summary: 本人发起或收到的申请
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/ViewRequest"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                  $ref: '#/components/schemas/ViewRequest'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       security:
-        - bearer: []
+      - bearer: []
     post:
       summary: 申请查看直属上级
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ViewRequest"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                $ref: '#/components/schemas/ViewRequest'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       security:
-        - bearer: []
+      - bearer: []
       description: 仅当前更高业务角色直属上级，理由非空；已有pending/approved返回409。拒绝或撤销后可重新申请。
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ViewRequestInput"
+              $ref: '#/components/schemas/ViewRequestInput'
   /view-requests/{id}:
     put:
       summary: 被查看者批准、拒绝或撤销
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ViewRequest"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                $ref: '#/components/schemas/ViewRequest'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       security:
-        - bearer: []
+      - bearer: []
       description: pending→approved/denied；approved→revoked。批准只可读目标submitted日志及其负责的任务，不含草稿或写入派发权。
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-            format: int64
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ViewDecision"
+              $ref: '#/components/schemas/ViewDecision'
   /tasks:
     get:
       summary: 授权范围任务
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Task"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                  $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       security:
-        - bearer: []
-      description: 默认角色读范围；指定userId读取其负责的任务（须有成员读权限）。FOUNDER全公司，部门/团队领导实际下级树，员工本人；ADMIN403。
+      - bearer: []
+      description: 默认角色读范围，包含pending/rejected自主任务；指定userId读取其负责的任务（须有成员读权限）。FOUNDER全公司，部门/团队领导实际下级树，员工本人；ADMIN403。
       parameters:
-        - in: query
-          name: userId
-          schema:
-            type: integer
-            format: int64
+      - in: query
+        name: userId
+        schema:
+          type: integer
+          format: int64
     post:
-      summary: 业务领导向实际下级派发
+      summary: 创建自主任务或向实际下级派发
       responses:
-        "201":
+        '201':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Task"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       security:
-        - bearer: []
-      description: FOUNDER/DEPT_HEAD/TEAM_LEAD可向实际manager_id链中较低角色的启用业务成员派发；ADMIN/STAFF拒绝。
+      - bearer: []
+      description: 所有业务成员可选全公司有效业务成员为责任人，包括自己；非创始人创建均待创建者当前有效直属上级批准，创始人直接生效。待批准只对创建者和有效审核人可见；不扩大日志权限。
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TaskInput"
+              $ref: '#/components/schemas/TaskInput'
+  /tasks/pending-approvals:
+    get:
+      summary: 待本人审批的任务创建申请（含自建与派发）
+      description: 仅返回当前直属上级为登录用户、作者启用且职级低于审批人的pending自主任务。组织调整后由新的直属上级审批，原上级失去审批权；ADMIN403。
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: 待审批任务，按创建时间和ID倒序
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+  /tasks/{id}/approval:
+    put:
+      summary: 当前直属上级审批自主任务
+      description: 由创建者当前有效直属上级批准或拒绝；非创始人创建均需初审。组织变更后原上级失权，当前有效上级可审批。
+      security:
+      - bearer: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskApproval'
+      responses:
+        '200':
+          description: 更新后的任务
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
   /tasks/{id}/progress:
     put:
       summary: 仅责任人反馈进度
       responses:
-        "200":
-          description: 成功
+        '200':
+          description: 返回当前生效任务；非创始人申请的拟议内容在/task-reviews读取。审批通过后刷新任务。
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Task"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       security:
-        - bearer: []
-      description: 独立保存status(todo/doing/done)，progress选填可null；填值时todo仅0、doing为0..99、done仅100。说明非空最多2000字。旧请求仅缺status且有整数progress时兼容推导。查看批准不授予反馈权限。
+      - bearer: []
+      description: 仅责任人提交。非创始人提交todo/doing/done均生成PROGRESS审核，当前有效直属上级批准前保持旧状态与说明；仅创始人本人作为责任人操作直接生效。
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-            format: int64
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TaskProgress"
+              $ref: '#/components/schemas/TaskProgress'
   /panels/map:
     get:
       summary: 业务首页四板块
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PanelMap"
-        "400":
-          $ref: "#/components/responses/Error400"
-        "401":
-          $ref: "#/components/responses/Error401"
-        "403":
-          $ref: "#/components/responses/Error403"
-        "404":
-          $ref: "#/components/responses/Error404"
-        "409":
-          $ref: "#/components/responses/Error409"
+                $ref: '#/components/schemas/PanelMap'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
       security:
-        - bearer: []
-      description: 本人今日日志、当前可读最新10任务；公司事项来自已发布十条。ADMIN403。
+      - bearer: []
+      description: 本人今日日志、当前可读最新10任务、已发布公司事项及本人十大事项；详情和本人备注随面板返回。ADMIN403。
+  /priorities/personal:
+    get:
+      summary: 读取本人的个人十大事项和版本
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: 未保存过时 revision 为 0，items 为空
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonalPrioritySnapshot'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+    put:
+      summary: 按列表顺序保存本人的十大事项
+      description: 所有权取自登录账号；不能引用他人的正 id。revision 必须是最近读取的版本，冲突返回 409；不会静默覆盖。新项 id 可缺省或为负数，响应返回稳定正 id。items 为空会清空列表。
+      security:
+      - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonalPriorityInput'
+      responses:
+        '200':
+          description: 保存成功，返回新版本及服务器 id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonalPrioritySnapshot'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '409':
+          $ref: '#/components/responses/Error409'
   /company-notices:
     get:
       summary: 全员只读：启用的公司十大事项
       security:
-        - bearer: []
+      - bearer: []
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/CompanyNotice"
-        "403":
-          $ref: "#/components/responses/Error403"
+                  $ref: '#/components/schemas/CompanyNotice'
+        '403':
+          $ref: '#/components/responses/Error403'
   /company-notices/{id}:
     get:
       summary: 公司事项详情（含本人备注）
       security:
-        - bearer: []
+      - bearer: []
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: integer, format: int64 }
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CompanyNotice"
-        "404":
-          $ref: "#/components/responses/Error404"
+                $ref: '#/components/schemas/CompanyNotice'
+        '404':
+          $ref: '#/components/responses/Error404'
   /company-notices/{id}/note:
     put:
-      summary: 写本人备注（每人每条唯一）
+      summary: 写本人备注（每人每条唯一，空字符串清空）
       security:
-        - bearer: []
+      - bearer: []
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: integer, format: int64 }
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/NoteInput"
+              $ref: '#/components/schemas/NoteInput'
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CompanyNotice"
+                $ref: '#/components/schemas/CompanyNotice'
   /admin/company-notices:
     get:
       summary: 仅 ADMIN：全部事项（含停用）
       security:
-        - bearer: []
+      - bearer: []
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/CompanyNotice"
-        "403":
-          $ref: "#/components/responses/Error403"
+                  $ref: '#/components/schemas/CompanyNotice'
+        '403':
+          $ref: '#/components/responses/Error403'
     post:
       summary: 仅 ADMIN：发布事项（启用上限 10）
       security:
-        - bearer: []
+      - bearer: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CompanyNoticeInput"
+              $ref: '#/components/schemas/CompanyNoticeInput'
       responses:
-        "201":
+        '201':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CompanyNotice"
-        "400":
-          $ref: "#/components/responses/Error400"
+                $ref: '#/components/schemas/CompanyNotice'
+        '400':
+          $ref: '#/components/responses/Error400'
   /admin/company-notices/{id}:
     patch:
       summary: 仅 ADMIN：修改内容、排序或状态
       security:
-        - bearer: []
+      - bearer: []
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: integer, format: int64 }
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CompanyNoticeInput"
+              $ref: '#/components/schemas/CompanyNoticeInput'
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CompanyNotice"
-        "400":
-          $ref: "#/components/responses/Error400"
+                $ref: '#/components/schemas/CompanyNotice'
+        '400':
+          $ref: '#/components/responses/Error400'
+  /admin/company-notices/{id}/note:
+    get:
+      summary: 仅 ADMIN：读本人在该事项上的备注
+      description: 业务端 /company-notices/{id}/note 会以 403 拒绝 ADMIN；管理员改用本端点维护自己的备注，停用事项同样可读。
+      security:
+      - bearer: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminNote'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+    put:
+      summary: 仅 ADMIN：写本人在该事项上的备注（每人每条唯一）
+      security:
+      - bearer: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NoteInput'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminNote'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
   /users/me:
     get:
       summary: 本人完整档案（含敏感字段）
       security:
-        - bearer: []
+      - bearer: []
       responses:
-        "200":
+        '200':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Profile"
+                $ref: '#/components/schemas/Profile'
+  /tasks/{id}:
+    parameters:
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: integer
+        format: int64
+    put:
+      summary: 创建人申请内容变更或创始人直接编辑
+      description: 创建人可提出变更，非创始人由当前直属上级审批，生效前保留旧定义；创始人可直接修改他人任务。责任人固定不通过此操作更换。被拒绝或撤回的创建申请可经编辑重新送审。
+      security:
+      - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskInput'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '409':
+          $ref: '#/components/responses/Error409'
+    delete:
+      summary: 创建人提出删除或创始人直接删除
+      description: 采用软删除。未开始任务按既有规则直接删除；已有执行进度时进入上级审核。
+      security:
+      - bearer: []
+      responses:
+        '204':
+          description: 请求已处理；刷新任务或审核列表确认状态
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+  /task-reviews:
+    get:
+      summary: 本人申请或待本人审核的进度与关键词操作
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KeywordReview'
+      description: PROGRESS、KEYWORD_EDIT、KEYWORD_DELETE。审核权随申请人的当前有效直属上级变化。初审仍走/tasks/pending-approvals，定义变更/删除审核走/tasks/reviews。
+  /task-reviews/{id}:
+    parameters:
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: integer
+        format: int64
+    put:
+      summary: 直属上级批准或拒绝；申请人可撤回
+      security:
+      - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - status
+              properties:
+                status:
+                  type: string
+                  enum:
+                  - approved
+                  - rejected
+                  - canceled
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeywordReview'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '409':
+          $ref: '#/components/responses/Error409'
+      description: '{status:approved|rejected|canceled}。申请人可撤回；批准/拒绝仅当前有效直属上级可操作，不能自审或重复审批。'
+  /labels:
+    get:
+      summary: 所有业务成员可读取启用标签
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Label'
+    post:
+      summary: 创始人新增标签
+      security:
+      - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LabelInput'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Label'
+        '403':
+          $ref: '#/components/responses/Error403'
+  /labels/{id}:
+    parameters:
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: integer
+        format: int64
+    put:
+      summary: 创始人更新标签名称及颜色，关联任务和日历同步反映
+      security:
+      - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LabelInput'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Label'
+    delete:
+      summary: 创始人停用标签；历史关联保留
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: 已停用
+  /notifications:
+    get:
+      summary: 本人站内通知和未读数量
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationList'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+  /notifications/{id}/read:
+    post:
+      summary: 将本人通知标记已读
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      security:
+      - bearer: []
+      responses:
+        '204':
+          description: 已标记
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+  /profile:
+    get:
+      summary: 读取自己的资料及头像
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountProfile'
+  /profile/avatar:
+    put:
+      summary: 上传自己的头像或清空头像
+      security:
+      - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - avatarData
+              properties:
+                avatarData:
+                  type: string
+                  maxLength: 60000
+                  description: PNG/JPEG data URL；解码后最大45KB、1024×1024；空串移除
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountProfile'
+  /profile/password:
+    put:
+      summary: 验证当前密码后修改自己的密码
+      description: 新密码8至72字符，且UTF-8最多72字节；成功后旧会话全部失效。
+      security:
+      - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - currentPassword
+              - newPassword
+              properties:
+                currentPassword:
+                  type: string
+                  maxLength: 72
+                newPassword:
+                  type: string
+                  minLength: 8
+                  maxLength: 72
+      responses:
+        '200':
+          description: 修改成功，客户端重新登录
+  /tasks/{id}/keywords:
+    parameters:
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: integer
+        format: int64
+    post:
+      summary: 任务创建人及执行人共同添加关键词
+      description: 仅已生效任务，每任务最多12个词，每词1至24字，不允许重复或控制字符。有待审关键词变更时先处理该审核。
+      security:
+      - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskKeywordInput'
+      responses:
+        '200':
+          description: 关键词已添加
+        '400':
+          $ref: '#/components/responses/Error400'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+  /tasks/{id}/keywords/{keywordId}:
+    parameters:
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - in: path
+      name: keywordId
+      required: true
+      schema:
+        type: integer
+        format: int64
+    put:
+      summary: 修改关键词，修改他人词需直属上级审核
+      description: 自己添加的词直接修改；创始人免审。其他修改保留原词直至直属上级批准，复用任务审核及通知。响应message说明是否已提交审核。
+      security:
+      - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskKeywordInput'
+      responses:
+        '200':
+          description: 已更新或已提交直属上级审核
+        '400':
+          $ref: '#/components/responses/Error400'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+    delete:
+      summary: 删除关键词，删除他人词需直属上级审核
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: 已删除或已提交直属上级审核，批准前保留原词
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+  /tasks/reviews:
+    get:
+      summary: 待我验收、变更或删除审核的任务
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+  /tasks/{id}/approve:
+    post:
+      summary: 批准待审操作
+      security:
+      - bearer: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LifecycleReview'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+  /tasks/{id}/reject:
+    post:
+      summary: 驳回待审操作
+      security:
+      - bearer: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LifecycleReview'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+  /notifications/read-all:
+    post:
+      summary: 将本人全部通知标记已读
+      security:
+      - bearer: []
+      responses:
+        '204':
+          description: 已标记
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+  /tasks/{id}/withdraw:
+    post:
+      summary: 申请人撤回任务创建或定义变更申请
+      security:
+      - bearer: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      description: 仅申请人可操作。创建撤回保留记录并置rejected、说明申请已撤回；编辑后可重新送审。PROGRESS与关键词审核使用/task-reviews/{id}的canceled。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '409':
+          $ref: '#/components/responses/Error409'
 components:
   securitySchemes:
     bearer:
@@ -701,11 +1350,11 @@ components:
         role:
           type: string
           enum:
-            - ADMIN
-            - FOUNDER
-            - DEPT_HEAD
-            - TEAM_LEAD
-            - STAFF
+          - ADMIN
+          - FOUNDER
+          - DEPT_HEAD
+          - TEAM_LEAD
+          - STAFF
     AdminUser:
       type: object
       properties:
@@ -720,11 +1369,11 @@ components:
         role:
           type: string
           enum:
-            - ADMIN
-            - FOUNDER
-            - DEPT_HEAD
-            - TEAM_LEAD
-            - STAFF
+          - ADMIN
+          - FOUNDER
+          - DEPT_HEAD
+          - TEAM_LEAD
+          - STAFF
         managerId:
           type: integer
           format: int64
@@ -743,7 +1392,10 @@ components:
           nullable: true
         gender:
           type: string
-          enum: [MALE, FEMALE, UNSPECIFIED]
+          enum:
+          - MALE
+          - FEMALE
+          - UNSPECIFIED
           nullable: true
         hireDate:
           type: string
@@ -772,11 +1424,11 @@ components:
         role:
           type: string
           enum:
-            - ADMIN
-            - FOUNDER
-            - DEPT_HEAD
-            - TEAM_LEAD
-            - STAFF
+          - ADMIN
+          - FOUNDER
+          - DEPT_HEAD
+          - TEAM_LEAD
+          - STAFF
         displayName:
           type: string
           maxLength: 64
@@ -798,7 +1450,10 @@ components:
           nullable: true
         gender:
           type: string
-          enum: [MALE, FEMALE, UNSPECIFIED]
+          enum:
+          - MALE
+          - FEMALE
+          - UNSPECIFIED
           nullable: true
         hireDate:
           type: string
@@ -814,10 +1469,10 @@ components:
           type: string
           nullable: true
       required:
-        - username
-        - password
-        - role
-        - phone
+      - username
+      - password
+      - role
+      - phone
     PatchUser:
       type: object
       properties:
@@ -828,11 +1483,11 @@ components:
         role:
           type: string
           enum:
-            - ADMIN
-            - FOUNDER
-            - DEPT_HEAD
-            - TEAM_LEAD
-            - STAFF
+          - ADMIN
+          - FOUNDER
+          - DEPT_HEAD
+          - TEAM_LEAD
+          - STAFF
         displayName:
           type: string
           maxLength: 64
@@ -857,7 +1512,10 @@ components:
           nullable: true
         gender:
           type: string
-          enum: [MALE, FEMALE, UNSPECIFIED]
+          enum:
+          - MALE
+          - FEMALE
+          - UNSPECIFIED
           nullable: true
         hireDate:
           type: string
@@ -880,8 +1538,8 @@ components:
         password:
           type: string
       required:
-        - username
-        - password
+      - username
+      - password
     Session:
       type: object
       properties:
@@ -893,11 +1551,11 @@ components:
         role:
           type: string
           enum:
-            - ADMIN
-            - FOUNDER
-            - DEPT_HEAD
-            - TEAM_LEAD
-            - STAFF
+          - ADMIN
+          - FOUNDER
+          - DEPT_HEAD
+          - TEAM_LEAD
+          - STAFF
         displayName:
           type: string
           nullable: true
@@ -911,7 +1569,12 @@ components:
           type: string
         role:
           type: string
-          enum: [ADMIN, FOUNDER, DEPT_HEAD, TEAM_LEAD, STAFF]
+          enum:
+          - ADMIN
+          - FOUNDER
+          - DEPT_HEAD
+          - TEAM_LEAD
+          - STAFF
         displayName:
           type: string
           nullable: true
@@ -931,7 +1594,10 @@ components:
           nullable: true
         gender:
           type: string
-          enum: [MALE, FEMALE, UNSPECIFIED]
+          enum:
+          - MALE
+          - FEMALE
+          - UNSPECIFIED
           nullable: true
         hireDate:
           type: string
@@ -944,6 +1610,15 @@ components:
           type: string
           nullable: true
         address:
+          type: string
+          nullable: true
+        managerName:
+          type: string
+          nullable: true
+        avatar:
+          type: string
+          nullable: true
+        avatarImage:
           type: string
           nullable: true
     CompanyNotice:
@@ -982,8 +1657,8 @@ components:
         enabled:
           type: boolean
       required:
-        - title
-        - content
+      - title
+      - content
     NoteInput:
       type: object
       properties:
@@ -991,14 +1666,24 @@ components:
           type: string
           maxLength: 2000
       required:
-        - content
+      - content
+    AdminNote:
+      type: object
+      description: ADMIN 本人的事项备注；只返回调用者自己的备注，不含他人内容。
+      properties:
+        id:
+          type: integer
+          format: int64
+        myNote:
+          type: string
+          nullable: true
     LogInput:
       type: object
       properties:
         logDate:
           type: string
           format: date
-          description: Asia/Shanghai today-7..today inclusive; eight dates
+          description: 上海日期今天及前三天可新建；修改和提交仅限今天。历史日期只读。
         content:
           type: string
           minLength: 1
@@ -1006,12 +1691,21 @@ components:
         status:
           type: string
           enum:
-            - draft
-            - submitted
+          - draft
+          - submitted
           description: POST omitted defaults submitted; PUT omitted retains status
+        labelId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 标签ID；更新时null保留原标签，0清除标签。创建时null不使用标签。
+        endDate:
+          type: string
+          format: date
+          description: Inclusive end; defaults to logDate; both endpoints within today-3..today.
       required:
-        - logDate
-        - content
+      - logDate
+      - content
     WorkLog:
       type: object
       properties:
@@ -1024,7 +1718,7 @@ components:
         logDate:
           type: string
           format: date
-          description: Asia/Shanghai today-7..today inclusive; eight dates
+          description: 上海日期今天及前三天可新建；修改和提交仅限今天。历史日期只读。
         content:
           type: string
           minLength: 1
@@ -1032,8 +1726,8 @@ components:
         status:
           type: string
           enum:
-            - draft
-            - submitted
+          - draft
+          - submitted
           description: POST omitted defaults submitted; PUT omitted retains status
         createdAt:
           type: string
@@ -1041,21 +1735,28 @@ components:
         updatedAt:
           type: string
           format: date-time
+        label:
+          $ref: '#/components/schemas/Label'
+          nullable: true
+        endDate:
+          type: string
+          format: date
+          description: Inclusive end; defaults to logDate; both endpoints within today-3..today.
     Organization:
       type: object
       properties:
         members:
           type: array
           items:
-            $ref: "#/components/schemas/UserSummary"
+            $ref: '#/components/schemas/UserSummary'
         manager:
           allOf:
-            - $ref: "#/components/schemas/UserSummary"
+          - $ref: '#/components/schemas/UserSummary'
           nullable: true
         assignees:
           type: array
           items:
-            $ref: "#/components/schemas/UserSummary"
+            $ref: '#/components/schemas/UserSummary'
     ViewRequestInput:
       type: object
       properties:
@@ -1067,19 +1768,19 @@ components:
           minLength: 1
           maxLength: 500
       required:
-        - targetId
-        - reason
+      - targetId
+      - reason
     ViewDecision:
       type: object
       properties:
         status:
           type: string
           enum:
-            - approved
-            - denied
-            - revoked
+          - approved
+          - denied
+          - revoked
       required:
-        - status
+      - status
     ViewRequest:
       type: object
       properties:
@@ -1087,18 +1788,18 @@ components:
           type: integer
           format: int64
         requester:
-          $ref: "#/components/schemas/UserSummary"
+          $ref: '#/components/schemas/UserSummary'
         target:
-          $ref: "#/components/schemas/UserSummary"
+          $ref: '#/components/schemas/UserSummary'
         reason:
           type: string
         status:
           type: string
           enum:
-            - pending
-            - approved
-            - denied
-            - revoked
+          - pending
+          - approved
+          - denied
+          - revoked
         updatedAt:
           type: string
           format: date-time
@@ -1112,13 +1813,13 @@ components:
         detail:
           type: string
           maxLength: 5000
-          default: ""
+          default: ''
         priority:
           type: string
           enum:
-            - low
-            - normal
-            - high
+          - low
+          - normal
+          - high
           default: normal
         assigneeId:
           type: integer
@@ -1127,9 +1828,14 @@ components:
           type: string
           format: date-time
           nullable: true
+        labelId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 标签ID；更新时null保留原标签，0清除标签。创建时null不使用标签。
       required:
-        - title
-        - assigneeId
+      - title
+      - assigneeId
     Task:
       type: object
       properties:
@@ -1143,13 +1849,13 @@ components:
         detail:
           type: string
           maxLength: 5000
-          default: ""
+          default: ''
         priority:
           type: string
           enum:
-            - low
-            - normal
-            - high
+          - low
+          - normal
+          - high
           default: normal
         assigneeId:
           type: integer
@@ -1161,9 +1867,9 @@ components:
         status:
           type: string
           enum:
-            - todo
-            - doing
-            - done
+          - todo
+          - doing
+          - done
         progress:
           type: integer
           nullable: true
@@ -1185,13 +1891,83 @@ components:
         updatedAt:
           type: string
           format: date-time
+        approvalStatus:
+          type: string
+          enum:
+          - pending
+          - approved
+          - rejected
+          description: 旧任务及下派任务默认approved，自主任务除FOUNDER外待直属上级审批。
+        approvalNote:
+          type: string
+          maxLength: 500
+          default: ''
+        reviewerId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 实际审批人；未人工审批时为null。
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        keywords:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskKeyword'
+        label:
+          $ref: '#/components/schemas/Label'
+          nullable: true
+        reviewStatus:
+          type: string
+          enum:
+          - none
+          - pending_done
+          - pending_change
+          - pending_delete
+          - approved
+          - rejected
+        reviewReason:
+          type: string
+          nullable: true
+        reviewedBy:
+          type: integer
+          format: int64
+          nullable: true
+        lifecycleReviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        deleted:
+          type: boolean
+        pendingChange:
+          type: string
+          nullable: true
+    TaskApproval:
+      type: object
+      required:
+      - decision
+      properties:
+        decision:
+          type: string
+          enum:
+          - approved
+          - rejected
+        note:
+          type: string
+          maxLength: 500
+          default: ''
+          description: 选填，驳回也允许空说明。
     TaskProgress:
       type: object
-      description: 新客户端必须明确status；progress可省略或null，不把未知进度当成0。旧客户端仅提交整数progress仍临时兼容。
+      description: 仅责任人提交。非创始人提交todo/doing/done均生成PROGRESS审核，当前有效直属上级批准前保持旧状态与说明；仅创始人本人作为责任人操作直接生效。
       properties:
         status:
           type: string
-          enum: [todo, doing, done]
+          enum:
+          - todo
+          - doing
+          - done
           description: 独立工作状态；与所填百分比不一致时返回400，不更改原记录。
         progress:
           type: integer
@@ -1204,16 +1980,65 @@ components:
           minLength: 1
           maxLength: 2000
       required:
-        - progressNote
+      - progressNote
       anyOf:
-        - required: [status]
-        - required: [progress]
-          properties:
-            progress:
-              type: integer
-              nullable: false
-              minimum: 0
-              maximum: 100
+      - required:
+        - status
+      - required:
+        - progress
+        properties:
+          progress:
+            type: integer
+            nullable: false
+            minimum: 0
+            maximum: 100
+    PersonalPriorityInput:
+      type: object
+      required:
+      - revision
+      - items
+      properties:
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        items:
+          type: array
+          maxItems: 10
+          items:
+            type: object
+            required:
+            - title
+            properties:
+              id:
+                type: integer
+                format: int64
+                nullable: true
+              title:
+                type: string
+                minLength: 1
+                maxLength: 120
+              detail:
+                type: string
+                maxLength: 2000
+                nullable: true
+              sortOrder:
+                type: integer
+                description: 服务端按数组位置规范化为 0 开始的顺序
+    PersonalPrioritySnapshot:
+      type: object
+      required:
+      - revision
+      - items
+      properties:
+        revision:
+          type: integer
+          format: int64
+        items:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/PanelItem'
     PanelItem:
       type: object
       properties:
@@ -1227,26 +2052,29 @@ components:
         myRemark:
           type: string
           nullable: true
+        detail:
+          type: string
+          nullable: true
     PanelMap:
       type: object
       properties:
         companyImportant:
           type: array
           items:
-            $ref: "#/components/schemas/PanelItem"
+            $ref: '#/components/schemas/PanelItem'
         companyDispatch:
           type: array
           items:
-            $ref: "#/components/schemas/PanelItem"
+            $ref: '#/components/schemas/PanelItem'
           maxItems: 10
         personalTop:
           type: array
           items:
-            $ref: "#/components/schemas/PanelItem"
+            $ref: '#/components/schemas/PanelItem'
         todayLogs:
           type: array
           items:
-            $ref: "#/components/schemas/WorkLog"
+            $ref: '#/components/schemas/WorkLog'
     Error:
       type: object
       properties:
@@ -1268,34 +2096,193 @@ components:
           type: boolean
         message:
           type: string
+        supportsDateRanges:
+          type: boolean
+          description: True when the server supports inclusive endDate on work logs.
+    TaskKeywordInput:
+      type: object
+      required:
+      - text
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 24
+    TaskKeyword:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        text:
+          type: string
+          maxLength: 24
+        createdBy:
+          type: integer
+          format: int64
+    LabelInput:
+      type: object
+      required:
+      - name
+      - color
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        color:
+          type: string
+          pattern: ^#[0-9a-fA-F]{6}$
+    WorkLabel:
+      allOf:
+      - $ref: '#/components/schemas/LabelInput'
+      - type: object
+        properties:
+          id:
+            type: integer
+            format: int64
+          active:
+            type: boolean
+    LifecycleReview:
+      type: object
+      properties:
+        note:
+          type: string
+          maxLength: 500
+    AppNotification:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        type:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        taskId:
+          type: integer
+          format: int64
+          nullable: true
+        read:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    NotificationList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppNotification'
+        unreadCount:
+          type: integer
+          format: int64
+    Label:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        color:
+          type: string
+          pattern: ^#[0-9A-Fa-f]{6}$
+        active:
+          type: boolean
+    KeywordReview:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        taskId:
+          type: integer
+          format: int64
+        taskTitle:
+          type: string
+        applicantId:
+          type: integer
+          format: int64
+        applicantName:
+          type: string
+        reviewerId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 待审时使用申请人当前有效直属上级；无有效上级为null，旧审核人不能决定。
+        reviewerName:
+          type: string
+        operation:
+          type: string
+          enum:
+          - PROGRESS
+          - KEYWORD_EDIT
+          - KEYWORD_DELETE
+        payload:
+          type: string
+          description: JSON字符串；PROGRESS含拟议status/progressNote，可选progress；关键词含原词/新词及操作。
+        status:
+          type: string
+          enum:
+          - pending
+          - approved
+          - rejected
+          - canceled
+        createdAt:
+          type: string
+          format: date-time
+        decidedAt:
+          type: string
+          format: date-time
+          nullable: true
+      description: 通用进度或关键词审核；沿用此schema名称以兼容已记录契约。
+    AccountProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        displayName:
+          type: string
+        role:
+          type: string
+        avatarData:
+          type: string
+          nullable: true
   responses:
     Error400:
       description: 参数错误（含重复用户名）；无效新建/目标日期
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: '#/components/schemas/Error'
     Error401:
       description: 未登录或账号停用
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: '#/components/schemas/Error'
     Error403:
       description: 角色/范围无权，或原日志已超出编辑窗口
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: '#/components/schemas/Error'
     Error404:
       description: 记录不存在
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: '#/components/schemas/Error'
     Error409:
       description: 申请重复、状态已变化或并发冲突
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: '#/components/schemas/Error'

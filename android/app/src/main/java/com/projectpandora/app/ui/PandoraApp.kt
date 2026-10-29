@@ -3,6 +3,8 @@ package com.projectpandora.app.ui
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -62,42 +64,44 @@ import java.time.format.DateTimeFormatter
     val readFailures=listOfNotNull(state.panelError?.let {"总览：$it"},state.taskError?.let {"任务：$it"},state.logError?.let {"日志：$it"})
     val retained=state.tasks.isNotEmpty() || state.logs.isNotEmpty() || state.panels!=null
     if(syncDetails)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={syncDetails=false},title={Text("同步失败")},text={Text(readFailures.joinToString("\n\n")+if(retained)"\n\n正在显示上次成功读取的内容。" else "\n\n暂时无法读取工作内容。")},confirmButton={ControlTextButton(onClick={syncDetails=false;model.refresh()},enabled=!state.loading) {Text("重试")}},dismissButton={ControlTextButton(onClick={syncDetails=false}) {Text("关闭")}})
-    val canCreate=state.editor==null && state.selectedTaskId==null && state.screen in listOf("home","logs","day","ai")
+    val showFloating=state.editor==null && state.selectedTaskId==null && !state.dispatchOpen && state.screen!="profile" && state.screen!="labels"
     val headerHeight=(if(homeHeader && (readFailures.isNotEmpty() || state.developmentPreview))96.dp else if(homeHeader)72.dp else if(state.developmentPreview)64.dp else 48.dp) * maxOf(1f,LocalDensity.current.fontScale)
-    BackHandler(enabled=state.editor==null && state.selectedTaskId==null && state.screen!="home" && !state.dispatchOpen) {if(!state.saving)model.screen(if(state.screen in listOf("tasks","organization"))"functions" else "home")}
+    BackHandler(enabled=state.editor==null && state.selectedTaskId==null && state.screen!="home" && !state.dispatchOpen) {if(!state.saving)model.screen(if(state.screen=="labels")"profile" else if(state.screen in listOf("tasks","organization","inbox"))"day" else "home")}
     val pageTitle=when {
         state.editor!=null -> "潘多拉"
         state.screen=="home" || state.screen=="ai" -> AppRoles.homeTitle(state.session.role)
-        state.dispatchOpen -> "派发任务"
+        state.dispatchOpen -> "新建任务"
         state.screen=="functions" -> "职能"
         state.screen=="tasks" -> if(state.selectedTaskId==null)"任务列表" else "任务详情"
         state.screen=="organization" -> AppRoles.scopeLabel(state.session.role)
         state.screen=="logs" -> "工作日志"
         state.screen=="day" -> "工作视图"
         state.screen=="profile" -> "我的"
+        state.screen=="notifications" -> "消息中心"
+        state.screen=="inbox" -> "通知与审核"
+        state.screen=="labels" -> "品牌标签"
         else -> "潘多拉"
     }
     Box(Modifier.fillMaxSize()) {
     WorkspaceBackground(Modifier.matchParentSize())
     Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(MaterialTheme.colorScheme.background))
-    Scaffold(containerColor=Color.Transparent,contentColor=MaterialTheme.colorScheme.onBackground,topBar={Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)).padding(top=12.dp,bottom=6.dp),contentAlignment=Alignment.TopCenter) {TopAppBar(modifier=Modifier.widthIn(max=600.dp).fillMaxWidth(),expandedHeight=headerHeight,windowInsets=WindowInsets(0,0,0,0),navigationIcon={if(state.screen!="profile")Box(contentAlignment=Alignment.TopEnd){IconButton(onClick={feedback();model.loadNotifications();model.screen("notifications")},enabled=!state.saving){Icon(painterResource(R.drawable.console_bell),contentDescription="消息",modifier=Modifier.size(21.dp))};if(state.unreadCount>0)Badge(modifier=Modifier.align(Alignment.TopEnd).offset(x=6.dp,y=(-6).dp)){Text(if(state.unreadCount>99)"99+" else state.unreadCount.toString())}}},title={Column(Modifier.padding(start=8.dp).semantics {if(homeHeader && readFailures.isNotEmpty())contentDescription="同步失败"}.clickable(enabled=homeHeader && readFailures.isNotEmpty()) {syncDetails=true},verticalArrangement=Arrangement.spacedBy(2.dp)) {
+    Scaffold(containerColor=Color.Transparent,contentColor=MaterialTheme.colorScheme.onBackground,topBar={Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)).padding(top=12.dp,bottom=6.dp),contentAlignment=Alignment.TopCenter) {TopAppBar(modifier=Modifier.widthIn(max=600.dp).fillMaxWidth(),expandedHeight=headerHeight,windowInsets=WindowInsets(0,0,0,0),navigationIcon={if(state.screen!="profile")Box(contentAlignment=Alignment.TopEnd){IconButton(onClick={feedback();model.loadNotifications();model.screen("inbox")},enabled=!state.saving){Icon(painterResource(R.drawable.console_bell),contentDescription="消息",modifier=Modifier.size(21.dp))};if(state.unreadCount>0)Badge(modifier=Modifier.align(Alignment.TopEnd).offset(x=6.dp,y=(-6).dp)){Text(if(state.unreadCount>99)"99+" else state.unreadCount.toString())}}},title={Column(Modifier.padding(start=8.dp).semantics {if(homeHeader && readFailures.isNotEmpty())contentDescription="同步失败"}.clickable(enabled=homeHeader && readFailures.isNotEmpty()) {syncDetails=true},verticalArrangement=Arrangement.spacedBy(2.dp)) {
         Text(pageTitle,style=MaterialTheme.typography.headlineSmall,fontFamily=ConsoleDisplay,fontWeight=androidx.compose.ui.text.font.FontWeight.SemiBold)
         if(homeHeader)Text("${today().monthValue}月${today().dayOfMonth}日 · ${listOf("周一","周二","周三","周四","周五","周六","周日")[today().dayOfWeek.value-1]}${if(readFailures.isNotEmpty())"" else if(state.developmentPreview)" · 未连接" else if(state.loading)" · 同步中" else " · 已同步"}",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2)
         if(homeHeader && readFailures.isNotEmpty())Text("同步失败 · ${if(retained)"上次内容" else "查看原因"} ›",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.error,maxLines=2)
         if(state.developmentPreview)Text("本地预览",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }},actions={
-        if(canCreate) {
-            if(state.screen=="day") {
-                if(AppRoles.canDispatch(state.session.role)) {InlineAction("派发任务",enabled=!state.saving,icon=R.drawable.console_add) {feedback();model.openDispatch()};Spacer(Modifier.width(4.dp))}
-            } else {WriteLogButton(enabled=!state.saving,onClick={model.edit()});Spacer(Modifier.width(4.dp))}
+    },colors=TopAppBarDefaults.topAppBarColors(containerColor=Color.Transparent))}},floatingActionButton={
+        if(showFloating)Column(Modifier.padding(end=4.dp,bottom=80.dp),verticalArrangement=Arrangement.spacedBy(10.dp),horizontalAlignment=Alignment.CenterHorizontally) {
+            FloatingWorkspaceButton("刷新",R.drawable.console_sync,!state.loading && !state.organizationLoading && !state.saving,state.loading || state.organizationLoading) {feedback();if(state.screen=="organization")model.loadOrganization() else model.refresh()}
+            FloatingWorkspaceButton("写日志",R.drawable.console_add,!state.saving) {feedback();model.edit()}
         }
-        if(state.screen!="profile")InlineAction(if(homeHeader && readFailures.isNotEmpty())"重试" else "刷新",enabled=!state.loading && !state.organizationLoading && !state.saving,icon=R.drawable.console_sync,secondary=true,loading=state.loading || state.organizationLoading) {feedback();if(state.screen=="organization")model.loadOrganization() else model.refresh()}
-    },colors=TopAppBarDefaults.topAppBarColors(containerColor=Color.Transparent))}},bottomBar={
+    },bottomBar={
         if(state.editor==null && state.selectedTaskId==null && !state.dispatchOpen)Column {
             HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
             Box(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {NavigationBar(containerColor=MaterialTheme.colorScheme.background,tonalElevation=0.dp,modifier=Modifier.widthIn(max=600.dp).fillMaxWidth().height(72.dp),windowInsets=WindowInsets(0,0,0,0)) {
-                val items=listOf(Triple("home","总览",R.drawable.console_home),Triple("functions","职能",R.drawable.console_duties),Triple("logs","日志",R.drawable.console_log),Triple("day","视图",R.drawable.console_calendar),Triple("profile","我的",R.drawable.console_person))
-                items.forEach {(key,label,icon)->NavigationBarItem(selected=state.screen==key || (key=="functions" && state.screen in listOf("tasks","organization")) || (key=="home" && state.screen=="ai"),
+                val items=listOf(Triple("home","总览",R.drawable.console_home),Triple("logs","日志",R.drawable.console_log),Triple("day","视图",R.drawable.console_calendar),Triple("profile","我的",R.drawable.console_person))
+                items.forEach {(key,label,icon)->NavigationBarItem(selected=state.screen==key || (key=="day" && state.screen in listOf("tasks","organization","inbox")) || (key=="profile" && state.screen=="labels") || (key=="home" && state.screen=="ai"),
                     onClick={feedback();model.screen(key)},enabled=!state.saving,
                     icon={Icon(painterResource(icon),contentDescription=null,modifier=Modifier.size(21.dp))},label={Text(label,maxLines=1,softWrap=false,style=MaterialTheme.typography.labelSmall)},
                     colors=NavigationBarItemDefaults.colors(indicatorColor=androidx.compose.ui.graphics.Color.Transparent,
@@ -107,48 +111,39 @@ import java.time.format.DateTimeFormatter
         }
     }) {padding->Box(Modifier.fillMaxSize(),contentAlignment=Alignment.TopCenter) {Column(Modifier.fillMaxHeight().widthIn(max=600.dp).fillMaxWidth().padding(padding)) {
         state.notice?.takeUnless {state.developmentPreview && it.startsWith("开发预览：")}?.let {Box(Modifier.padding(horizontal=20.dp,vertical=8.dp)) {Hint(it)}}
-        if(state.editor!=null)EditorScreen(state,model)
-        else when(state.screen) {
-            "home" -> HomeScreen(state,model)
-            "functions" -> DutiesScreen(state,model)
-            "logs" -> LogsScreen(state,model)
-            "tasks" -> TaskScreen(state,model)
-            "day" -> CalendarScreen(state,model)
-            "ai" -> HomeScreen(state,model)
-            "profile" -> ProfileScreen(state,model)
-            "notifications" -> NotificationsScreen(state,model)
-            "organization" -> OrganizationScreen(state,model)
+        AnimatedContent(targetState=state,modifier=Modifier.fillMaxSize(),contentKey={"${it.screen}:${it.editor!=null}:${it.selectedTaskId}:${it.dispatchOpen}"},transitionSpec={
+            val origin=when {
+                initialState.screen=="home" && targetState.screen=="tasks"->TransformOrigin(1f,0f)
+                initialState.screen=="home" && targetState.screen=="logs"->TransformOrigin(1f,1f)
+                else->TransformOrigin(0.5f,0.5f)
+            }
+            overviewTransition(origin)
+        },label="workspace-page-expand") {page->
+        if(page.editor!=null)EditorScreen(page,model)
+        else when(page.screen) {
+            "home" -> HomeScreen(page,model)
+            "logs" -> LogsScreen(page,model)
+            "tasks" -> TaskScreen(page,model)
+            "day" -> CalendarScreen(page,model)
+            "ai" -> HomeScreen(page,model)
+            "profile" -> ProfileScreen(page,model)
+            "inbox" -> InboxScreen(page,model)
+            "labels" -> LabelsScreen(page,model)
+            "organization" -> OrganizationScreen(page,model)
+        }
         }
     }}}
     }
 }
 
-@Composable private fun NotificationsScreen(state: AppState, model: PandoraViewModel) {
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp),contentPadding=PaddingValues(top=4.dp,bottom=28.dp)) {
-        item {Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-            ScreenHeading("消息中心","派发、验收、变更与删除的提醒都会出现在这里。")
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
-                Text(if(state.unreadCount>0)"未读 ${state.unreadCount} 条" else "全部已读",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                ControlTextButton(onClick=model::markAllNotificationsRead,enabled=!state.saving && state.unreadCount>0) {Text("全部已读")}
-            }
-            if(state.notificationsLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
-        }}
-        if(state.notifications.isEmpty() && !state.notificationsLoading)item {EmptyCard("暂无消息","有新的派发或审核进展时会在这里提醒你。")}
-        items(state.notifications,key={it.id}) {n->OutlinedCard(onClick={model.openNotification(n)},enabled=!state.saving,modifier=Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
-                    Text(n.title,style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis,modifier=Modifier.weight(1f),color=if(n.read)MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.secondary)
-                    if(!n.read)Badge {Text("新")}
-                }
-                Text(n.body,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(notificationTime(n.createdAt),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }}
+@Composable private fun FloatingWorkspaceButton(label: String,icon: Int,enabled: Boolean,loading: Boolean=false,onClick: ()->Unit) {
+    Surface(onClick=onClick,enabled=enabled,color=MaterialTheme.colorScheme.surface.copy(alpha=0.88f),contentColor=MaterialTheme.colorScheme.secondary,shape=MaterialTheme.shapes.medium,shadowElevation=6.dp,modifier=Modifier.size(48.dp).semantics {contentDescription=label}) {
+        Box(contentAlignment=Alignment.Center) {
+            if(loading)CircularProgressIndicator(Modifier.size(22.dp),strokeWidth=2.dp)
+            else Icon(painterResource(icon),null,modifier=Modifier.size(23.dp))
+        }
     }
 }
-private fun notificationTime(value: String): String = runCatching {
-    DateTimeFormatter.ofPattern("MM-dd HH:mm").withZone(ZoneId.of("Asia/Shanghai")).format(Instant.parse(value))
-}.getOrDefault(value)
 
 @Composable private fun WorkspaceBackground(modifier: Modifier) {
     val dark=LocalAppearance.current.mode==Appearance.DARK
@@ -170,38 +165,30 @@ private fun notificationTime(value: String): String = runCatching {
     var leaving by remember {mutableStateOf(false)}
     var details by remember {mutableStateOf<String?>(null)}
     var avatarPicker by remember {mutableStateOf(false)}
-    var passwordDialog by remember {mutableStateOf(false)}
-    var currentPw by remember {mutableStateOf("")}
-    var newPw by remember {mutableStateOf("")}
+    var showProfileDetails by remember {mutableStateOf(false)}
     val avatars=listOf("🦊","🐼","🐯","🐻","🦉","🐳","🌿","⭐","🔥","🍀")
-    val context=LocalContext.current
-    val pickImage=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {uri-> if(uri!=null) {val data=imageUriToDataUrl(context,uri); if(data!=null){model.changeAvatar(data);avatarPicker=false}}}
+    val pickImage=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {uri-> if(uri!=null) {model.changeAvatar(uri);avatarPicker=false}}
     val permissionText=when(me.role) {
-        "FOUNDER"->"创始人：可查看公司业务成员已提交的日志与任务；可向公司内任意成员派发任务。"
-        "DEPT_HEAD"->"部门老总：可穿透查看部门下属；查看直属上级须申请并获批准。"
-        "TEAM_LEAD"->"团队长：可查看团队下属；查看直属上级须申请并获批准。"
+        "FOUNDER"->"创始人：可给公司任一业务成员建任务、修改任务定义；创建及本人提交进度直接生效，其他成员的进度仍须其当前直属上级审批。"
+        "DEPT_HEAD"->"部门老总：可给公司任一业务成员建任务，创建及本人进度须当前直属上级审批；可审核直属下级申请；可穿透查看部门下属；查看直属上级须申请并获批准。"
+        "TEAM_LEAD"->"团队长：可给公司任一业务成员建任务，创建及本人进度须当前直属上级审批；可审核直属下级申请；可查看团队下属；查看直属上级须申请并获批准。"
         "LEADER"->"当前连接旧版演示服务，权限以该服务为准。"
-        else->"员工：记录自己的工作，处理分配任务；查看直属上级须申请并获批准。"
+        else->"员工：可给公司任一业务成员建任务，创建及本人进度经当前直属上级审批后生效；查看直属上级须申请并获批准。"
     }
-    details?.let {section->AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={details=null},title={Text(if(section=="access")"账号与权限" else "当前服务")},text={Text(if(section=="access")"$permissionText\n\n资料与组织关系由管理员在 Web 维护；组织查看与申请从职能入口进入。" else "${me.server}\n\n工作记录保存在此服务。无法连接时，请检查网络或联系管理员。")},confirmButton={ControlTextButton(onClick={details=null}) {Text("关闭")}})}
+    details?.let {section->AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={details=null},title={Text(if(section=="access")"账号与权限" else "当前服务")},text={Text(if(section=="access")"$permissionText\n\n资料与组织关系由管理员在 Web 维护；组织查看与申请从视图下方进入。" else "${me.server}\n\n工作记录保存在此服务。无法连接时，请检查网络或联系管理员。")},confirmButton={ControlTextButton(onClick={details=null}) {Text("关闭")}})}
     if(avatarPicker)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={avatarPicker=false},title={Text("选择头像")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
         avatars.chunked(5).forEach {row-> Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-            row.forEach {emoji-> Surface(shape=androidx.compose.foundation.shape.CircleShape,color=if(state.profile?.avatar==emoji)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,modifier=Modifier.size(48.dp).clickable(enabled=!state.saving){model.changeAvatar(emoji);avatarPicker=false}) {Box(contentAlignment=Alignment.Center){Text(emoji,style=MaterialTheme.typography.titleLarge)}}
+            row.forEach {emoji-> Surface(shape=androidx.compose.foundation.shape.CircleShape,color=if(state.profile?.avatar==emoji)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,modifier=Modifier.size(48.dp).clickable(enabled=!state.saving){model.changeAvatar(emoji);avatarPicker=false}) {Box(contentAlignment=Alignment.Center){Text(emoji,style=MaterialTheme.typography.titleLarge)}}}
         }}
         HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
         ControlTextButton(onClick={pickImage.launch("image/*")},enabled=!state.saving) {Text("从相册上传图片")}
         Text("可选系统头像，或从相册上传方形照片（会自动压缩）。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }},confirmButton={ControlTextButton(onClick={avatarPicker=false}) {Text("关闭")}})
-    if(passwordDialog)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={if(!state.saving)passwordDialog=false},title={Text("修改密码")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
-        OutlinedTextField(value=currentPw,onValueChange={currentPw=it},enabled=!state.saving,label={Text("原密码")},singleLine=true,visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth())
-        OutlinedTextField(value=newPw,onValueChange={newPw=it.take(72)},enabled=!state.saving,label={Text("新密码（6-72 位）")},singleLine=true,visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth())
-        Text("忘记密码请联系管理员在 Web 重置。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-    }},confirmButton={ControlTextButton(onClick={model.changePassword(currentPw,newPw){passwordDialog=false;currentPw="";newPw=""}},enabled=!state.saving && currentPw.isNotBlank() && newPw.length in 6..72) {Text(if(state.saving)"提交中…" else "确认修改")}},dismissButton={ControlTextButton(onClick={passwordDialog=false},enabled=!state.saving) {Text("取消")}})
     if(leaving)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={leaving=false},title={Text(if(state.developmentPreview)"退出开发预览？" else "退出当前账号？")},text={Text(if(state.developmentPreview)"预览没有登录业务账号，也未向服务器提交数据。" else "工作记录已保存在当前服务。未提交输入会保留在这台设备，再次登录原账号可继续。")},confirmButton={ControlTextButton(onClick={leaving=false;model.logout()}) {Text("退出登录")}},dismissButton={ControlTextButton(onClick={leaving=false}) {Text("取消")}})
     Column(Modifier.fillMaxSize()) {
     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal=24.dp).padding(top=12.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
         val profile=state.profile
-        val avatarImage=remember(state.profile?.avatarImage){decodeAvatarImage(state.profile?.avatarImage)}
+        val avatarImage=remember(state.myProfile?.avatarData,state.profile?.avatarImage){decodeAvatarImage(state.myProfile?.avatarData ?: state.profile?.avatarImage)}
         Row(Modifier.fillMaxWidth().padding(vertical=12.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
             Surface(shape=androidx.compose.foundation.shape.CircleShape,color=MaterialTheme.colorScheme.surfaceVariant,modifier=Modifier.size(56.dp).clickable(enabled=!state.saving && !state.developmentPreview){avatarPicker=true}) {
                 Box(contentAlignment=androidx.compose.ui.Alignment.Center,modifier=Modifier.fillMaxSize()) {
@@ -217,6 +204,25 @@ private fun notificationTime(value: String): String = runCatching {
                 Text("直属上级：$managerText",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
+        Text("个人资料",style=MaterialTheme.typography.titleSmall,modifier=Modifier.padding(top=12.dp,bottom=8.dp))
+        if(state.profileLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
+        state.profileError?.let {Hint(it,true,onRetry=model::refresh)}
+        if(state.developmentPreview)Text("登录业务账号后可查看个人资料",style=MaterialTheme.typography.bodySmall)
+        ControlTextButton(onClick={showProfileDetails=!showProfileDetails},enabled=!state.saving) {Text(if(showProfileDetails)"收起本人档案" else "查看本人档案")}
+        if(showProfileDetails)state.profile?.let {profile->
+            listOf("姓名" to profile.displayName,"手机号" to profile.phone,"身份证号" to profile.idCard,
+                "出生日期" to profile.birthDate,"性别" to profile.gender,"入职日期" to profile.hireDate,
+                "紧急联系人" to profile.emergencyContact,"紧急联系电话" to profile.emergencyPhone,"联系地址" to profile.address,
+                "直属上级编号" to profile.managerId?.toString()).forEach {(label,value)->
+                Row(Modifier.fillMaxWidth().padding(vertical=6.dp),horizontalArrangement=Arrangement.spacedBy(16.dp)) {
+                    Text(label,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.width(100.dp))
+                    Text(value?.takeIf {it.isNotBlank()} ?: "未填写",style=MaterialTheme.typography.bodyMedium,modifier=Modifier.weight(1f))
+                }
+            }
+            Text("资料由管理员维护，如需更正请联系管理员。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.padding(vertical=8.dp))
+        }
+        AccountSettings(state,model)
         HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
         Row(Modifier.fillMaxWidth().heightIn(min=48.dp).selectableGroup(),verticalAlignment=Alignment.CenterVertically) {
             Text("外观",style=MaterialTheme.typography.bodyMedium,modifier=Modifier.weight(1f))
@@ -238,10 +244,6 @@ private fun notificationTime(value: String): String = runCatching {
         HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
         ControlTextButton(onClick={details="access"},enabled=!state.saving,contentPadding=PaddingValues(0.dp),modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
             Text("账号与权限",style=MaterialTheme.typography.bodyMedium)
-            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,null,modifier=Modifier.size(20.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
-        }}
-        ControlTextButton(onClick={currentPw="";newPw="";passwordDialog=true},enabled=!state.saving && !state.developmentPreview,contentPadding=PaddingValues(0.dp),modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
-            Text("修改密码",style=MaterialTheme.typography.bodyMedium)
             Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,null,modifier=Modifier.size(20.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
         }}
         ControlTextButton(onClick={details="service"},enabled=!state.saving,contentPadding=PaddingValues(0.dp),modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {

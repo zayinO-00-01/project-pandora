@@ -43,14 +43,22 @@ public class TaskEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "approval_status", nullable = false, length = 16)
+    private String approvalStatus = "approved";
+    @Column(name = "approval_note", nullable = false, length = 500)
+    private String approvalNote = "";
+    @Column(name = "reviewer_id")
+    private Long reviewerId;
+    @Column(name = "reviewed_at")
+    private Instant reviewedAt;
     @Column(name = "review_status", nullable = false, length = 24)
     private String reviewStatus = "none";
     @Column(name = "review_reason", columnDefinition = "TEXT")
     private String reviewReason;
     @Column(name = "reviewed_by")
     private Long reviewedBy;
-    @Column(name = "reviewed_at")
-    private Instant reviewedAt;
+    @Column(name = "lifecycle_reviewed_at")
+    private Instant lifecycleReviewedAt;
     @Column(name = "pending_change", columnDefinition = "TEXT")
     private String pendingChange;
     @Column(name = "deleted_at")
@@ -58,6 +66,18 @@ public class TaskEntity {
     @Column(name = "deleted_by")
     private Long deletedBy;
 
+    @ManyToOne(fetch=FetchType.EAGER) @JoinColumn(name="label_id")
+    private com.projectpandora.api.label.WorkLabel label;
+    @jakarta.persistence.Version private long version;
+    public com.projectpandora.api.label.WorkLabel getLabel(){return label;}
+    void setLabel(com.projectpandora.api.label.WorkLabel value){label=value;}
+    public long getVersion(){return version;}
+    @jakarta.persistence.OneToMany(fetch=FetchType.EAGER)
+    @JoinColumn(name="task_id",insertable=false,updatable=false)
+    @jakarta.persistence.OrderBy("id ASC")
+    private java.util.List<TaskKeyword> keywords=new java.util.ArrayList<>();
+    public java.util.List<TaskKeyword> getKeywords(){return keywords;}
+    void keywordsChanged(){updatedAt=Instant.now();}
     protected TaskEntity() {}
 
     TaskEntity(CreateTaskRequest request, UserEntity creator, UserEntity assignee) {
@@ -75,6 +95,16 @@ public class TaskEntity {
     }
     void softDelete(Long actor) { this.deletedAt = Instant.now(); this.deletedBy = actor; }
     boolean isDeleted() { return deletedAt != null; }
+
+    void requireApproval() { approvalStatus="pending";approvalNote="";reviewerId=null;reviewedAt=null; }
+    void withdrawApproval() { approvalStatus="rejected";approvalNote="申请已撤回"; }
+    void review(String decision, String note, Long reviewer) {
+        approvalStatus = decision; approvalNote = note; reviewerId = reviewer; reviewedAt = Instant.now();
+    }
+    public String getApprovalStatus() { return approvalStatus; }
+    public String getApprovalNote() { return approvalNote; }
+    public Long getReviewerId() { return reviewerId; }
+    public Instant getReviewedAt() { return reviewedAt; }
 
     public Long getId() { return id; }
     public String getTitle() { return title; }
@@ -95,8 +125,8 @@ public class TaskEntity {
     public void setReviewReason(String reviewReason) { this.reviewReason = reviewReason; }
     public Long getReviewedBy() { return reviewedBy; }
     public void setReviewedBy(Long reviewedBy) { this.reviewedBy = reviewedBy; }
-    public Instant getReviewedAt() { return reviewedAt; }
-    public void setReviewedAt(Instant reviewedAt) { this.reviewedAt = reviewedAt; }
+    public Instant getLifecycleReviewedAt() { return lifecycleReviewedAt; }
+    public void setLifecycleReviewedAt(Instant lifecycleReviewedAt) { this.lifecycleReviewedAt = lifecycleReviewedAt; }
     public String getPendingChange() { return pendingChange; }
     public void setPendingChange(String pendingChange) { this.pendingChange = pendingChange; }
     public Instant getDeletedAt() { return deletedAt; }

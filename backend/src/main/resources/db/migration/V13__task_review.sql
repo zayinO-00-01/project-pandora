@@ -1,7 +1,7 @@
 ALTER TABLE dispatch_tasks ADD COLUMN review_status VARCHAR(24) NOT NULL DEFAULT 'none';
 ALTER TABLE dispatch_tasks ADD COLUMN review_reason TEXT NULL;
 ALTER TABLE dispatch_tasks ADD COLUMN reviewed_by BIGINT NULL;
-ALTER TABLE dispatch_tasks ADD COLUMN reviewed_at TIMESTAMP(6) NULL;
+ALTER TABLE dispatch_tasks ADD COLUMN lifecycle_reviewed_at TIMESTAMP(6) NULL;
 ALTER TABLE dispatch_tasks ADD COLUMN pending_change TEXT NULL;
 ALTER TABLE dispatch_tasks ADD COLUMN deleted_at TIMESTAMP(6) NULL;
 ALTER TABLE dispatch_tasks ADD COLUMN deleted_by BIGINT NULL;

@@ -30,7 +30,7 @@ class DispatchContractTest {
             assertEquals("/api/v1/tasks",request.path)
             assertEquals("Bearer leader-token",request.getHeader("Authorization"))
             val body=JsonParser.parseString(request.body.readUtf8()).asJsonObject
-            assertEquals(setOf("title","detail","priority","assigneeId","dueAt"),body.keySet())
+            assertEquals(setOf("title","detail","priority","assigneeId","dueAt","labelId"),body.keySet())
             assertEquals("核对合同",body["title"].asString)
             assertEquals("high",body["priority"].asString)
             assertEquals(3L,body["assigneeId"].asLong)
@@ -59,12 +59,12 @@ class DispatchContractTest {
             server.start()
             val api=ApiClient(server.url("/").toString())
             val input=TaskCreateInput("任务","","normal",3,null)
-            for(role in listOf("STAFF","ADMIN","LEADER")) {
+            for(role in listOf("ADMIN","LEADER")) {
                 try {api.createTask(Session(api.server,"t",2,role,null,"u"),input);fail("accepted $role")}
                 catch(e:ApiException) {assertEquals(403,e.status)}
             }
             val me=Session(api.server,"t",2,"FOUNDER",null,"f")
-            for(bad in listOf(input.copy(title=" "),input.copy(title="x".repeat(129)),input.copy(detail="x".repeat(5001)),input.copy(priority="urgent"),input.copy(assigneeId=0),input.copy(assigneeId=2),input.copy(dueAt="tomorrow"))) {
+            for(bad in listOf(input.copy(title=" "),input.copy(title="x".repeat(129)),input.copy(detail="x".repeat(5001)),input.copy(priority="urgent"),input.copy(assigneeId=0),input.copy(dueAt="tomorrow"))) {
                 try {api.createTask(me,bad);fail("invalid accepted")} catch(_:IllegalArgumentException) {}
             }
             assertEquals(0,server.requestCount)
@@ -95,7 +95,7 @@ class DispatchContractTest {
         assertNotNull(TaskDispatchValidation.error(draft,emptyList()))
         assertNotNull(TaskDispatchValidation.error(draft,listOf(member.copy(role="ADMIN"))))
         assertNotNull(TaskDispatchValidation.error(draft.copy(dueDate="2026-02-30 10:00"),listOf(member)))
-        assertNotNull(TaskDispatchValidation.error(draft.copy(assigneeId=2),listOf(member.copy(id=2))))
+        assertNull(TaskDispatchValidation.error(draft.copy(assigneeId=2),emptyList()))
     }
     @Test fun organizationRequestsAndReadOnlyMembersKeepExistingRoutes() {
         MockWebServer().use { server ->

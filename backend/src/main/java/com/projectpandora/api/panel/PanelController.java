@@ -4,6 +4,7 @@ import com.projectpandora.api.log.WorkLogRepository;
 import com.projectpandora.api.log.WorkLogResponse;
 import com.projectpandora.api.notice.CompanyNoticeService;
 import com.projectpandora.api.security.AccessService;
+import com.projectpandora.api.priority.PersonalPriorityService;
 import com.projectpandora.api.security.UserPrincipal;
 import com.projectpandora.api.task.TaskService;
 import java.util.stream.IntStream;
@@ -21,13 +22,15 @@ public class PanelController {
     private final AccessService accessService;
     private final TaskService taskService;
     private final CompanyNoticeService companyNoticeService;
+    private final PersonalPriorityService personalPriorityService;
 
     public PanelController(WorkLogRepository workLogRepository, AccessService accessService, TaskService taskService,
-                           CompanyNoticeService companyNoticeService) {
+                           CompanyNoticeService companyNoticeService, PersonalPriorityService personalPriorityService) {
         this.workLogRepository = workLogRepository;
         this.accessService = accessService;
         this.taskService = taskService;
         this.companyNoticeService = companyNoticeService;
+        this.personalPriorityService = personalPriorityService;
     }
 
     @GetMapping("/map")
@@ -35,18 +38,18 @@ public class PanelController {
         UserPrincipal me = accessService.assertBusiness();
         List<WorkLogResponse> todayLogs =
                 workLogRepository
-                        .findByUserIdAndLogDateOrderByCreatedAtDesc(me.getId(), LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")))
+                        .coveringDate(me.getId(), LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")))
                         .stream()
                         .map(WorkLogResponse::from)
                         .toList();
         var important = companyNoticeService.enabled().stream()
                 .map(notice -> new PanelItemResponse(notice.getId(), notice.getTitle(), notice.getSortOrder(),
-                        companyNoticeService.noteOf(notice.getId(), me.getId())))
+                        companyNoticeService.noteOf(notice.getId(), me.getId()), notice.getContent()))
                 .toList();
         var tasks = taskService.newest(10);
         var dispatch = IntStream.range(0, tasks.size())
                 .mapToObj(i -> new PanelItemResponse(tasks.get(i).id(), tasks.get(i).title(), i, null))
                 .toList();
-        return new PanelMapResponse(important, dispatch, List.of(), todayLogs);
+        return new PanelMapResponse(important, dispatch, personalPriorityService.get(me.getId()).items(), todayLogs);
     }
 }

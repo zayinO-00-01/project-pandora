@@ -23,10 +23,11 @@ object ServerAddress {
     }
 }
 object LogValidation {
-    fun error(date: String, content: String, status: String): String? {
+    fun error(date: String, content: String, status: String, endDate: String? = null,creating: Boolean = true): String? {
         val parsed=try {LocalDate.parse(date)} catch(_:Exception) {return "请选择有效的日志日期"}
-        if(parsed>today())return "日志日期不能晚于今天"
-        if(!canWriteLog(date))return "只能新建今天、昨天和前天的日报"
+        if(creating && parsed>today())return "日志日期不能晚于今天"
+        if(creating && !canWriteLog(date))return "可创建今天及往前 3 天的日报"
+        if(creating && !canWriteLogRange(date,endDate))return "起止日期须连续且在今天及往前 3 天内"
         if(content.isBlank())return "工作记录不能为空"
         if(content.length>5000)return "工作记录不能超过5000字"
         if(status !in listOf("draft","submitted"))return "无效的日志状态"
@@ -58,6 +59,17 @@ class ApiClient(address: String) {
         if(result.token.isNullOrBlank() || result.userId<=0 || result.role !in AppRoles.business)throw ApiException(502,"登录响应不完整，请检查服务地址")
         return Session(server,result.token,result.userId,result.role,result.displayName,username)
     }
+    fun labels(session: Session): List<WorkLabel> = request("/labels","GET",null,session,object:TypeToken<List<WorkLabel>>(){}.type)
+    fun reviews(session: Session): List<TaskReview> = request("/task-reviews","GET",null,session,object:TypeToken<List<TaskReview>>(){}.type)
+    fun decideTask(session: Session,id: Long,status: String): TaskReview = request("/task-reviews/$id","PUT",mapOf("status" to status),session,TaskReview::class.java)
+    fun editTask(session: Session,id: Long,input: TaskCreateInput): DispatchTask = request("/tasks/$id","PUT",input,session,DispatchTask::class.java)
+    fun saveKeyword(session: Session,taskId: Long,id: Long?,text: String): ActionResult = request(if(id==null)"/tasks/$taskId/keywords" else "/tasks/$taskId/keywords/$id",if(id==null)"POST" else "PUT",mapOf("text" to text),session,ActionResult::class.java)
+    fun deleteKeyword(session: Session,taskId: Long,id: Long): ActionResult = request("/tasks/$taskId/keywords/$id","DELETE",null,session,ActionResult::class.java)
+    fun saveLabel(session: Session,id: Long?,name: String,color: String): WorkLabel = request(if(id==null)"/labels" else "/labels/$id",if(id==null)"POST" else "PUT",mapOf("name" to name,"color" to color),session,WorkLabel::class.java)
+    fun archiveLabel(session: Session,id: Long): ActionResult = request("/labels/$id","DELETE",null,session,ActionResult::class.java)
+    fun accountProfile(session: Session): MyProfile = request("/profile","GET",null,session,MyProfile::class.java)
+    fun avatar(session: Session,data: String): MyProfile = request("/profile/avatar","PUT",mapOf("avatarData" to data),session,MyProfile::class.java)
+    fun password(session: Session,current: String,new: String): ActionResult = request("/profile/password","PUT",mapOf("currentPassword" to current,"newPassword" to new),session,ActionResult::class.java)
     fun users(session: Session): List<UserSummary> = request("/users","GET",null,session,object:TypeToken<List<UserSummary>>(){}.type)
     fun profile(session: Session): Profile = request("/users/me","GET",null,session,Profile::class.java)
     fun changePassword(session: Session, currentPassword: String, newPassword: String) {
@@ -76,10 +88,19 @@ class ApiClient(address: String) {
     fun integrity(session: Session): IntegrityResponse = request("/logs/integrity","GET",null,session,IntegrityResponse::class.java)
     fun tasks(session: Session): List<DispatchTask> = request("/tasks","GET",null,session,object:TypeToken<List<DispatchTask>>(){}.type)
     fun createTask(session: Session,input: TaskCreateInput): DispatchTask {
-        if(!AppRoles.canDispatch(session.role))throw ApiException(403,"仅业务领导可向授权下级派发任务")
+        if(!AppRoles.canCreateTask(session.role))throw ApiException(403,"仅业务成员可创建任务")
         TaskDispatchValidation.inputError(input,session.userId)?.let {throw IllegalArgumentException(it)}
         val result: DispatchTask=request("/tasks","POST",input,session,DispatchTask::class.java)
         if(result.id<=0 || result.assigneeId!=input.assigneeId || result.createdBy!=session.userId)throw ApiException(502,"服务器返回的任务信息不一致，请刷新确认后重试")
+        return result
+    }
+    fun withdrawTask(session: Session,id: Long): DispatchTask = request("/tasks/$id/withdraw","POST",null,session,DispatchTask::class.java)
+    fun pendingTaskApprovals(session: Session): List<DispatchTask> = request("/tasks/pending-approvals","GET",null,session,object:TypeToken<List<DispatchTask>>(){}.type)
+    fun decideTaskApproval(session: Session,id: Long,decision: String,note: String): DispatchTask {
+        if(!AppRoles.canViewDown(session.role))throw ApiException(403,"仅直属上级可以审核任务")
+        require(id>0 && decision in setOf("approved","rejected") && note.length<=500) {"请填写有效的审核决定和意见"}
+        val result: DispatchTask=request("/tasks/$id/approval","PUT",mapOf("decision" to decision,"note" to note.trim()),session,DispatchTask::class.java)
+        if(result.id!=id || result.approvalStatus!=decision)throw ApiException(502,"审核响应不一致，请刷新确认")
         return result
     }
     fun saveProgress(session: Session, id: Long, input: TaskProgressInput): DispatchTask {
@@ -90,8 +111,24 @@ class ApiClient(address: String) {
         if(result.id!=id)throw ApiException(502,"服务器返回的任务编号不一致，请刷新后重试")
         return result
     }
-    fun panels(session: Session): PanelMap = request("/panels/map","GET",null,session,PanelMap::class.java)
     fun companyNotices(session: Session): List<CompanyNotice> = request("/company-notices","GET",null,session,object:TypeToken<List<CompanyNotice>>(){}.type)
+    fun saveCompanyNote(session: Session,id: Long,content: String): CompanyNotice {
+        require(id>0 && content.length<=2000)
+        return request("/company-notices/$id/note","PUT",mapOf("content" to content),session,CompanyNotice::class.java)
+    }
+    fun personalPriorities(session: Session): PersonalPrioritySnapshot = request("/priorities/personal","GET",null,session,PersonalPrioritySnapshot::class.java)
+    fun savePersonalPriorities(session: Session,input: PersonalPrioritiesInput): PersonalPrioritySnapshot {
+        require(input.items.size<=10 && input.items.all {it.title.isNotBlank() && it.title.length<=120 && it.detail.length<=2000})
+        val result: PersonalPrioritySnapshot=request("/priorities/personal","PUT",input,session,PersonalPrioritySnapshot::class.java)
+        val valid=runCatching {
+            result.revision>input.revision && result.items.size==input.items.size && result.items.map {it.id}.distinct().size==result.items.size &&
+                result.items.sortedBy {it.sortOrder}.zip(input.items).all {(saved,sent)->saved.id>0 &&
+                    (sent.id==null || sent.id<0 || saved.id==sent.id) && saved.title==sent.title.trim() && saved.detail.orEmpty()==sent.detail}
+        }.getOrDefault(false)
+        if(!valid)throw ApiException(502,"保存结果暂未确认，修改已保留，请刷新后检查")
+        return result
+    }
+    fun panels(session: Session): PanelMap = request("/panels/map","GET",null,session,PanelMap::class.java)
     fun taskReviews(session: Session): List<DispatchTask> = request("/tasks/reviews","GET",null,session,object:TypeToken<List<DispatchTask>>(){}.type)
     fun approveTask(session: Session, id: Long, note: String): DispatchTask {
         require(id>0) {"无效的任务编号"}
@@ -117,16 +154,12 @@ class ApiClient(address: String) {
         requestVoid("/notifications/$id/read","POST",session)
     }
     fun readAllNotifications(session: Session) { requestVoid("/notifications/read-all","POST",session) }
-    fun saveCompanyNote(session: Session, id: Long, content: String): CompanyNotice {
-        require(id>0) {"无效的事项编号"}
-        if(content.length>2000)throw IllegalArgumentException("备注不能超过2000字")
-        return request("/company-notices/$id/note","PUT",mapOf("content" to content),session,CompanyNotice::class.java)
-    }
     fun save(session: Session, id: Long?, input: LogInput): WorkLog {
-        LogValidation.error(input.logDate,input.content,input.status)?.let {throw IllegalArgumentException(it)}
+        LogValidation.error(input.logDate,input.content,input.status,input.endDate,creating=id==null)?.let {throw IllegalArgumentException(it)}
         if(id!=null) {
             require(id>0) {"无效的日志编号"}
         }
+        if(input.endDate!=null && input.endDate!=input.logDate && !integrity(session).supportsDateRanges)throw ApiException(409,"当前服务器尚未支持多日日志，请先更新后端；内容已保留")
         return request(if(id==null)"/logs" else "/logs/$id",if(id==null)"POST" else "PUT",input,session,WorkLog::class.java)
     }
     fun submit(session: Session, id: Long): WorkLog {

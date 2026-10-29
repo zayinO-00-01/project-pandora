@@ -1,38 +1,28 @@
-# Project Pandora · 智能掌上工作系统
+# Project Pandora
 
-当前原型：五角色账号管理、工作日志、组织查看、直属上级查看申请、任务派发、状态反馈及月/周/日视图。Android 办理业务，Web 仅用于 ADMIN 管理账号。
+企业工作日志与任务协作原型。Android用于业务，Web用于账号、档案和公司十大事项管理。当前正在本地整合组员PR #19–#25及上周云端0.7.0增量，目标版本 `0.8.1-teacher-alignment`（50）。
 
-当前安卓验收包：[0.5.10 安装包](deliverables/Pandora-0.5.10-company-examples-debug.apk)。已整合队友最新 zayin，并补充十条本地公司事项示例：登录页点“开发直接进入”，或空公司列表点“查看示例卡片”；详见[同步与示例说明](docs/队友同步与公司事项示例.md)。卡片、任务曲线与日历见[卡片验收](docs/公司十大事纵深卡片.md)、[任务进度曲线](docs/任务进度曲线.md)、[日历验收](docs/月周日视图.md)。
+## 本地运行
 
+需要JDK17或21及Node.js。Windows运行 `start-demo.cmd`，浏览器访问 `http://localhost:8080`。Web账号admin；Android账号founder、leader、team_lead、staff，演示密码均为demo1234。手机和电脑同网，App填写电脑IPv4和8080端口。源码下载后的本地数据库独立于现有云端服务。
 
-- **Android App**：工作日志、任务接收、月历、四种业务角色与手动浅色/深色模式
-- **Web 管理端**：公司事项/派发、向下穿透查看、数据看板
-- **Backend API**：账号权限、日志、任务、面板聚合
+```powershell
+.\scripts\Start-Demo.ps1 -JavaHome '你的JDK目录'
+.\scripts\Build-Android.ps1 -JavaHome '你的JDK目录' -SdkPath '你的SDK35目录' -RunTests
+```
 
-Windows 在根目录运行 `start-demo.cmd`。需要 Java17+、Node18+、Maven，首次构建联网。浏览器打开 http://localhost:8080，用 `admin / demo1234`。Android 安装本机构建的 `deliverables/Pandora-MVP-debug.apk`，服务地址填电脑局域网 IPv4 和相同端口。
+## 当前整合范围
 
-| 账号 | 角色 | 使用端 |
-|---|---|---|
-| admin | ADMIN 系统管理员 | Web |
-| founder | FOUNDER 创始人 | Android |
-| leader | DEPT_HEAD 部门老总 | Android |
-| team_lead | TEAM_LEAD 团队长 | Android |
-| staff | STAFF 员工 | Android |
+- 五角色、直属上级和组织范围；公开注册关闭，业务账号使用Android，ADMIN使用Web。
+- 公司事项由ADMIN发布、排序、停启，最多十条。业务成员及管理员维护自己的私密备注，支持清空。
+- 个人十大事项新增、编辑、删除、拖拽排序、后端同步和版本冲突提示；失败保留本机输入。
+- 全员自建任务，非创始人创建均由当前直属上级批准后执行；可选择全公司有效业务成员，创始人本人操作免审。责任人提交状态和说明后由其当前直属上级审核，批准前保留原进度，不填写百分比。
+- 任务进度审核、内容变更、软删除及站内通知；审批与生命周期审核分开保存审计记录。
+- 四宫格总览、任务与人员入口、任务月/周/日历、直接选择年月；新增标签、连续多日日志、协作关键词和个人账号设置。
+- 日志可补录上海今天及前三天，创建后24小时内可修改/提交（含历史及跨日）；显示秒级录入与修改时间，修改不延长时限。
 
-初始密码均 `demo1234`，组织为 `staff → team_lead → leader → founder`，管理员后续修改会保留。公开注册关闭。
+## 升级与验收
 
-数据在本机 `backend/data/`。别人下载源码后连接自己的本地服务和数据库。不要删库解决升级问题；启动脚本会备份转换已知旧 zayin H2 库，main 库和首次安装由 Flyway 正常迁移。
+保留云端已执行V1–V10迁移，不用删库或全量repair解决冲突。运行包、数据库、缓存、密钥和APK不提交Git。具体行为与验证状态见[当前验收](docs/MVP验收.md)、[API契约](backend/openapi.yaml)、[整合记录](docs/整合计划-2026-10-29.md)。
 
-[启动与演示](docs/本地演示.md) · [任务流程](docs/任务演示.md) · [接口说明](docs/Android接口说明.md) · [当前验收](docs/MVP验收.md) · [Android构建](android/README.md) · [API契约](backend/openapi.yaml)
-
-## 范围与结构
-
-当前 Android 版本为 `0.4.30-ink-herons`（versionCode 33）。日历只保留月历；四种业务角色分别展示个人、团队、部门和公司工作入口。向下查看受组织关系限制，向上只能申请查看直属上级，由被查看者审批；草稿仅本人可见。主题仅有手动浅色/深色，登录背景固定。日志可查看任意历史日期，仅能写入七天前至当天；需要同步升级后端，详见 [日志七天修改规则](docs/日志七天修改规则.md)。AI 暂不实现。
-
-[代码交付与 PR 指引](docs/代码交付与PR.md) · [角色权限与申请](docs/角色权限与申请.md)
-
-日志可编辑上海日期今天至七天前，共8个日期；历史可读，提交后可继续编辑。上级申请只授予只读权限。Android 领导向实际下级派发，只有责任人能反馈状态和说明；反馈只填工作状态和说明，不提供百分比输入、展示或任务进度条。截止时间通过日期和时间选择器设置。
-
-公司事项发布待与老师确认；个人重点整理、备注与资料编辑、任务请示邀约和云部署留待后续。当前不是甲方全部需求的最终交付。
-
-[源码仓库](https://github.com/zayinO-00-01/project-pandora)。APK、数据库、密钥和缓存不随源码提交。课程过程材料见 [过程交付清单](docs/过程交付清单.md)。
+已有云端0.7.0演示继续运行；本轮先整合本地、确定新一周任务，再发布GitHub及云端。标签、通知和审核是现有PR的整合内容；不将全部甲方扩展需求宣称完成。

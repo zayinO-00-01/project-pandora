@@ -8,12 +8,13 @@ import java.time.ZoneId
 
 fun canWriteLog(date: String,reference: LocalDate=today()): Boolean = runCatching {
     val parsed=LocalDate.parse(date)
-    parsed>=reference.minusDays(2) && parsed<=reference
+    parsed>=reference.minusDays(3) && parsed<=reference
 }.getOrDefault(false)
 
-/** Editable for 24 hours after it was written, no matter which day it is dated. */
-fun canModifyLog(log: WorkLog, now: Instant=Instant.now()): Boolean = runCatching {
-    Instant.parse(log.createdAt).plus(24, java.time.temporal.ChronoUnit.HOURS).isAfter(now)
+/** The creation instant fixes the edit deadline, including historical and range logs. */
+fun canModifyLog(log: WorkLog,reference: Instant=Instant.now()): Boolean = runCatching {
+    val created=Instant.parse(log.createdAt)
+    !reference.isBefore(created) && reference.isBefore(created.plusSeconds(24*60*60))
 }.getOrDefault(false)
 
 fun logEditorReadOnly(buffer: EditBuffer,logs: List<WorkLog>): Boolean = buffer.logId!=null &&
@@ -21,7 +22,8 @@ fun logEditorReadOnly(buffer: EditBuffer,logs: List<WorkLog>): Boolean = buffer.
 
 object AppRoles {
     fun canViewDown(role: String)=role in setOf("FOUNDER","DEPT_HEAD","TEAM_LEAD")
-    fun canDispatch(role: String)=canViewDown(role)
+    fun canDispatch(role: String)=role in business
+    fun canCreateTask(role: String)=role in business
     fun homeTitle(role: String)=when(role) {"FOUNDER"->"公司总览";"DEPT_HEAD"->"部门总览";"TEAM_LEAD"->"团队总览";else->"我的工作"}
     fun scopeLabel(role: String)=when(role) {"FOUNDER"->"公司组织";"DEPT_HEAD"->"部门成员";"TEAM_LEAD"->"团队成员";else->"查看上级"}
     val business=setOf("STAFF","TEAM_LEAD","DEPT_HEAD","FOUNDER")
@@ -42,7 +44,14 @@ fun taskDate(task: DispatchTask): LocalDate?=task.dueAt?.let {
 // Used only when upgrading older percentage-only feedback or local drafts.
 fun legacyTaskStatus(progress: Int?): String=when(progress) {0,null->"todo";100->"done";else->"doing"}
 fun taskStatusLabel(status: String)=when(status) {"doing"->"进行中";"done"->"已完成";else->"待开始"}
-fun taskFeedbackLabel(task: DispatchTask)=taskStatusLabel(task.status)
+fun taskIsApproved(task: DispatchTask)=task.approvalStatus==null || task.approvalStatus=="approved"
+fun taskHasPendingReview(task: DispatchTask,records: List<TaskReview> = emptyList()) =
+    isPendingReview(task.reviewStatus) || records.any {it.taskId==task.id && it.status=="pending"}
+fun taskCanReportProgress(task: DispatchTask,records: List<TaskReview> = emptyList())=
+    taskIsApproved(task) && !task.deleted && !taskHasPendingReview(task,records)
+fun taskFeedbackLabel(task: DispatchTask)=when(task.approvalStatus) {
+    "pending"->"待上级审核";"rejected"->"审核未通过";else->taskStatusLabel(task.status)
+}
 fun taskReviewLabel(reviewStatus: String?): String? = when(reviewStatus) {
     "pending_done"->"待验收";"pending_change"->"变更待审";"pending_delete"->"删除待审"
     "rejected"->"已驳回";else->null
@@ -65,3 +74,10 @@ fun reorderedPriorities(items: List<PanelItem>,id: Long,targetId: Long): List<Pa
     if(from<0 || to<0 || from==to)return items
     return items.toMutableList().apply {add(to,removeAt(from))}.mapIndexed {index,item->item.copy(sortOrder=index)}
 }
+
+val WorkLog.lastDate: String get()=endDate ?: logDate
+fun WorkLog.covers(date: String): Boolean = date>=logDate && date<=lastDate
+fun WorkLog.isMultiDay(): Boolean = lastDate>logDate
+fun logRangeDays(start: String,end: String?): Long = runCatching {java.time.temporal.ChronoUnit.DAYS.between(LocalDate.parse(start),LocalDate.parse(end ?: start))+1}.getOrDefault(0)
+fun logDateLabel(start: String,end: String?): String = if(end==null || end==start)start else "$start 至 $end · ${logRangeDays(start,end)} 天"
+fun canWriteLogRange(start: String,end: String?,reference: LocalDate=today()): Boolean = canWriteLog(start,reference) && canWriteLog(end ?: start,reference) && (end ?: start)>=start

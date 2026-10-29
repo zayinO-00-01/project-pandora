@@ -11,7 +11,7 @@ public record CreateTaskRequest(
         @Size(max = 5000, message = "任务详情不能超过5000字") String detail,
         @Pattern(regexp = "low|normal|high", message = "优先级必须为 low、normal 或 high") String priority,
         @NotNull(message = "请选择责任人") Long assigneeId,
-        Instant dueAt) {
+        Instant dueAt, Long labelId) {
     public CreateTaskRequest {
         title = title == null ? null : title.trim();
         detail = detail == null ? "" : detail;

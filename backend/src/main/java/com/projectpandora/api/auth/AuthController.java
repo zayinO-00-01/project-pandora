@@ -39,7 +39,7 @@ public class AuthController {
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new ApiException(HttpStatus.UNAUTHORIZED.value(), "用户名或密码错误");
         }
-        String token = jwtService.createToken(user.getId(), user.getUsername(), user.getRole());
+        String token = jwtService.createToken(user.getId(), user.getUsername(), user.getRole(),user.getTokenVersion());
         return new LoginResponse(token, user.getRole().name(), user.getDisplayName(), user.getId());
     }
 }

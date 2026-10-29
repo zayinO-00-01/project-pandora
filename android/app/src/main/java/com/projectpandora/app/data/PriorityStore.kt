@@ -3,8 +3,8 @@ package com.projectpandora.app.data
 import android.content.Context
 import com.google.gson.Gson
 
-/** Personal top-ten is a device-local snapshot until a server sync is designed. */
-data class LocalPriorities(val personal: List<PanelItem>? = null)
+/** Legacy local data is retained for explicit import into server-backed workspace drafts. */
+data class LocalPriorities(val personal: List<PanelItem>? = null, val remarks: Map<Long,String> = emptyMap())
 class PriorityStore(context: Context) {
     private val prefs=context.getSharedPreferences("pandora-priorities",Context.MODE_PRIVATE)
     private val gson=Gson()
@@ -12,6 +12,10 @@ class PriorityStore(context: Context) {
     fun read(session: Session): LocalPriorities = runCatching {
         prefs.getString(key(session),null)?.let {gson.fromJson(it,LocalPriorities::class.java)} ?: LocalPriorities()
     }.getOrDefault(LocalPriorities())
+    fun readWorkspace(session: Session): WorkspaceDraft = runCatching {
+        prefs.getString("sync:${key(session)}",null)?.let {gson.fromJson(it,WorkspaceDraft::class.java)} ?: WorkspaceDraft()
+    }.getOrDefault(WorkspaceDraft())
+    fun saveWorkspace(session: Session,value: WorkspaceDraft) {prefs.edit().putString("sync:${key(session)}",gson.toJson(value)).commit()}
     fun save(session: Session,value: LocalPriorities) {prefs.edit().putString(key(session),gson.toJson(value)).apply()}
 }
 
@@ -20,6 +24,9 @@ fun filterMembers(members: List<UserSummary>,query: String): List<UserSummary> {
     return members.filter {text.isEmpty() || it.displayName.orEmpty().contains(text,true) || it.username.contains(text,true)}
 }
 
+@Suppress("UNUSED_PARAMETER")
 fun calendarSummaries(date: java.time.LocalDate,logs: List<WorkLog>,tasks: List<DispatchTask>): List<String> =
-    orderedTasks(tasks.filter {taskDate(it)==date}).map {it.title} +
-        logs.filter {it.logDate==date.toString()}.map {it.content.lineSequence().firstOrNull {line->line.isNotBlank()}?.trim().orEmpty()}.filter {it.isNotBlank()}
+    orderedTasks(tasks.filter {taskIsApproved(it) && !it.deleted && taskDate(it)==date}).map {it.title}
+/** One label per calendar cell, following the same ordering as the task list. */
+fun calendarDayLabel(date: java.time.LocalDate,tasks: List<DispatchTask>): WorkLabel? =
+    orderedTasks(tasks.filter {taskIsApproved(it) && !it.deleted && taskDate(it)==date}).firstNotNullOfOrNull {it.label}

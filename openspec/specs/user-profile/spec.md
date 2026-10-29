@@ -24,4 +24,3 @@ Any authenticated business user SHALL be able to read their own full profile inc
 #### Scenario: Owner reads own profile
 - **WHEN** a business user requests their own profile
 - **THEN** the system returns all stored profile fields
-

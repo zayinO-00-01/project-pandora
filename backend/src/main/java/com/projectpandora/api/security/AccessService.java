@@ -41,12 +41,8 @@ public class AccessService {
             .toList();
     }
     public List<UserEntity> dispatchAssignees() {
-        var me=assertBusiness();
-        if(!isLeader(me.getRole())) return List.of();
-        var all=users.findAll();
-        return all.stream().filter(this::isActiveBusiness)
-            .filter(u->!u.getId().equals(me.getId()))
-            .toList();
+        assertBusiness();
+        return users.findAll().stream().filter(this::isActiveBusiness).toList();
     }
     public void assertCanViewUserLogs(Long targetId) {
         var me=assertBusiness();
@@ -63,9 +59,8 @@ public class AccessService {
             && rank(target.getRole())>rank(me.getRole());
     }
     public void assertCanDispatch(UserEntity assignee) {
-        var me=assertBusiness();
-        if(!isLeader(me.getRole()) || !isActiveBusiness(assignee) || assignee.getId().equals(me.getId()))
-            throw new ApiException(403,"只能向公司内的业务成员派发任务");
+        assertBusiness();
+        if(!isActiveBusiness(assignee)) throw new ApiException(403,"责任人必须是有效业务成员");
     }
     public static boolean isLeader(Role role) { return role==Role.FOUNDER || role==Role.DEPT_HEAD || role==Role.TEAM_LEAD; }
     public static int rank(Role role) {

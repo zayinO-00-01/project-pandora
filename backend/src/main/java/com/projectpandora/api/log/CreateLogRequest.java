@@ -6,4 +6,4 @@ import java.time.LocalDate;
 public record CreateLogRequest(
     @NotNull(message="请选择日志日期") LocalDate logDate,
     @NotBlank(message="正文不能为空") @Size(max=5000, message="正文不能超过5000字") String content,
-    @Pattern(regexp="draft|submitted", message="状态必须为 draft 或 submitted") String status) {}
+    @Pattern(regexp="draft|submitted", message="状态必须为 draft 或 submitted") String status, LocalDate endDate, Long labelId) {}

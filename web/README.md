@@ -1,7 +1,9 @@
-# Pandora Web账号管理
+# Pandora Web 管理端
 
-Vue3 + Vite。仅ADMIN管理账号，支持列表/搜索、新建、角色/直属上级/密码修改、启用停用。业务账号登录后提示使用Android，无公开注册及业务工作台。
+Vue3 + Vite。ADMIN 管理账号、角色、直属上级、停启状态和员工档案，并发布、排序、停启公司十大事项（最多启用十条）。业务账号登录后提示使用 Android，无公开注册。
 
-根目录start-demo.cmd将生产Web和API打包到同一服务，见 [本地演示](../docs/本地演示.md)。开发可运行npm ci、npm run dev；默认代理127.0.0.1:8080，可用API_PROXY_TARGET覆盖。npm run build生成dist，npm test运行关键状态测试。直接启动后端不会自动构建Web。
+新建账号须填有效且唯一的手机号；旧账号原资料未填时可以留空修改角色、上级和姓名，填写后仍校验格式与唯一性。可空资料从后端读取为 null 时正常展示为空。
 
-保存失败保留输入；会话过期恢复按origin和管理员ID隔离。密码不写入浏览器存储。接口见 [OpenAPI](../backend/openapi.yaml)。
+根目录 `start-demo.cmd` 构建 Web 与 API 到同一服务。开发用 `npm ci`、`npm run dev`，默认代理127.0.0.1:8080，可用 API_PROXY_TARGET 覆盖。`npm run build` 生成 dist，`npm test` 检查关键状态及资料表单。直接启动后端不会自动构建 Web。
+
+账号表单失败保留输入，会话恢复按 origin 和管理员 ID 隔离；密码不写入浏览器存储。接口见 [OpenAPI](../backend/openapi.yaml)。

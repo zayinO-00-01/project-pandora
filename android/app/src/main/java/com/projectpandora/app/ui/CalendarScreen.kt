@@ -1,10 +1,17 @@
 package com.projectpandora.app.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
@@ -25,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 
 @Composable fun CalendarScreen(state: AppState,model: PandoraViewModel) {
     var showHelp by remember {mutableStateOf(false)}
+    var showDateJump by rememberSaveable {mutableStateOf(false)}
     val selected=LocalDate.parse(state.selectedDate)
     val mode=state.calendarMode
     val dates=periodDates(selected,mode)
@@ -43,7 +51,11 @@ import androidx.compose.ui.text.font.FontWeight
             }
         }}
         item {Row(Modifier.fillMaxWidth(),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
-            Text(if(mode=="week")"${dates.first().monthValue}月${dates.first().dayOfMonth}日 — ${dates.last().monthValue}月${dates.last().dayOfMonth}日" else "${selected.year} 年 ${selected.monthValue} 月",modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleMedium.copy(fontWeight=FontWeight.Medium,fontFeatureSettings="tnum"))
+            val heading=if(mode=="week")"${dates.first().year}年${dates.first().monthValue}月${dates.first().dayOfMonth}日 — ${dates.last().year}年${dates.last().monthValue}月${dates.last().dayOfMonth}日" else "${selected.year} 年 ${selected.monthValue} 月"
+            Column(Modifier.weight(1f).heightIn(min=48.dp).clickable(role=Role.Button,onClickLabel="选择年月",onClick={feedback();showDateJump=true}).semantics(mergeDescendants=true) {contentDescription="$heading，选择年月"}.padding(vertical=6.dp)) {
+                Text(heading,style=MaterialTheme.typography.titleMedium.copy(fontWeight=FontWeight.Medium,fontFeatureSettings="tnum"))
+                Text("选择年月 ▾",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.secondary)
+            }
             IconButton(onClick={feedback();navigate(-1)},modifier=Modifier.background(MaterialTheme.colorScheme.background.copy(alpha=0.96f),MaterialTheme.shapes.small)) {Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft,"上一$unit",modifier=Modifier.size(20.dp))}
             ControlTextButton(onClick={model.selectDate(today().toString())},modifier=Modifier.widthIn(min=48.dp).background(MaterialTheme.colorScheme.background.copy(alpha=0.96f),MaterialTheme.shapes.small),contentPadding=PaddingValues(0.dp),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.secondary)) {Text("今天",style=MaterialTheme.typography.labelMedium)}
             IconButton(onClick={feedback();navigate(1)},modifier=Modifier.background(MaterialTheme.colorScheme.background.copy(alpha=0.96f),MaterialTheme.shapes.small)) {Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,"下一$unit",modifier=Modifier.size(20.dp))}
@@ -51,82 +63,94 @@ import androidx.compose.ui.text.font.FontWeight
         if(mode!="day")item {Column {
             Row {weekdays.forEach {Text(it,modifier=Modifier.weight(1f).padding(vertical=8.dp),textAlign=androidx.compose.ui.text.style.TextAlign.Center,style=MaterialTheme.typography.labelMedium.copy(fontWeight=FontWeight.Medium),color=MaterialTheme.colorScheme.onSurfaceVariant)}}
             val padded=if(mode=="month")List(dates.first().dayOfWeek.value%7) {null as LocalDate?}+dates else dates
-            padded.chunked(7).forEach {week->Row {
+            padded.chunked(7).forEach {week->Box(Modifier.fillMaxWidth()) {Row {
                 repeat(7) {index->
                     val date=week.getOrNull(index)
                     if(date==null)Spacer(Modifier.weight(1f))
                     else {
+                        val dayTasks=orderedTasks(state.tasks.filter {taskIsApproved(it) && !it.deleted && taskDate(it)==date})
                         val summaries=calendarSummaries(date,state.logs,state.tasks)
                         val count=summaries.size
-                        ControlTextButton(onClick={model.selectDate(date.toString())},modifier=Modifier.weight(1f).heightIn(min=72.dp).semantics {this.selected=date==selected;contentDescription="$date，$count 项安排，${summaries.take(2).joinToString("，")}"},shape=MaterialTheme.shapes.small,contentPadding=PaddingValues(0.dp),
-                            colors=ButtonDefaults.textButtonColors(containerColor=if(date==selected)MaterialTheme.colorScheme.secondary.copy(alpha=0.12f) else androidx.compose.ui.graphics.Color.Transparent,contentColor=if(date==selected)MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface)) {
+                        val dayLabel=calendarDayLabel(date,state.tasks)
+                        val dayForeground=if(dayLabel!=null)labelTextColor(dayLabel) else MaterialTheme.colorScheme.onSurface
+                        ControlTextButton(onClick={model.selectDate(date.toString())},modifier=Modifier.weight(1f).heightIn(min=72.dp).semantics {this.selected=date==selected;contentDescription="$date，$count 项安排，${dayLabel?.name?.let {"日期标签：$it，"}.orEmpty()}${summaries.take(2).joinToString("，")}"},shape=MaterialTheme.shapes.small,contentPadding=PaddingValues(0.dp),
+                            colors=ButtonDefaults.textButtonColors(containerColor=if(dayLabel!=null)labelColor(dayLabel) else if(date==selected)MaterialTheme.colorScheme.secondary.copy(alpha=0.12f) else androidx.compose.ui.graphics.Color.Transparent,contentColor=if(dayLabel!=null)dayForeground else if(date==selected)MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface)) {
                             Column(horizontalAlignment=androidx.compose.ui.Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                                CalendarDateNumber(date,state)
+                                CalendarDateNumber(date,state,dayLabel)
                                 Column(Modifier.fillMaxWidth().heightIn(min=28.dp).padding(horizontal=2.dp),horizontalAlignment=androidx.compose.ui.Alignment.CenterHorizontally) {
-                                    Text(summaries.joinToString(" · "),maxLines=2,minLines=2,softWrap=true,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.labelSmall.copy(fontSize=9.5.sp,lineHeight=13.5.sp),color=MaterialTheme.colorScheme.onSurfaceVariant,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+                                    if(summaries.isEmpty())Spacer(Modifier.height(28.dp))
+                                    summaries.take(2).forEach {summary->Text(summary,maxLines=if(summaries.size==1)2 else 1,overflow=TextOverflow.Ellipsis,modifier=Modifier.fillMaxWidth().padding(horizontal=2.dp),style=MaterialTheme.typography.labelSmall.copy(fontSize=9.5.sp,lineHeight=13.5.sp),color=if(dayLabel!=null)dayForeground else MaterialTheme.colorScheme.onSurfaceVariant,textAlign=androidx.compose.ui.text.style.TextAlign.Center)}
 
                                 }
-                                Surface(color=if(date==selected)MaterialTheme.colorScheme.secondary else androidx.compose.ui.graphics.Color.Transparent,modifier=Modifier.width(16.dp).height(2.dp)) {}
+                                Surface(color=if(date==selected && dayLabel!=null)dayForeground else if(date==selected)MaterialTheme.colorScheme.secondary else androidx.compose.ui.graphics.Color.Transparent,modifier=Modifier.width(16.dp).height(2.dp)) {}
                             }
                         }
                     }
                 }
+            }
+
             }}
+        }}
+        item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            ControlOutlinedButton(onClick={model.screen("tasks")},modifier=Modifier.weight(1f)) {Text("全部任务 · ${state.tasks.size}")}
+            ControlButton(onClick=model::openDispatch,enabled=!state.saving,modifier=Modifier.weight(1f)) {Text("创建任务")}
         }}
         item {HorizontalDivider(Modifier.padding(top=12.dp),color=MaterialTheme.colorScheme.outlineVariant)}
         if(state.loading)item {LinearProgressIndicator(Modifier.fillMaxWidth())}
-        state.logError?.let {item {Hint("日志读取失败：$it。请同步后重试。",true)}}
         state.taskError?.let {item {Hint("任务读取失败：$it。请同步后重试。",true)}}
         val agendaDates=if(mode=="week")dates else listOf(selected)
         agendaDates.forEach {agendaDate->
-            val logs=state.logs.filter {it.logDate==agendaDate.toString()}
-            val tasks=orderedTasks(state.tasks.filter {taskDate(it)==agendaDate})
+            val tasks=orderedTasks(state.tasks.filter {taskIsApproved(it) && !it.deleted && taskDate(it)==agendaDate})
             item {Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface.copy(alpha=0.96f),MaterialTheme.shapes.medium).panelOutline().padding(12.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("${agendaDate.monthValue} 月 ${agendaDate.dayOfMonth} 日 · 周${listOf("一","二","三","四","五","六","日")[agendaDate.dayOfWeek.value-1]}",style=MaterialTheme.typography.titleMedium)
-                    Text("${logs.size} 条日志 · ${tasks.size} 项任务",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${tasks.size} 项任务",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 ControlTextButton(onClick={if(mode=="week") {model.selectDate(agendaDate.toString());model.calendarMode("day")} else showHelp=true}) {Text(if(mode=="week")"查看当日" else "说明",style=MaterialTheme.typography.labelMedium)}
             }}
-            if(logs.isEmpty() && tasks.isEmpty() && !state.loading && state.logError==null && state.taskError==null)item {
+            if(tasks.isEmpty() && !state.taskLoading && state.taskError==null)item {
                 if(mode=="week")Text("暂无安排",modifier=Modifier.padding(horizontal=12.dp,vertical=8.dp),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 else Column(Modifier.fillMaxWidth().padding(vertical=24.dp)) {
-                    Text("这一天暂无记录",style=MaterialTheme.typography.titleLarge.copy(fontWeight=androidx.compose.ui.text.font.FontWeight.Medium))
+                    Text("这一天暂无任务",style=MaterialTheme.typography.titleLarge.copy(fontWeight=androidx.compose.ui.text.font.FontWeight.Medium))
                     Spacer(Modifier.height(8.dp))
-                    Text("切换日期，查看日志和到期任务。",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("切换日期查看任务，未设截止时间的事项可打开全部任务查看。日志在日志页独立管理。",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            val events=logs.sortedBy {it.updatedAt}.map {Triple(it.updatedAt,it,null as DispatchTask?)}+tasks.map {Triple(it.dueAt.orEmpty(),null as WorkLog?,it)}
-            events.forEach {event->
-                val log=event.second
-                val task=event.third
-                item(key=if(log!=null)"${agendaDate}-log-${log.id}" else "${agendaDate}-task-${task!!.id}") {
-                    AgendaEntry(event.first,log,task,!state.saving) {feedback();if(log!=null)model.edit(log) else model.openTask(task!!.id)}
+            tasks.forEach {task->
+                item(key="${agendaDate}-task-${task.id}") {
+                    AgendaEntry(task,!state.saving) {feedback();model.openTask(task.id)}
                 }
             }
         }
-
+        item {TaskManagementSection(state,model)}
     }
-    if(showHelp)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={showHelp=false},title={Text("显示说明")},text={Text("月视图查看整月，周视图查看周一至周日及整周工作安排，日视图专注当天详情。箭头按当前视图切换月、周或天，“今天”返回当前日期。日期摘要最多两排，详细内容在下方显示。仅展示当前已同步内容，没有截止日期的任务可在任务列表查看。")},confirmButton={ControlTextButton(onClick={showHelp=false}) {Text("关闭")}})
+    if(showDateJump)CalendarJumpDialog(selected,onDismiss={showDateJump=false},onConfirm={date->model.selectDate(date.toString());showDateJump=false})
+    if(showHelp)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={showHelp=false},title={Text("显示说明")},text={Text("日历仅显示任务，日志在日志页独立管理。月视图查看整月，周视图查看周一至周日及整周工作安排，日视图专注当天详情。点击日期标题可直接输入年份并选择月份；跳转保留所选日期，超出当月天数时使用月末。箭头按当前视图切换月、周或天，“今天”返回当前日期。日期摘要最多两排，详细内容在下方显示。仅展示当前已同步内容，没有截止日期的任务可在任务列表查看。")},confirmButton={ControlTextButton(onClick={showHelp=false}) {Text("关闭")}})
 }
-@Composable private fun CalendarDateNumber(date: LocalDate,state: AppState) {
+@Composable private fun CalendarDateNumber(date: LocalDate,state: AppState,label: WorkLabel?) {
     val selected=date.toString()==state.selectedDate
-    Box(Modifier.size(30.dp).background(if(selected)MaterialTheme.colorScheme.secondary else androidx.compose.ui.graphics.Color.Transparent,androidx.compose.foundation.shape.CircleShape),contentAlignment=androidx.compose.ui.Alignment.Center) {
-        Text(date.dayOfMonth.toString(),color=if(selected)MaterialTheme.colorScheme.onSecondary else if(date==today())MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface,style=MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings="tnum",fontSize=18.sp,lineHeight=24.sp,fontWeight=if(date==today())FontWeight.SemiBold else FontWeight.Normal))
+    Box(Modifier.size(30.dp).background(if(selected && label==null)MaterialTheme.colorScheme.secondary else androidx.compose.ui.graphics.Color.Transparent,androidx.compose.foundation.shape.CircleShape),contentAlignment=androidx.compose.ui.Alignment.Center) {
+        Text(date.dayOfMonth.toString(),color=if(label!=null)labelTextColor(label) else if(selected)MaterialTheme.colorScheme.onSecondary else if(date==today())MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface,style=MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings="tnum",fontSize=18.sp,lineHeight=24.sp,fontWeight=if(selected || date==today())FontWeight.SemiBold else FontWeight.Normal))
     }
 }
 
-@Composable private fun AgendaEntry(time: String,log: WorkLog?,task: DispatchTask?,enabled: Boolean,onClick: ()->Unit) {
-    Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface.copy(alpha=0.96f),MaterialTheme.shapes.medium).panelOutline().clickable(enabled=enabled,onClick=onClick).padding(12.dp),horizontalArrangement=Arrangement.spacedBy(16.dp)) {
-        Column(Modifier.width(44.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-            Text(timestamp(time).substringAfter(' '),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurface,modifier=Modifier.semantics {contentDescription="${if(log!=null)"更新时间" else "截止时间"} ${timestamp(time)}"})
-            Text(if(log!=null)"日志" else "任务",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-            Text(if(log!=null)if(log.status=="draft")"草稿" else "已提交" else taskFeedbackLabel(task!!),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(log?.content ?: task!!.title,style=MaterialTheme.typography.bodyLarge.copy(fontWeight=androidx.compose.ui.text.font.FontWeight.Medium,lineBreak=androidx.compose.ui.text.style.LineBreak.Heading))
-            if(task!=null)TaskPriorityText(task.priority)
-            if(task!=null && task.detail.isNotBlank())Text(task.detail,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+@Composable private fun AgendaEntry(task: DispatchTask,enabled: Boolean,onClick: ()->Unit) {
+    val background=if(task.label!=null)labelColor(task.label) else MaterialTheme.colorScheme.surface.copy(alpha=0.96f)
+    val foreground=if(task.label!=null)labelTextColor(task.label) else MaterialTheme.colorScheme.onSurface
+    Surface(onClick=onClick,enabled=enabled,color=background,contentColor=foreground,shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth().panelOutline()) {
+        Row(Modifier.padding(12.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.width(44.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                Text(timestamp(task.dueAt.orEmpty()).substringAfter(' '),style=MaterialTheme.typography.labelMedium)
+                Text("截止时间",style=MaterialTheme.typography.labelSmall)
+            }
+            Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                LabelBadge(task.label)
+                Text(if(taskIsApproved(task))taskFeedbackLabel(task) else "创建${reviewStatus(task.approvalStatus)}",style=MaterialTheme.typography.labelSmall)
+                Text(task.title,style=MaterialTheme.typography.bodyLarge)
+                TaskPriorityText(task.priority,onLabel=task.label!=null)
+                if(task.detail.isNotBlank())Text(task.detail,style=MaterialTheme.typography.bodyMedium)
+                if(task.progressNote.isNotBlank())Text("进度：${task.progressNote}",style=MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }

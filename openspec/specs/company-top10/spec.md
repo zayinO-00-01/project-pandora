@@ -24,4 +24,3 @@ All business users (FOUNDER, DEPT_HEAD, TEAM_LEAD, STAFF) SHALL read the enabled
 #### Scenario: Business user cannot publish
 - **WHEN** a non-ADMIN user attempts to create or edit an item
 - **THEN** the system responds with 403
-

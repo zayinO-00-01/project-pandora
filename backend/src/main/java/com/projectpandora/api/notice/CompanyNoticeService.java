@@ -31,6 +31,11 @@ public class CompanyNoticeService {
         return notices.findByIdAndEnabledTrue(id).orElseThrow(() -> new ApiException(404, "公司事项不存在"));
     }
 
+    /** ADMIN 视角：停用的事项同样可读、可写本人备注。 */
+    public CompanyNoticeEntity require(Long id) {
+        return notices.findById(id).orElseThrow(() -> new ApiException(404, "公司事项不存在"));
+    }
+
     @Transactional
     public CompanyNoticeEntity create(Long publisherId, String title, String content, Integer sortOrder, Boolean enabled) {
         String cleanTitle = requireText(title, 128, "标题不能为空");
@@ -74,7 +79,10 @@ public class CompanyNoticeService {
 
     @Transactional
     public String saveNote(Long noticeId, Long userId, String content) {
-        String clean = requireText(content, 2000, "备注不能为空");
+        if (content == null || content.length() > 2000) {
+            throw new ApiException(400, "备注不能为空值且最多 2000 字");
+        }
+        String clean = content.trim();
         var note = notes.findByNoticeIdAndUserId(noticeId, userId).orElseGet(() -> {
             var created = new CompanyNoticeNoteEntity();
             created.setNoticeId(noticeId);
