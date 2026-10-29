@@ -9,6 +9,8 @@ Non-Goals: 个人十大工作、请示审批、公司事项多级审核、附件
 - 建号时手机号必填；ADMIN 可改全部档案字段；本人通过 `GET /users/me` 查看本人档案（含敏感字段），`GET /users` 与组织成员列表默认脱敏（隐藏身份证号，仅本人与 ADMIN 可见完整）。
 - 公司事项新表 `company_notices`：title、content、sort_order、enabled、publisher_id、created/updated；启用事项上限 10 条，排序按 sort_order 再按 id。
 - 仅 ADMIN 可 POST/PATCH 发布与排序；全员 GET 只读列表与详情；个人备注新表 `company_notice_notes`（notice_id + user_id 唯一），本人读写。
+- ADMIN 自己的备注单独走 `GET/PUT /admin/company-notices/{id}/note`：Web 是 ADMIN-only，而业务端点对 ADMIN 一律 403（`assertBusiness`），若不新增该端点，管理员在 Web 上无法写本人备注。该端点只返回调用者自己的备注，停用事项同样可读写；业务端点对 ADMIN 的 403 行为保持不变。
+- Android 业务端备注必须落到服务端 `PUT /company-notices/{id}/note` 并回读 `myNote`，不再只存本机。
 - Web 账号管理页分“账号/档案”两段录入；公司事项独立维护页，条形展示、进详情、可写个人备注。
 ## Risks / Trade-offs
 身份证号明文存储仅用于课程演示 → 文档注明生产需加密或脱敏存储。

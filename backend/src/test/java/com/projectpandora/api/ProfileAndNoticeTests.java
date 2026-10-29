@@ -160,4 +160,40 @@ class ProfileAndNoticeTests {
             .andExpect(status().isOk()).andExpect(jsonPath("$.myNote").value(org.hamcrest.Matchers.nullValue()));
         assertThat(created.has("myNote")).isFalse();
     }
+
+    @Test void adminKeepsOwnNoticeNoteWhileBusinessEndpointStaysClosed() throws Exception {
+        var admin = login("admin");
+        var created = json.readTree(mvc.perform(post("/api/v1/admin/company-notices").header("Authorization", token(admin))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("title", "管理员备注事项", "content", "正文", "enabled", true))))
+            .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+        long id = created.get("id").asLong();
+        // ADMIN 在管理端写本人备注
+        mvc.perform(put("/api/v1/admin/company-notices/" + id + "/note").header("Authorization", token(admin))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("content", "管理员的理解"))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.myNote").value("管理员的理解"));
+        mvc.perform(get("/api/v1/admin/company-notices/" + id + "/note").header("Authorization", token(admin)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.myNote").value("管理员的理解"));
+        // ADMIN 仍然进不了业务入口
+        mvc.perform(put("/api/v1/company-notices/" + id + "/note").header("Authorization", token(admin))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("content", "走业务端点"))))
+            .andExpect(status().isForbidden());
+        // 业务用户读不到 ADMIN 的备注，也不能用管理端备注端点
+        var staff = login("staff");
+        mvc.perform(get("/api/v1/company-notices/" + id).header("Authorization", token(staff)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.myNote").value(org.hamcrest.Matchers.nullValue()));
+        mvc.perform(put("/api/v1/admin/company-notices/" + id + "/note").header("Authorization", token(staff))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("content", "越权备注"))))
+            .andExpect(status().isForbidden());
+        // 停用后 ADMIN 仍可读写本人备注
+        mvc.perform(patch("/api/v1/admin/company-notices/" + id).header("Authorization", token(admin))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("enabled", false))))
+            .andExpect(status().isOk());
+        mvc.perform(get("/api/v1/admin/company-notices/" + id + "/note").header("Authorization", token(admin)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.myNote").value("管理员的理解"));
+    }
 }

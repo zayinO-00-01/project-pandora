@@ -29,3 +29,5 @@
 任务状态为 todo/doing/done，说明非空最多2000字。新 App 不收集百分比，progress 只兼容旧客户端。dueAt 可空或带时区 ISO8601，未设截止时间不伪造日程。
 
 400参数错误，401需重登，403无权或日志只读，404不存在，409版本或申请冲突。失败保留输入，不虚报成功。完整契约见 [OpenAPI](../backend/openapi.yaml)。
+
+管理员的本人私密备注：GET/PUT /admin/company-notices/{id}/note，PUT {content}，空字符串可清空，停用事项也可维护。业务 /company-notices 端点仍拒绝 ADMIN。

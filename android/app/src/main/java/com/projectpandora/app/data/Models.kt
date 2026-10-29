@@ -43,3 +43,5 @@ data class CompanyNotice(val id: Long, val title: String, val content: String, v
     fun panel()=PanelItem(id,title,sortOrder,myNote,content)
 }
 data class CompanyRemarkInput(val remark: String)
+/** PUT /company-notices/{id}/note 的返回：只包含调用者自己的备注。 */
+data class NoticeNote(val id: Long, val myNote: String?)
