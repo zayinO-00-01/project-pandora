@@ -11,6 +11,7 @@ data class Organization(val members: List<UserSummary> = emptyList(),val manager
 data class ViewRequest(val id: Long,val requester: UserSummary,val target: UserSummary,val reason: String,val status: String,val updatedAt: String)
 data class WorkLog(val id: Long, val userId: Long, val logDate: String, val content: String, val status: String, val createdAt: String, val updatedAt: String)
 data class PanelItem(val id: Long, val title: String, val sortOrder: Int?, val myRemark: String?, val detail: String? = null)
+data class CompanyNotice(val id: Long, val title: String, val content: String, val sortOrder: Int?, val enabled: Boolean, val updatedAt: String, val myNote: String?)
 data class IntegrityResponse(val ok: Boolean, val message: String?)
 data class PanelMap(val companyImportant: List<PanelItem> = emptyList(), val companyDispatch: List<PanelItem> = emptyList(), val personalTop: List<PanelItem> = emptyList(), val todayLogs: List<WorkLog> = emptyList())
 data class LogInput(val logDate: String, val content: String, val status: String)
