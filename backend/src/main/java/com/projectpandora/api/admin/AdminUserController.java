@@ -62,7 +62,7 @@ public class AdminUserController {
             assertAssignableManager(manager);user.setManagerId(manager);
         }
         if(request.disabled()!=null) user.setDisabled(request.disabled());
-        if(request.password()!=null && !request.password().isBlank()) user.setPasswordHash(passwords.encode(request.password()));
+        if(request.password()!=null && !request.password().isBlank()) {user.setPasswordHash(passwords.encode(request.password()));user.revokeSessions();}
         applyProfileUpdate(user,request);
         validateHierarchy(users.findAll());
         if(oldRole!=user.getRole() || !Objects.equals(oldManager,user.getManagerId()) || oldDisabled!=user.isDisabled()) {

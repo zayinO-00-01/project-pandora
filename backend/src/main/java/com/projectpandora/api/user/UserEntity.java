@@ -77,6 +77,7 @@ public class UserEntity {
 
     public void setAvatar(String avatar) {
         this.avatar = avatar;
+        if(avatar!=null) this.avatarData=null;
     }
 
     public String getAvatarImage() {
@@ -85,7 +86,16 @@ public class UserEntity {
 
     public void setAvatarImage(String avatarImage) {
         this.avatarImage = avatarImage;
+        this.avatarData=avatarImage;
     }
+    @Column(name="avatar_data",columnDefinition="TEXT")
+    private String avatarData;
+    @Column(name="token_version",nullable=false)
+    private int tokenVersion=0;
+    public String getAvatarData() {return avatarData==null?avatarImage:avatarData;}
+    public void setAvatarData(String value) {avatarData=value;avatarImage=value;avatar=null;}
+    public int getTokenVersion() {return tokenVersion;}
+    public void revokeSessions() {tokenVersion++;}
 
     public Long getId() {
         return id;

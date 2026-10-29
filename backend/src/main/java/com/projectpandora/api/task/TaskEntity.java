@@ -66,6 +66,18 @@ public class TaskEntity {
     @Column(name = "deleted_by")
     private Long deletedBy;
 
+    @ManyToOne(fetch=FetchType.EAGER) @JoinColumn(name="label_id")
+    private com.projectpandora.api.label.WorkLabel label;
+    @jakarta.persistence.Version private long version;
+    public com.projectpandora.api.label.WorkLabel getLabel(){return label;}
+    void setLabel(com.projectpandora.api.label.WorkLabel value){label=value;}
+    public long getVersion(){return version;}
+    @jakarta.persistence.OneToMany(fetch=FetchType.EAGER)
+    @JoinColumn(name="task_id",insertable=false,updatable=false)
+    @jakarta.persistence.OrderBy("id ASC")
+    private java.util.List<TaskKeyword> keywords=new java.util.ArrayList<>();
+    public java.util.List<TaskKeyword> getKeywords(){return keywords;}
+    void keywordsChanged(){updatedAt=Instant.now();}
     protected TaskEntity() {}
 
     TaskEntity(CreateTaskRequest request, UserEntity creator, UserEntity assignee) {

@@ -27,10 +27,6 @@ import java.time.format.DateTimeFormatter
     var rejectTarget by remember {mutableStateOf<DispatchTask?>(null)}
     var rejectReason by remember {mutableStateOf("")}
     var deleteTarget by remember {mutableStateOf<DispatchTask?>(null)}
-    var changeTarget by remember {mutableStateOf<DispatchTask?>(null)}
-    var changeTitle by remember {mutableStateOf("")}
-    var changeDetail by remember {mutableStateOf("")}
-    var changePriority by remember {mutableStateOf("normal")}
     val mine=state.session?.userId
     val isFounder=state.session?.role=="FOUNDER"
     val reviewIds=state.reviews.map {it.id}.toSet()
@@ -50,17 +46,6 @@ import java.time.format.DateTimeFormatter
             confirmButton={ControlTextButton(onClick={model.deleteTask(target);deleteTarget=null},enabled=!state.saving) {Text("确认删除")}},
             dismissButton={ControlTextButton(onClick={deleteTarget=null},enabled=!state.saving) {Text("取消")}})
     }
-    changeTarget?.let {target->
-        AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={if(!state.saving)changeTarget=null},title={Text("修改任务")},
-            text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(value=changeTitle,onValueChange={changeTitle=it.take(128)},enabled=!state.saving,label={Text("事项名称")},singleLine=true,modifier=Modifier.fillMaxWidth())
-                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {listOf("low" to "低","normal" to "普通","high" to "高").forEach {(value,label)->FilterChip(selected=changePriority==value,onClick={changePriority=value},enabled=!state.saving,label={Text(label,color=taskPriorityColor(value))})}}
-                OutlinedTextField(value=changeDetail,onValueChange={changeDetail=it.take(5000)},enabled=!state.saving,label={Text("详细说明")},minLines=3,modifier=Modifier.fillMaxWidth())
-                Text(if(isFounder)"创始人修改将直接生效。" else "修改后需上级审核，审核期间旧内容继续生效。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-            }},
-            confirmButton={ControlTextButton(onClick={model.changeTask(target,changeTitle,changeDetail,changePriority,target.dueAt);changeTarget=null},enabled=!state.saving && changeTitle.isNotBlank()) {Text("提交修改")}},
-            dismissButton={ControlTextButton(onClick={changeTarget=null},enabled=!state.saving) {Text("取消")}})
-    }
     if(state.dispatchOpen) {
         BackHandler(enabled=!state.saving) {model.closeDispatch()}
         DispatchTaskForm(state,model)
@@ -74,7 +59,7 @@ import java.time.format.DateTimeFormatter
     LazyColumn(Modifier.fillMaxSize().imePadding().padding(horizontal=20.dp),
         verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=28.dp)) {
         item {Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
-            if(selected==null)ControlTextButton(onClick={model.screen("functions")},enabled=!state.saving,contentPadding=PaddingValues(0.dp)) {Text("← 返回职能")}
+            if(selected==null)ControlTextButton(onClick={model.screen("day")},enabled=!state.saving,contentPadding=PaddingValues(0.dp)) {Text("← 返回视图")}
             if(selected!=null)ControlTextButton(onClick=model::closeTask,enabled=!state.saving,contentPadding=PaddingValues(0.dp)) {Text("← 返回任务列表")}
             ScreenHeading(if(selected==null)"任务工作台" else "任务详情",if(selected==null)"接收派发，持续反馈工作进展。" else "查看责任、时间节点与最新进度。")
             if(selected==null)Text("查看任务，及时记录进展与需要协调的问题。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -109,12 +94,15 @@ import java.time.format.DateTimeFormatter
             if(state.tasks.isEmpty() && !state.taskLoading && state.taskError==null)item {
                 EmptyCard("暂无任务","可以给自己安排任务，也可接收领导派发的任务。")
             }
-            items(orderedTasks(state.tasks),key={it.id}) {row->OutlinedCard(onClick={model.openTask(row.id)},enabled=!state.saving,modifier=Modifier.fillMaxWidth()) {
+            items(orderedTasks(state.tasks),key={it.id}) {row->OutlinedCard(colors=CardDefaults.outlinedCardColors(containerColor=if(row.label!=null)labelColor(row.label) else MaterialTheme.colorScheme.surface,contentColor=if(row.label!=null)labelTextColor(row.label) else MaterialTheme.colorScheme.onSurface),onClick={model.openTask(row.id)},enabled=!state.saving,modifier=Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                    LabelBadge(row.label)
+                    KeywordChips(row.keywords.orEmpty())
+                    taskReviewLabel(row.reviewStatus)?.let {Text(it,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.tertiary)}
                     Text(row.title,style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
-                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {TaskPriorityText(row.priority);Text(taskFeedbackLabel(row),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);taskReviewLabel(row.reviewStatus)?.let {Text(it,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.tertiary)}}
-                    Text("责任人：${row.assigneeName} · 截止 ${dueLabel(row.dueAt)}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("查看详情 →",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {TaskPriorityText(row.priority,onLabel=row.label!=null);Text(taskFeedbackLabel(row),style=MaterialTheme.typography.labelMedium,color=if(row.label!=null)labelTextColor(row.label) else MaterialTheme.colorScheme.onSurfaceVariant)}
+                    Text("责任人：${row.assigneeName} · 截止 ${dueLabel(row.dueAt)}",style=MaterialTheme.typography.bodySmall,color=if(row.label!=null)labelTextColor(row.label) else MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("查看详情 →",style=MaterialTheme.typography.labelSmall,color=if(row.label!=null)labelTextColor(row.label) else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }}
         } else if(task==null) {
@@ -125,13 +113,20 @@ import java.time.format.DateTimeFormatter
                 ControlTextButton(onClick={discard=true},enabled=!state.saving) {Text("放弃未提交反馈")}
             }}
         } else {
-            item {OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+            item {Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                Text("任务状态：${if(taskIsApproved(task))"已生效" else reviewStatus(task.approvalStatus)}",color=MaterialTheme.colorScheme.secondary)
+                state.keywordReviews.filter {it.taskId==task.id}.take(3).forEach {review->Text("${reviewOperation(review.operation)} · ${reviewStatus(review.status)} · 审核人 ${review.reviewerName}",style=MaterialTheme.typography.bodySmall)}
+                state.workspaceError?.let {Hint(it,true)}
+            }}
+            item {OutlinedCard(Modifier.fillMaxWidth(),colors=CardDefaults.outlinedCardColors(containerColor=if(task.label!=null)labelColor(task.label) else MaterialTheme.colorScheme.surface,contentColor=if(task.label!=null)labelTextColor(task.label) else MaterialTheme.colorScheme.onSurface)) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                LabelBadge(task.label)
                 Text(task.title,style=MaterialTheme.typography.titleLarge)
-                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {TaskPriorityText(task.priority);Text(taskFeedbackLabel(task),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);taskReviewLabel(task.reviewStatus)?.let {Text(it,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.tertiary)}}
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {TaskPriorityText(task.priority,onLabel=task.label!=null);Text(taskFeedbackLabel(task),style=MaterialTheme.typography.labelMedium,color=if(task.label!=null)labelTextColor(task.label) else MaterialTheme.colorScheme.onSurfaceVariant)}
                 Text(task.detail.ifBlank {"暂无任务说明"},style=MaterialTheme.typography.bodyLarge)
                 HorizontalDivider()
                 Text("派发人：${task.creatorName}\n责任人：${task.assigneeName}\n截止时间：${dueLabel(task.dueAt)}",style=MaterialTheme.typography.bodyMedium)
             }}}
+            item {TaskKeywords(task,state,model)}
             if(!taskIsApproved(task))item {Hint(if(task.approvalStatus=="pending")"等待直属上级审核，批准后才能开始反馈进度。" else "此任务未获批准，请根据审核意见重新安排。")}
             if(!task.approvalNote.isNullOrBlank())item {Hint("审核意见：${task.approvalNote}")}
             if(state.pendingTaskApprovals.any {it.id==task.id})item {
@@ -149,30 +144,33 @@ import java.time.format.DateTimeFormatter
             val reviewLabel=taskReviewLabel(task.reviewStatus)
             if(reviewLabel!=null)item {OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 Text("审核状态：$reviewLabel",style=MaterialTheme.typography.titleMedium)
+                task.pendingChange?.takeIf {it.isNotBlank()}?.let {payload->
+                    Text("拟变更内容",style=MaterialTheme.typography.labelLarge)
+                    Text(remember(payload) {reviewDetails(payload)},style=MaterialTheme.typography.bodyMedium)
+                }
                 task.reviewReason?.takeIf {it.isNotBlank()}?.let {Text("理由：$it",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}
                 if(task.id in reviewIds) Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     ControlButton(onClick={model.approveTask(task)},enabled=!state.saving) {Text("通过")}
                     ControlTextButton(onClick={rejectTarget=task;rejectReason=""},enabled=!state.saving) {Text("驳回")}
-                } else Text("等待相关人审核。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                } else if(isPendingReview(task.reviewStatus))Text("等待相关人审核。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }}}
-            if(task.createdBy==mine || isFounder)item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                if(!isPendingReview(task.reviewStatus) && task.status!="done")ControlTextButton(onClick={changeTarget=task;changeTitle=task.title;changeDetail=task.detail;changePriority=task.priority},enabled=!state.saving) {Text("修改任务")}
+            if(!task.deleted && (task.createdBy==mine || isFounder))item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                if(task.createdBy==mine && taskIsApproved(task) && !isPendingReview(task.reviewStatus))ControlTextButton(onClick={model.editTaskDetails(task)},enabled=!state.saving) {Text("修改任务")}
                 ControlTextButton(onClick={deleteTarget=task},enabled=!state.saving) {Text("删除任务")}
             }}
             if(taskIsApproved(task) && !task.deleted) {
-            item {TaskProgressGraph(task)}
             item {OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 Text("最新进度说明",style=MaterialTheme.typography.titleMedium)
                 Text(task.progressNote.ifBlank {"尚未反馈进度"},style=MaterialTheme.typography.bodyLarge)
             }}}
-            if(isPendingReview(task.reviewStatus))item {Hint("任务审核中，处理完成后可继续反馈。") }
-            else if(task.status=="done")item {Hint("此任务已完成验收。") }
+            if(task.reviewStatus=="pending_delete")item {Hint("删除审核中，暂不能反馈进度。") }
+            else if(task.reviewStatus=="approved")item {Hint("此任务已完成验收。") }
             else if(task.assigneeId!=state.session?.userId)item {Hint("仅当前责任人可反馈进度，你可以查看任务详情。")}
             else if(buffer?.taskId==selected) {
                 item {Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                     Text("工作状态",style=MaterialTheme.typography.titleMedium)
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                        listOf("todo","doing","done").forEach {status->FilterChip(
+                        (if(task.reviewStatus=="pending_change")listOf("todo","doing") else listOf("todo","doing","done")).forEach {status->FilterChip(
                             selected=buffer.status==status,onClick={model.changeTaskEditor(status=status)},enabled=!state.saving,
                             label={Text(taskStatusLabel(status))},modifier=Modifier.weight(1f).heightIn(min=48.dp))}
                     }
@@ -209,14 +207,15 @@ private fun dueLabel(value: String?): String = if(value==null)"未设置" else r
         confirmButton={ControlTextButton(onClick={discard=false;model.discardDispatch()}) {Text("放弃")}},dismissButton={ControlTextButton(onClick={discard=false}) {Text("继续填写")}})
     LazyColumn(Modifier.fillMaxSize().imePadding().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=28.dp)) {
         item {ControlTextButton(onClick=model::closeDispatch,enabled=enabled) {Text("返回任务工作台 · 保留输入")}}
-        item {ScreenHeading("新建任务",if(needsApproval)"为自己安排工作，提交后由直属上级审核。" else if(self)"为自己安排工作，创建后直接生效。" else "为下级安排工作，创建后直接生效。")}
+        item {ScreenHeading(if(draft.taskId==null)"新建任务" else "编辑任务",if(draft.taskId!=null && state.session?.role!="FOUNDER")"变更提交上级审核，原内容继续生效。" else if(needsApproval)"为自己安排工作，提交后由直属上级审核。" else if(self)"为自己安排工作，创建后直接生效。" else "为下级安排工作，创建后直接生效。")}
         item {OutlinedTextField(value=draft.title,onValueChange={model.changeDispatch(title=it.take(128))},enabled=enabled,label={Text("事项名称（必填）")},singleLine=true,supportingText={Text("${draft.title.length} / 128")},modifier=Modifier.fillMaxWidth())}
         item {Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
+            state.workspaceError?.let {Hint("标签或审核连接异常：$it",true)}
             Text("责任人（必选）",style=MaterialTheme.typography.labelLarge)
             if(state.dispatchLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
             OutlinedTextField(value=memberQuery,onValueChange={memberQuery=it},enabled=enabled,label={Text("搜索姓名或账号")},singleLine=true,modifier=Modifier.fillMaxWidth())
             Box {
-                ControlOutlinedButton(onClick={assigneesExpanded=true},enabled=enabled && !state.dispatchLoading && state.dispatchMembers.isNotEmpty(),modifier=Modifier.fillMaxWidth()) {
+                ControlOutlinedButton(onClick={assigneesExpanded=true},enabled=enabled && draft.taskId==null && !state.dispatchLoading && state.dispatchMembers.isNotEmpty(),modifier=Modifier.fillMaxWidth()) {
                     Text(selected?.let {if(it.id==state.session?.userId)"我自己 · ${it.displayName ?: it.username}" else "${it.displayName ?: it.username} · ${AppRoles.label(it.role)}"} ?: if(draft.assigneeId!=null)"原责任人不在当前范围，请重新选择" else "选择本人或下级责任人")
                 }
                 DropdownMenu(expanded=assigneesExpanded,onDismissRequest={assigneesExpanded=false},modifier=Modifier.heightIn(max=320.dp)) {
@@ -229,12 +228,14 @@ private fun dueLabel(value: String?): String = if(value==null)"未设置" else r
         item {Column {Text("优先级",style=MaterialTheme.typography.labelLarge);Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf("low" to "低","normal" to "普通","high" to "高").forEach {(value,label)->FilterChip(selected=draft.priority==value,onClick={model.changeDispatch(priority=value)},enabled=enabled,label={Text(label,color=taskPriorityColor(value))})}
         }}}
+        state.labelError?.let {item {Hint(it,true,onRetry=model::loadWorkspaceExtras)}}
+        item {LabelPicker(state.labels,draft.labelId,enabled) {model.changeDispatch(labelId=it)}}
         item {DeadlinePicker(draft.dueDate,enabled) {model.changeDispatch(dueDate=it)}}
         item {OutlinedTextField(value=draft.detail,onValueChange={model.changeDispatch(detail=it.take(5000))},enabled=enabled,label={Text("详细说明")},minLines=5,supportingText={Text("${draft.detail.length} / 5000")},modifier=Modifier.fillMaxWidth())}
         state.dispatchError?.let {item {Hint(it,true)}}
         item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             ControlTextButton(onClick={discard=true},enabled=enabled) {Text("放弃填写")}
-            ControlButton(onClick=model::createTask,enabled=enabled && !state.dispatchLoading && selected!=null,modifier=Modifier.weight(1f)) {Text(if(state.saving)"提交中…" else if(needsApproval)"提交审核" else if(self)"创建任务" else "确认派发")}
+            ControlButton(onClick=model::createTask,enabled=enabled && !state.dispatchLoading && selected!=null,modifier=Modifier.weight(1f)) {Text(if(state.saving)"提交中…" else if(draft.taskId!=null)"提交修改" else if(needsApproval)"提交审核" else if(self)"创建任务" else "确认派发")}
         }}
         item {Text("暂时离开会保留输入，再次登录原账号可继续填写。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
     }

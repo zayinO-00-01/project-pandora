@@ -1,3 +1,5 @@
+> Historical implementation record across multiple teammate branches. The 2026-10-29 integration resolves conflicting rules in `openspec/specs/workspace-planning/spec.md`; branch-local verification below is not evidence of integrated-device testing.
+
 ## ADDED Requirements
 ### Requirement: Frontend priorities
 The app SHALL expose company and personal top-ten pages with full details and no search field. Company text SHALL remain read-only and support local personal notes. Personal items SHALL support local create, edit, delete and reorder up to ten items. Local state SHALL persist by server/user and SHALL be visibly marked unsynced; future transport contracts SHALL be documented without implementing backend writes.
@@ -102,3 +104,19 @@ Debug Android SHALL offer ten local company card examples through development en
 #### Scenario: Empty authenticated company data
 - **WHEN** a Debug user opts into example cards from an empty company panel
 - **THEN** the labelled examples appear locally and returning to actual data restores the server state
+
+
+### Requirement: Consecutive multi-day logs
+A work log SHALL support an inclusive start/end date range with one shared description. Both endpoints SHALL remain within Shanghai today minus three days through today; reversed or future ranges SHALL be rejected. Existing single-day clients and data SHALL remain compatible. Historical ranges SHALL be read-only and cannot be unlocked by changing their dates.
+#### Scenario: Three days of sick leave
+- **WHEN** an author submits a log from two days ago through today with one leave description
+- **THEN** one record covers all three days, shows a linked calendar frame and the same full description when any covered date is selected
+#### Scenario: Weekly details
+- **WHEN** a multi-day record intersects the displayed week
+- **THEN** its shared details appear once, with coverage counts and cross-references on later days
+#### Scenario: Old backend or failed save
+- **WHEN** the server does not advertise date-range support or saving fails
+- **THEN** no unsupported multi-day POST is made and the full local date range and content are retained
+#### Scenario: Historic migration
+- **WHEN** the database upgrades
+- **THEN** old records receive an end date equal to their start date without losing content

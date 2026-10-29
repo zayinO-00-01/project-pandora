@@ -18,8 +18,9 @@ public class UserController {
     private final UserRepository users;
     private final AccessService access;
     private final PasswordEncoder passwords;
-    public UserController(UserRepository users,AccessService access,PasswordEncoder passwords) {
-        this.users=users;this.access=access;this.passwords=passwords;
+    private final OrganizationGuard organization;
+    public UserController(UserRepository users,AccessService access,PasswordEncoder passwords,OrganizationGuard organization) {
+        this.users=users;this.access=access;this.passwords=passwords;this.organization=organization;
     }
     @GetMapping
     public List<UserSummary> list() {
@@ -37,7 +38,7 @@ public class UserController {
     @PutMapping("/me/password")
     @Transactional
     public ChangePasswordResult changePassword(@Valid @RequestBody ChangePasswordRequest request) {
-        var principal=access.currentUser();
+        organization.lock();var principal=access.currentUser();
         var user=users.findById(principal.getId())
             .orElseThrow(()->new ApiException(404,"用户不存在"));
         if(!passwords.matches(request.currentPassword(),user.getPasswordHash()))
@@ -45,13 +46,14 @@ public class UserController {
         if(request.currentPassword().equals(request.newPassword()))
             throw new ApiException(400,"新密码不能与原密码相同");
         user.setPasswordHash(passwords.encode(request.newPassword()));
+        user.revokeSessions();
         users.save(user);
         return new ChangePasswordResult(true);
     }
     @PutMapping("/me/avatar")
     @Transactional
     public ProfileResponse updateAvatar(@Valid @RequestBody AvatarRequest request) {
-        var principal=access.currentUser();
+        organization.lock();var principal=access.currentUser();
         var user=users.findById(principal.getId())
             .orElseThrow(()->new ApiException(404,"用户不存在"));
         String value=request.avatar().trim();

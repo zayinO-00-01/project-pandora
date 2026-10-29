@@ -40,4 +40,10 @@ public class NotificationService {
         list.forEach(n->n.setReadAt(now));
         repo.saveAll(list);
     }
+    /** Bridge new feature notifications onto the existing notification schema. */
+    @Transactional
+    public void send(Long recipient,String title,String message,String type,Long reference) {
+        notifyUser(recipient,type,title,message,"view-request".equals(type)?null:reference);
+    }
+
 }

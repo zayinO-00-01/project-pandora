@@ -13,7 +13,7 @@ fun canWriteLog(date: String,reference: LocalDate=today()): Boolean = runCatchin
 
 /** Existing logs are editable only on their log date in Shanghai. */
 fun canModifyLog(date: String,reference: LocalDate=today()): Boolean = date==reference.toString()
-fun canModifyLog(log: WorkLog,reference: LocalDate=today()): Boolean = canModifyLog(log.logDate,reference)
+fun canModifyLog(log: WorkLog,reference: LocalDate=today()): Boolean = !log.isMultiDay() && canModifyLog(log.logDate,reference)
 
 fun logEditorReadOnly(buffer: EditBuffer,logs: List<WorkLog>): Boolean = buffer.logId!=null &&
     (logs.firstOrNull {it.id==buffer.logId}?.let {!canModifyLog(it)} ?: true)
@@ -43,6 +43,8 @@ fun taskDate(task: DispatchTask): LocalDate?=task.dueAt?.let {
 fun legacyTaskStatus(progress: Int?): String=when(progress) {0,null->"todo";100->"done";else->"doing"}
 fun taskStatusLabel(status: String)=when(status) {"doing"->"进行中";"done"->"已完成";else->"待开始"}
 fun taskIsApproved(task: DispatchTask)=task.approvalStatus==null || task.approvalStatus=="approved"
+fun taskCanReportProgress(task: DispatchTask)=taskIsApproved(task) && !task.deleted &&
+    task.reviewStatus!="pending_delete" && task.reviewStatus!="approved"
 fun taskFeedbackLabel(task: DispatchTask)=when(task.approvalStatus) {
     "pending"->"待上级审核";"rejected"->"审核未通过";else->taskStatusLabel(task.status)
 }
@@ -68,3 +70,10 @@ fun reorderedPriorities(items: List<PanelItem>,id: Long,targetId: Long): List<Pa
     if(from<0 || to<0 || from==to)return items
     return items.toMutableList().apply {add(to,removeAt(from))}.mapIndexed {index,item->item.copy(sortOrder=index)}
 }
+
+val WorkLog.lastDate: String get()=endDate ?: logDate
+fun WorkLog.covers(date: String): Boolean = date>=logDate && date<=lastDate
+fun WorkLog.isMultiDay(): Boolean = lastDate>logDate
+fun logRangeDays(start: String,end: String?): Long = runCatching {java.time.temporal.ChronoUnit.DAYS.between(LocalDate.parse(start),LocalDate.parse(end ?: start))+1}.getOrDefault(0)
+fun logDateLabel(start: String,end: String?): String = if(end==null || end==start)start else "$start 至 $end · ${logRangeDays(start,end)} 天"
+fun canWriteLogRange(start: String,end: String?,reference: LocalDate=today()): Boolean = canWriteLog(start,reference) && canWriteLog(end ?: start,reference) && (end ?: start)>=start

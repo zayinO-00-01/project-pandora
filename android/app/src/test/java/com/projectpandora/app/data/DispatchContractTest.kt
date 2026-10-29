@@ -30,7 +30,7 @@ class DispatchContractTest {
             assertEquals("/api/v1/tasks",request.path)
             assertEquals("Bearer leader-token",request.getHeader("Authorization"))
             val body=JsonParser.parseString(request.body.readUtf8()).asJsonObject
-            assertEquals(setOf("title","detail","priority","assigneeId","dueAt"),body.keySet())
+            assertEquals(setOf("title","detail","priority","assigneeId","dueAt","labelId"),body.keySet())
             assertEquals("核对合同",body["title"].asString)
             assertEquals("high",body["priority"].asString)
             assertEquals(3L,body["assigneeId"].asLong)
@@ -59,7 +59,7 @@ class DispatchContractTest {
             server.start()
             val api=ApiClient(server.url("/").toString())
             val input=TaskCreateInput("任务","","normal",3,null)
-            for(role in listOf("STAFF","ADMIN","LEADER")) {
+            for(role in listOf("ADMIN","LEADER")) {
                 try {api.createTask(Session(api.server,"t",2,role,null,"u"),input);fail("accepted $role")}
                 catch(e:ApiException) {assertEquals(403,e.status)}
             }

@@ -25,5 +25,8 @@ fun filterMembers(members: List<UserSummary>,query: String): List<UserSummary> {
 }
 
 fun calendarSummaries(date: java.time.LocalDate,logs: List<WorkLog>,tasks: List<DispatchTask>): List<String> =
-    orderedTasks(tasks.filter {taskIsApproved(it) && taskDate(it)==date}).map {it.title} +
-        logs.filter {it.logDate==date.toString()}.map {it.content.lineSequence().firstOrNull {line->line.isNotBlank()}?.trim().orEmpty()}.filter {it.isNotBlank()}
+    orderedTasks(tasks.filter {taskIsApproved(it) && !it.deleted && taskDate(it)==date}).map {it.title} +
+        logs.filter {it.covers(date.toString())}.map {it.content.lineSequence().firstOrNull {line->line.isNotBlank()}?.trim().orEmpty()}.filter {it.isNotBlank()}
+/** One label per calendar cell, following the same ordering as the task list. */
+fun calendarDayLabel(date: java.time.LocalDate,tasks: List<DispatchTask>): WorkLabel? =
+    orderedTasks(tasks.filter {taskIsApproved(it) && !it.deleted && taskDate(it)==date}).firstNotNullOfOrNull {it.label}

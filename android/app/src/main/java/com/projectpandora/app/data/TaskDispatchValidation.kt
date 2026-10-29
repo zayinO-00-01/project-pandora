@@ -9,7 +9,7 @@ import java.time.format.ResolverStyle
 object TaskDispatchValidation {
     private val format=DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm").withResolverStyle(ResolverStyle.STRICT)
     fun input(buffer: TaskDispatchBuffer): TaskCreateInput = TaskCreateInput(buffer.title.trim(),buffer.detail.trim(),buffer.priority,buffer.assigneeId ?: 0,
-        buffer.dueDate.trim().takeIf {it.isNotEmpty()}?.let {LocalDateTime.parse(it,format).atZone(ZoneId.of("Asia/Shanghai")).toInstant().toString()})
+        buffer.dueDate.trim().takeIf {it.isNotEmpty()}?.let {LocalDateTime.parse(it,format).atZone(ZoneId.of("Asia/Shanghai")).toInstant().toString()},buffer.labelId)
     fun error(buffer: TaskDispatchBuffer, members: List<UserSummary>): String? {
         if(buffer.assigneeId!=buffer.userId && members.none {it.id==buffer.assigneeId && it.role in AppRoles.business})return "请选择本人或当前可派发的下级责任人"
         val value=try {input(buffer)} catch(_:Exception) {return "截止时间无效，请重新选择日期和时间，或清除截止时间"}

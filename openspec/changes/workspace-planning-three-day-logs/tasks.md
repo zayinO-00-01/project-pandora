@@ -1,3 +1,5 @@
+> Historical implementation record across multiple teammate branches. The 2026-10-29 integration resolves conflicting rules in `openspec/specs/workspace-planning/spec.md`; branch-local verification below is not evidence of integrated-device testing.
+
 ## 1. Frontend planning
 - [x] 1.1 Complete priorities pages with isolated local persistence and future API contract.
 - [x] 1.2 Add calendar cell summaries and full selected-day agenda.
@@ -44,3 +46,24 @@ White-panel follow-up: unify light-theme black outlines for cards, surfaces, cal
 - [x] 10.1 Fetch and merge teammate zayin, preserve local UI/database compatibility and inspect Web/API for published examples.
 - [x] 10.2 Add ten explicit local examples with Debug development entry and opt-in empty-panel preview; prevent example writes.
 - [x] 10.3 Verify Android/Web/backend and native examples navigation, package APK and record evidence.
+
+## 11. Consecutive multi-day logs
+- [x] 11.1 Add compatible start/end persistence, range coverage queries and server/client bounds and modification protection.
+- [x] 11.2 Add a native continuous date picker, date labels and linked month/week frames with one shared weekly description; leave year controls unchanged.
+- [x] 11.3 Verify migration, range boundaries, authorization, persistence, native interactions and small-screen themes; deliver Android and API packages.
+
+## 12. Task workspace and account update (supersedes earlier calendar/log editing rules)
+- [x] 12.1 Separate the task calendar from logs, include all authorized tasks and allow all active business assignees.
+- [x] 12.2 Add manager-reviewed creation/edit/progress, founder exemption/deletion, withdrawal, audit records and persistent app notifications.
+- [x] 12.3 Add founder-maintained brand labels selectable by all members and consistent task/calendar colors.
+- [x] 12.4 Enforce rolling 24-hour log edits, add avatar/password self-service and remove the progress graph.
+- [x] 12.5 Recompose overview as the requested two-by-two grid using existing design tokens.
+- [x] 12.6 Complete final native QA and deliver the APK/API pair.
+
+## 13. 2026-10-29 integration (supersedes conflicting sections 8, 11, 12)
+- [x] 13.1 Preserve self-task initial approval and separate lifecycle review; retain downward dispatch scope and remove percentage UI.
+- [x] 13.2 Keep log and task calendar summaries with direct year/month selection; restrict editing to single Shanghai-today logs while adding compatible date ranges.
+- [x] 13.3 Consolidate keyword-only reviews, existing notification envelope, synchronized priorities/private notes, labels and enhanced profile endpoints.
+- [x] 13.4 Preserve original migrations V1–V10, append compatible migrations, and verify old data fields via upgrade regression.
+- [x] 13.5 Complete final build, contract review and isolated HTTP checks; record evidence in docs/MVP验收.md.
+- [ ] 13.6 Perform actual phone touch/navigation checks with the user after delivery; do not claim these from builds alone.

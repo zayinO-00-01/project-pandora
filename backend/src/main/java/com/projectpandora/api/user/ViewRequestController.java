@@ -16,8 +16,9 @@ public class ViewRequestController {
     private final UserRepository users;
     private final AccessService access;
     private final OrganizationGuard organization;
-    public ViewRequestController(ViewRequestRepository requests,UserRepository users,AccessService access,OrganizationGuard organization) {
-        this.requests=requests;this.users=users;this.access=access;this.organization=organization;
+    private final com.projectpandora.api.notification.NotificationService notifications;
+    public ViewRequestController(ViewRequestRepository requests,UserRepository users,AccessService access,OrganizationGuard organization,com.projectpandora.api.notification.NotificationService notifications) {
+        this.requests=requests;this.users=users;this.access=access;this.organization=organization;this.notifications=notifications;
     }
     public record Input(@NotNull Long targetId,@NotBlank @Size(max=500) String reason) {}
     public record Decision(@Pattern(regexp="approved|denied|revoked") @NotNull String status) {}
@@ -44,7 +45,7 @@ public class ViewRequestController {
         var r=requests.findByRequesterIdAndTargetId(me.getId(),target.getId()).orElseGet(ViewRequestEntity::new);
         if("pending".equals(r.status) || "approved".equals(r.status)) throw new ApiException(409,"已有待审批或已批准的申请");
         r.requesterId=me.getId();r.targetId=target.getId();r.reason=input.reason().trim();r.status="pending";r.updatedAt=Instant.now();
-        return response(requests.saveAndFlush(r));
+        requests.saveAndFlush(r);notifications.send(r.targetId,"查看申请待审批",me.getUsername()+" 申请查看你的工作信息","view-request",r.id);return response(r);
     }
     @PutMapping("/{id}")
     @Transactional
@@ -58,6 +59,6 @@ public class ViewRequestController {
         if(!access.isActiveBusiness(requester) || !r.targetId.equals(requester.getManagerId())
             || AccessService.rank(requester.getRole())>=AccessService.rank(me.getRole()))
             throw new ApiException(403,"组织关系已变化，不能审批该申请");
-        r.status=input.status();r.updatedAt=Instant.now();return response(requests.saveAndFlush(r));
+        r.status=input.status();r.updatedAt=Instant.now();requests.saveAndFlush(r);notifications.send(r.requesterId,"查看申请已更新","审批结果："+r.status,"view-request",r.id);return response(r);
     }
 }
