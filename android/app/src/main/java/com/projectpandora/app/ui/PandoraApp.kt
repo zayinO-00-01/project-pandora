@@ -58,7 +58,7 @@ import com.projectpandora.app.data.*
     val pageTitle=when {
         state.editor!=null -> "潘多拉"
         state.screen=="home" || state.screen=="ai" -> AppRoles.homeTitle(state.session.role)
-        state.dispatchOpen -> "派发任务"
+        state.dispatchOpen -> "新建任务"
         state.screen=="functions" -> "职能"
         state.screen=="tasks" -> if(state.selectedTaskId==null)"任务列表" else "任务详情"
         state.screen=="organization" -> AppRoles.scopeLabel(state.session.role)
@@ -128,11 +128,11 @@ import com.projectpandora.app.data.*
     var leaving by remember {mutableStateOf(false)}
     var details by remember {mutableStateOf<String?>(null)}
     val permissionText=when(me.role) {
-        "FOUNDER"->"创始人：可查看公司业务成员已提交的日志与任务；仅向自己组织下的下级派发任务。"
-        "DEPT_HEAD"->"部门老总：可穿透查看部门下属；查看直属上级须申请并获批准。"
-        "TEAM_LEAD"->"团队长：可查看团队下属；查看直属上级须申请并获批准。"
+        "FOUNDER"->"创始人：可查看公司业务成员已提交的日志与任务；可向授权下级派发任务，给自己建任务直接生效。"
+        "DEPT_HEAD"->"部门老总：自建任务须直属上级审核，可审核直属下级自建任务；可穿透查看部门下属；查看直属上级须申请并获批准。"
+        "TEAM_LEAD"->"团队长：自建任务须直属上级审核，可审核直属下级自建任务；可查看团队下属；查看直属上级须申请并获批准。"
         "LEADER"->"当前连接旧版演示服务，权限以该服务为准。"
-        else->"员工：记录自己的工作，处理分配任务；查看直属上级须申请并获批准。"
+        else->"员工：可给自己建任务，经直属上级审核后执行；记录工作并处理分配任务；查看直属上级须申请并获批准。"
     }
     details?.let {section->AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={details=null},title={Text(if(section=="access")"账号与权限" else "当前服务")},text={Text(if(section=="access")"$permissionText\n\n资料与组织关系由管理员在 Web 维护；组织查看与申请从职能入口进入。" else "${me.server}\n\n工作记录保存在此服务。无法连接时，请检查网络或联系管理员。")},confirmButton={ControlTextButton(onClick={details=null}) {Text("关闭")}})}
     if(leaving)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={leaving=false},title={Text(if(state.developmentPreview)"退出开发预览？" else "退出当前账号？")},text={Text(if(state.developmentPreview)"预览没有登录业务账号，也未向服务器提交数据。" else "工作记录已保存在当前服务。未提交输入会保留在这台设备，再次登录原账号可继续。")},confirmButton={ControlTextButton(onClick={leaving=false;model.logout()}) {Text("退出登录")}},dismissButton={ControlTextButton(onClick={leaving=false}) {Text("取消")}})
@@ -144,6 +144,23 @@ import com.projectpandora.app.data.*
                 Text(me.displayName ?: me.username,style=MaterialTheme.typography.titleMedium)
                 Text("${me.username} · ${AppRoles.label(me.role)}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        }
+        HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
+        Text("个人资料",style=MaterialTheme.typography.titleSmall,modifier=Modifier.padding(top=12.dp,bottom=8.dp))
+        if(state.profileLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
+        state.profileError?.let {Hint(it,true,onRetry=model::refresh)}
+        if(state.developmentPreview)Text("登录业务账号后可查看个人资料",style=MaterialTheme.typography.bodySmall)
+        state.profile?.let {profile->
+            listOf("姓名" to profile.displayName,"手机号" to profile.phone,"身份证号" to profile.idCard,
+                "出生日期" to profile.birthDate,"性别" to profile.gender,"入职日期" to profile.hireDate,
+                "紧急联系人" to profile.emergencyContact,"紧急联系电话" to profile.emergencyPhone,"联系地址" to profile.address,
+                "直属上级编号" to profile.managerId?.toString()).forEach {(label,value)->
+                Row(Modifier.fillMaxWidth().padding(vertical=6.dp),horizontalArrangement=Arrangement.spacedBy(16.dp)) {
+                    Text(label,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.width(100.dp))
+                    Text(value?.takeIf {it.isNotBlank()} ?: "未填写",style=MaterialTheme.typography.bodyMedium,modifier=Modifier.weight(1f))
+                }
+            }
+            Text("资料由管理员维护，如需更正请联系管理员。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.padding(vertical=8.dp))
         }
         HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
         Row(Modifier.fillMaxWidth().heightIn(min=48.dp).selectableGroup(),verticalAlignment=Alignment.CenterVertically) {

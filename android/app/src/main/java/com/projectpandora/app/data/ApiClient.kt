@@ -69,10 +69,18 @@ class ApiClient(address: String) {
     fun integrity(session: Session): IntegrityResponse = request("/logs/integrity","GET",null,session,IntegrityResponse::class.java)
     fun tasks(session: Session): List<DispatchTask> = request("/tasks","GET",null,session,object:TypeToken<List<DispatchTask>>(){}.type)
     fun createTask(session: Session,input: TaskCreateInput): DispatchTask {
-        if(!AppRoles.canDispatch(session.role))throw ApiException(403,"仅业务领导可向授权下级派发任务")
+        if(!AppRoles.canCreateTask(session.role) || (input.assigneeId!=session.userId && !AppRoles.canDispatch(session.role)))throw ApiException(403,"可给自己安排任务；向下级派发仅限业务领导")
         TaskDispatchValidation.inputError(input,session.userId)?.let {throw IllegalArgumentException(it)}
         val result: DispatchTask=request("/tasks","POST",input,session,DispatchTask::class.java)
         if(result.id<=0 || result.assigneeId!=input.assigneeId || result.createdBy!=session.userId)throw ApiException(502,"服务器返回的任务信息不一致，请刷新确认后重试")
+        return result
+    }
+    fun pendingTaskApprovals(session: Session): List<DispatchTask> = request("/tasks/pending-approvals","GET",null,session,object:TypeToken<List<DispatchTask>>(){}.type)
+    fun decideTaskApproval(session: Session,id: Long,decision: String,note: String): DispatchTask {
+        if(!AppRoles.canDispatch(session.role))throw ApiException(403,"仅直属上级可以审核任务")
+        require(id>0 && decision in setOf("approved","rejected") && note.length<=500) {"请填写有效的审核决定和意见"}
+        val result: DispatchTask=request("/tasks/$id/approval","PUT",mapOf("decision" to decision,"note" to note.trim()),session,DispatchTask::class.java)
+        if(result.id!=id || result.approvalStatus!=decision)throw ApiException(502,"审核响应不一致，请刷新确认")
         return result
     }
     fun saveProgress(session: Session, id: Long, input: TaskProgressInput): DispatchTask {
@@ -81,6 +89,24 @@ class ApiClient(address: String) {
         val feedback=input.copy(status=input.status ?: legacyTaskStatus(input.progress))
         val result: DispatchTask = request("/tasks/$id/progress","PUT",feedback,session,DispatchTask::class.java)
         if(result.id!=id)throw ApiException(502,"服务器返回的任务编号不一致，请刷新后重试")
+        return result
+    }
+    fun profile(session: Session): SelfProfile = request("/users/me","GET",null,session,SelfProfile::class.java)
+    fun companyNotices(session: Session): List<CompanyNotice> = request("/company-notices","GET",null,session,object:TypeToken<List<CompanyNotice>>(){}.type)
+    fun saveCompanyNote(session: Session,id: Long,content: String): CompanyNotice {
+        require(id>0 && content.length<=2000)
+        return request("/company-notices/$id/note","PUT",mapOf("content" to content),session,CompanyNotice::class.java)
+    }
+    fun personalPriorities(session: Session): PersonalPrioritySnapshot = request("/priorities/personal","GET",null,session,PersonalPrioritySnapshot::class.java)
+    fun savePersonalPriorities(session: Session,input: PersonalPrioritiesInput): PersonalPrioritySnapshot {
+        require(input.items.size<=10 && input.items.all {it.title.isNotBlank() && it.title.length<=120 && it.detail.length<=2000})
+        val result: PersonalPrioritySnapshot=request("/priorities/personal","PUT",input,session,PersonalPrioritySnapshot::class.java)
+        val valid=runCatching {
+            result.revision>input.revision && result.items.size==input.items.size && result.items.map {it.id}.distinct().size==result.items.size &&
+                result.items.sortedBy {it.sortOrder}.zip(input.items).all {(saved,sent)->saved.id>0 &&
+                    (sent.id==null || sent.id<0 || saved.id==sent.id) && saved.title==sent.title.trim() && saved.detail.orEmpty()==sent.detail}
+        }.getOrDefault(false)
+        if(!valid)throw ApiException(502,"保存结果暂未确认，修改已保留，请刷新后检查")
         return result
     }
     fun panels(session: Session): PanelMap = request("/panels/map","GET",null,session,PanelMap::class.java)

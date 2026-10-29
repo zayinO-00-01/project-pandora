@@ -5,12 +5,14 @@ import java.time.Instant;
 
 public record TaskResponse(Long id, String title, String detail, String priority, String status,
         Instant dueAt, Integer progress, String progressNote, Long createdBy, Long assigneeId,
-        String creatorName, String assigneeName, Instant createdAt, Instant updatedAt) {
+        String creatorName, String assigneeName, Instant createdAt, Instant updatedAt,
+        String approvalStatus, String approvalNote, Long reviewerId, Instant reviewedAt) {
     static TaskResponse from(TaskEntity task) {
         return new TaskResponse(task.getId(), task.getTitle(), task.getDetail(), task.getPriority(),
                 task.getStatus(),
                 task.getDueAt(), task.getProgress(), task.getProgressNote(), task.getCreator().getId(), task.getAssignee().getId(),
-                name(task.getCreator()), name(task.getAssignee()), task.getCreatedAt(), task.getUpdatedAt());
+                name(task.getCreator()), name(task.getAssignee()), task.getCreatedAt(), task.getUpdatedAt(),
+                task.getApprovalStatus(), task.getApprovalNote(), task.getReviewerId(), task.getReviewedAt());
     }
     private static String name(UserEntity user) {
         return user.getDisplayName() == null || user.getDisplayName().isBlank() ? user.getUsername() : user.getDisplayName();

@@ -456,7 +456,7 @@ paths:
           $ref: "#/components/responses/Error409"
       security:
         - bearer: []
-      description: 默认角色读范围；指定userId读取其负责的任务（须有成员读权限）。FOUNDER全公司，部门/团队领导实际下级树，员工本人；ADMIN403。
+      description: 默认角色读范围，包含pending/rejected自主任务；指定userId读取其负责的任务（须有成员读权限）。FOUNDER全公司，部门/团队领导实际下级树，员工本人；ADMIN403。
       parameters:
         - in: query
           name: userId
@@ -464,7 +464,7 @@ paths:
             type: integer
             format: int64
     post:
-      summary: 业务领导向实际下级派发
+      summary: 创建自主任务或向实际下级派发
       responses:
         "201":
           description: 成功
@@ -484,13 +484,68 @@ paths:
           $ref: "#/components/responses/Error409"
       security:
         - bearer: []
-      description: FOUNDER/DEPT_HEAD/TEAM_LEAD可向实际manager_id链中较低角色的启用业务成员派发；ADMIN/STAFF拒绝。
+      description: 四个业务角色均可创建本人负责的自主任务；除FOUNDER立即approved外，需有效且启用的较高职级直属上级，创建为pending，无有效上级返回400。业务领导向实际下级派发仍立即approved；STAFF不得派发他人，ADMIN403。
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/TaskInput"
+  /tasks/pending-approvals:
+    get:
+      summary: 当前直属下级提交的待审批自主任务
+      description: 仅返回当前直属上级为登录用户、作者启用且职级低于审批人的pending自主任务。组织调整后由新的直属上级审批，原上级失去审批权；ADMIN403。
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: 待审批任务，按创建时间和ID倒序
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+  /tasks/{id}/approval:
+    put:
+      summary: 当前直属上级审批自主任务
+      description: 仅当前直属且职级较高的业务上级可审批本人创建并负责的pending任务，禁止自批和越级代批。已审批任务返回409。只更新审批审计字段，不更改工作状态或进度。
+      security:
+        - bearer: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskApproval"
+      responses:
+        "200":
+          description: 更新后的任务
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "409":
+          $ref: "#/components/responses/Error409"
   /tasks/{id}/progress:
     put:
       summary: 仅责任人反馈进度
@@ -513,7 +568,7 @@ paths:
           $ref: "#/components/responses/Error409"
       security:
         - bearer: []
-      description: 独立保存status(todo/doing/done)，progress选填可null；填值时todo仅0、doing为0..99、done仅100。说明非空最多2000字。旧请求仅缺status且有整数progress时兼容推导。查看批准不授予反馈权限。
+      description: 仅approvalStatus为approved的任务可反馈；pending/rejected返回409且不修改任务。独立保存status(todo/doing/done)，progress选填可null；填值时todo仅0、doing为0..99、done仅100。说明非空最多2000字。旧请求仅缺status且有整数progress时兼容推导。查看批准不授予反馈权限。
       parameters:
         - in: path
           name: id
@@ -549,7 +604,49 @@ paths:
           $ref: "#/components/responses/Error409"
       security:
         - bearer: []
-      description: 本人今日日志、当前可读最新10任务；公司事项来自已发布十条。ADMIN403。
+      description: 本人今日日志、当前可读最新10任务、已发布公司事项及本人十大事项；详情和本人备注随面板返回。ADMIN403。
+  /priorities/personal:
+    get:
+      summary: 读取本人的个人十大事项和版本
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: 未保存过时 revision 为 0，items 为空
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonalPrioritySnapshot"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+    put:
+      summary: 按列表顺序保存本人的十大事项
+      description: 所有权取自登录账号；不能引用他人的正 id。revision 必须是最近读取的版本，冲突返回 409；不会静默覆盖。新项 id 可缺省或为负数，响应返回稳定正 id。items 为空会清空列表。
+      security:
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonalPriorityInput"
+      responses:
+        "200":
+          description: 保存成功，返回新版本及服务器 id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonalPrioritySnapshot"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "409":
+          $ref: "#/components/responses/Error409"
   /company-notices:
     get:
       summary: 全员只读：启用的公司十大事项
@@ -587,7 +684,7 @@ paths:
           $ref: "#/components/responses/Error404"
   /company-notices/{id}/note:
     put:
-      summary: 写本人备注（每人每条唯一）
+      summary: 写本人备注（每人每条唯一，空字符串清空）
       security:
         - bearer: []
       parameters:
@@ -998,7 +1095,7 @@ components:
         logDate:
           type: string
           format: date
-          description: Asia/Shanghai today-7..today inclusive; eight dates
+          description: 上海日期今天及前三天可新建；修改和提交仅限今天。历史日期只读。
         content:
           type: string
           minLength: 1
@@ -1024,7 +1121,7 @@ components:
         logDate:
           type: string
           format: date
-          description: Asia/Shanghai today-7..today inclusive; eight dates
+          description: 上海日期今天及前三天可新建；修改和提交仅限今天。历史日期只读。
         content:
           type: string
           minLength: 1
@@ -1185,6 +1282,35 @@ components:
         updatedAt:
           type: string
           format: date-time
+        approvalStatus:
+          type: string
+          enum: [pending, approved, rejected]
+          description: 旧任务及下派任务默认approved，自主任务除FOUNDER外待直属上级审批。
+        approvalNote:
+          type: string
+          maxLength: 500
+          default: ""
+        reviewerId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 实际审批人；未人工审批时为null。
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+    TaskApproval:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [approved, rejected]
+        note:
+          type: string
+          maxLength: 500
+          default: ""
+          description: 选填，驳回也允许空说明。
     TaskProgress:
       type: object
       description: 新客户端必须明确status；progress可省略或null，不把未知进度当成0。旧客户端仅提交整数progress仍临时兼容。
@@ -1214,6 +1340,48 @@ components:
               nullable: false
               minimum: 0
               maximum: 100
+    PersonalPriorityInput:
+      type: object
+      required: [revision, items]
+      properties:
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        items:
+          type: array
+          maxItems: 10
+          items:
+            type: object
+            required: [title]
+            properties:
+              id:
+                type: integer
+                format: int64
+                nullable: true
+              title:
+                type: string
+                minLength: 1
+                maxLength: 120
+              detail:
+                type: string
+                maxLength: 2000
+                nullable: true
+              sortOrder:
+                type: integer
+                description: 服务端按数组位置规范化为 0 开始的顺序
+    PersonalPrioritySnapshot:
+      type: object
+      required: [revision, items]
+      properties:
+        revision:
+          type: integer
+          format: int64
+        items:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/PanelItem"
     PanelItem:
       type: object
       properties:
@@ -1225,6 +1393,9 @@ components:
         sortOrder:
           type: integer
         myRemark:
+          type: string
+          nullable: true
+        detail:
           type: string
           nullable: true
     PanelMap:

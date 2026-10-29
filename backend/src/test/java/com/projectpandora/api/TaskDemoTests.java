@@ -95,15 +95,15 @@ class TaskDemoTests {
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(leader)).contentType(MediaType.APPLICATION_JSON).content(payload(other, "越权")))
             .andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(leader)).contentType(MediaType.APPLICATION_JSON).content(payload(leader, "自派")))
-            .andExpect(status().isForbidden());
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.approvalStatus").value("pending"));
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(staff)).contentType(MediaType.APPLICATION_JSON).content(payload(staff, "越权")))
-            .andExpect(status().isForbidden());
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.approvalStatus").value("pending"));
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON).content(payload(admin, "管理员")))
             .andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(founder)).contentType(MediaType.APPLICATION_JSON)
             .content("{\"title\":\"不存在\",\"assigneeId\":9223372036854775807}"))
             .andExpect(status().isNotFound());
-        assertThat(list(founder).size()).isEqualTo(4);
+        assertThat(list(founder).size()).isEqualTo(6);
     }
 
     @Test void onlyAssigneeCanUpdateIncludingCreatorAndAdmin() throws Exception {

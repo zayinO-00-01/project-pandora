@@ -18,6 +18,12 @@ public class TaskController {
     public TaskController(TaskService tasks) { this.tasks = tasks; }
     @GetMapping
     public List<TaskResponse> list(@org.springframework.web.bind.annotation.RequestParam(required=false) Long userId) { return tasks.list(userId); }
+    @GetMapping("/pending-approvals")
+    public List<TaskResponse> pendingApprovals() { return tasks.pendingApprovals(); }
+    @PutMapping("/{id}/approval")
+    public TaskResponse review(@PathVariable Long id, @Valid @RequestBody TaskApprovalRequest request) {
+        return tasks.review(id, request);
+    }
     @PostMapping
     public ResponseEntity<TaskResponse> create(@Valid @RequestBody CreateTaskRequest request) {
         return ResponseEntity.status(201).body(tasks.create(request));

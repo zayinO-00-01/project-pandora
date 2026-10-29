@@ -13,6 +13,10 @@ class PriorityStore(context: Context) {
     fun read(session: Session): LocalPriorities = runCatching {
         prefs.getString(key(session),null)?.let {gson.fromJson(it,LocalPriorities::class.java)} ?: LocalPriorities()
     }.getOrDefault(LocalPriorities())
+    fun readWorkspace(session: Session): WorkspaceDraft = runCatching {
+        prefs.getString("sync:${key(session)}",null)?.let {gson.fromJson(it,WorkspaceDraft::class.java)} ?: WorkspaceDraft()
+    }.getOrDefault(WorkspaceDraft())
+    fun saveWorkspace(session: Session,value: WorkspaceDraft) {prefs.edit().putString("sync:${key(session)}",gson.toJson(value)).commit()}
     fun save(session: Session,value: LocalPriorities) {prefs.edit().putString(key(session),gson.toJson(value)).apply()}
 }
 
@@ -22,5 +26,5 @@ fun filterMembers(members: List<UserSummary>,query: String): List<UserSummary> {
 }
 
 fun calendarSummaries(date: java.time.LocalDate,logs: List<WorkLog>,tasks: List<DispatchTask>): List<String> =
-    orderedTasks(tasks.filter {taskDate(it)==date}).map {it.title} +
+    orderedTasks(tasks.filter {taskIsApproved(it) && taskDate(it)==date}).map {it.title} +
         logs.filter {it.logDate==date.toString()}.map {it.content.lineSequence().firstOrNull {line->line.isNotBlank()}?.trim().orEmpty()}.filter {it.isNotBlank()}

@@ -43,6 +43,15 @@ public class TaskEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "approval_status", nullable = false, length = 16)
+    private String approvalStatus = "approved";
+    @Column(name = "approval_note", nullable = false, length = 500)
+    private String approvalNote = "";
+    @Column(name = "reviewer_id")
+    private Long reviewerId;
+    @Column(name = "reviewed_at")
+    private Instant reviewedAt;
+
     protected TaskEntity() {}
 
     TaskEntity(CreateTaskRequest request, UserEntity creator, UserEntity assignee) {
@@ -55,6 +64,15 @@ public class TaskEntity {
     @PreUpdate
     void onUpdate() { updatedAt = Instant.now(); }
     void updateProgress(String state, Integer value, String note) { status = state; progress = value; progressNote = note; }
+
+    void requireApproval() { approvalStatus = "pending"; }
+    void review(String decision, String note, Long reviewer) {
+        approvalStatus = decision; approvalNote = note; reviewerId = reviewer; reviewedAt = Instant.now();
+    }
+    public String getApprovalStatus() { return approvalStatus; }
+    public String getApprovalNote() { return approvalNote; }
+    public Long getReviewerId() { return reviewerId; }
+    public Instant getReviewedAt() { return reviewedAt; }
 
     public Long getId() { return id; }
     public String getTitle() { return title; }

@@ -4,14 +4,17 @@
 Provide local priority planning, readable calendar summaries and scoped member search.
 
 ## Requirements
-### Requirement: Frontend priorities
-The app SHALL expose company and personal top-ten pages with full details and no search field. Company text SHALL remain read-only and support local personal notes. Personal items SHALL support local create, edit, delete and reorder up to ten items. Local state SHALL persist by server/user and SHALL be visibly marked unsynced; future transport contracts SHALL be documented without implementing backend writes.
-#### Scenario: Personal planning
-- **WHEN** a user saves a personal item and reopens the app with the same account
-- **THEN** it remains in the local list and is not reported as server-saved
-#### Scenario: Company notes
-- **WHEN** a user adds a company-item note
-- **THEN** company source text is unchanged and the note is private to the local account
+### Requirement: Synchronized priorities
+The app SHALL show full read-only company content from ADMIN Web publications and persist private notes through the existing company-notices API. Personal priorities SHALL support create, edit, delete and reorder up to ten items with backend persistence. Ownership SHALL come from the authenticated identity. Unsent drafts SHALL persist locally by server and user; old local snapshots SHALL remain available for explicit import.
+#### Scenario: Cross-device personal planning
+- **WHEN** a user saves and synchronizes a personal list then signs in on another device
+- **THEN** the same server items, IDs and order are returned
+#### Scenario: Concurrent editing
+- **WHEN** the server revision differs from an open editor or pending local draft
+- **THEN** refresh SHALL preserve the draft base and indicate conflict; replacement requires explicit confirmation, and failures SHALL retain input
+#### Scenario: Private company notes
+- **WHEN** a user saves or clears a note
+- **THEN** the full original stays unchanged and another user cannot read the note
 ### Requirement: Readable calendar agenda
 The month calendar SHALL use compact week rows (72dp minimum at normal font scale, replacing 98dp rows), retain at least 48dp touch targets, show compact task titles or log summaries beneath each day and SHALL show selected-day work details below the grid.
 #### Scenario: Select busy day
@@ -46,7 +49,7 @@ Task displays SHALL distinguish high, normal and low priority with red, teal and
 - **WHEN** multiple task priorities and deadlines are loaded
 - **THEN** overview dispatch, duties, task lists and calendar task summaries use the same ordering and labels
 ### Requirement: Personal drag ordering
-Personal priorities SHALL support long-press vertical drag, visible lifted feedback, edge autoscroll and persistent ordering on drop. Cancellation SHALL restore the initial order; cards SHALL use compact spacing and SHALL NOT display up/down buttons; ordering SHALL use drag gestures. Company priorities SHALL remain Android read-only with a reserved Web-admin editing contract.
+Personal priorities SHALL support long-press vertical drag, visible lifted feedback, edge autoscroll and persistent ordering on drop. Cancellation SHALL restore the initial order; cards SHALL use compact spacing and SHALL NOT display up/down buttons; ordering SHALL use drag gestures. Company priorities SHALL remain Android read-only with ADMIN publishing through Web.
 #### Scenario: Tenth item before ninth
 - **WHEN** a user drags the tenth personal item above the ninth and releases
 - **THEN** their positions and sortOrder are exchanged and retained after reopening the same account
@@ -88,7 +91,7 @@ Android task details SHALL show actual todo/doing/done stages with a smooth nati
 - **THEN** the graph immediately presents the current stage without requiring animation to understand it
 
 ### Requirement: Company depth card preview and collection
-Android overview SHALL show only the first two sorted company items side by side as depth cards. View all SHALL show every available company item in a two-column collection. Cards SHALL open read-only details and existing local remarks, retain theme contrast and light-mode black borders, and support subtle pointer tilt without blocking vertical scrolling. Disabled system animation SHALL yield static cards.
+Android overview SHALL show only the first two sorted company items side by side as depth cards. View all SHALL show every available company item in a two-column collection. Cards SHALL open read-only details and the current user’s persisted remarks, retain theme contrast and light-mode black borders, and support subtle pointer tilt without blocking vertical scrolling. Disabled system animation SHALL yield static cards.
 #### Scenario: Ten available items
 - **WHEN** ten company items are loaded
 - **THEN** overview shows two cards and View all exposes all ten in their existing order
@@ -97,7 +100,7 @@ Android overview SHALL show only the first two sorted company items side by side
 - **THEN** only available cards are shown, with no fabricated placeholder content; empty and failed states remain distinct
 #### Scenario: Open a preview
 - **WHEN** a company preview card is selected
-- **THEN** its full detail and existing local remark are available without editing company content
+- **THEN** its full detail and the current user’s private remark are available without editing company content
 
 ### Requirement: Explicit local company examples
 Debug Android SHALL offer ten local company card examples through development entry and an opt-in action when authenticated company data is empty. Examples SHALL be labelled, remain separate from server content and allow returning to actual data. Example details SHALL be read-only without remark writes. Release SHALL hide demo entry controls.

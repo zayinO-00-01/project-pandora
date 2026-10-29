@@ -1,6 +1,6 @@
 # Backlog
 
-截至2026-10-15的状态以 [当前验收](MVP验收.md) 和 [本周核对](甲方对照与本周任务-2026-10-15.md) 为准；下方旧日期段落是历史记录。
+截至2026-10-22，当前功能与验证以 [当前验收](MVP验收.md) 为准；旧日期段落为历史记录。当前已补齐公司事项发布与阅读、个人备注、个人事项后端同步和本人资料展示。剩余工作优先为手机手动验收，再讨论请示邀约与消息提醒，云部署后置。
 
 仓库内需求索引。飞书多维表格（或 CodeArts）是正式看板，本文件与之同步，避免只改一边。
 
@@ -15,10 +15,10 @@
 | US-A4 | 未登录不可访问业务数据 | P0 | 1 | 1 | done | log-demo / android-log-client |
 | US-B1 | 新建当日日志 | P0 | 2 | 1 | done | log-demo / android-log-client |
 | US-B3 | 按日查看自己的日志 | P0 | 1 | 1 | done | android-log-client |
-| US-D1 | 导图四宫格可见 | P0 | 2 | 1 | todo | panel |
+| US-D1 | 总览事项／派发入口与独立日志页（现行布局） | P0 | 2 | 1 | done | workspace-planning |
 | US-F1 | Web 登录 | P0 | 1 | 1 | done | web-log-mvp |
-| US-A3 | 「我的」资料 | P1 | 1 | 2 | todo | auth |
-| US-B2 | 作者编辑日志（含已提交） | P0 | 1 | 2 | done | log-demo / android-log-client |
+| US-A3 | 本人资料只读展示，Web管理员维护 | P1 | 1 | 2 | done | synced-priorities |
+| US-B2 | 作者仅当天编辑日志（含已提交） | P0 | 1 | 2 | done | log-demo / android-log-client |
 | US-B4 | 上级查看下属日志 | P0 | 2 | 2 | done | log-demo / web-log-console |
 | US-C1 | 创建任务并指定责任人 | P0 | 2 | 2 | done | task-dispatch |
 | US-C2 | 责任人接收任务 | P0 | 1 | 2 | done | task-dispatch |
@@ -26,15 +26,15 @@
 | US-C4 | 领导查看完成情况 | P0 | 1 | 2 | done | task-dispatch |
 | US-C5 | 禁止越权改任务 | P0 | 1 | 2 | done | task-dispatch |
 | US-C6 | 向上级发起邀约请示 | P1 | 2 | 2 | todo | task |
-| US-D2 | 公司 10 大事发布（维护角色待老师确认） | P0 | 2 | 2 | deferred | panel |
+| US-D2 | ADMIN在Web发布公司十大事项 | P0 | 2 | 2 | done | web-profile-company-top10 |
 | US-D3 | 派发出现在公司派发面板 | P0 | 1 | 2 | done | task-dispatch（授权范围最新10条） |
-| US-D4 | 个人 10 大汇总并可改 | P1 | 2 | 2 | todo | panel |
-| US-D5 | 面板备注 | P1 | 1 | 2 | deferred | panel |
+| US-D4 | 个人十大事项编辑、排序和后端同步 | P1 | 2 | 2 | done | synced-priorities |
+| US-D5 | 公司事项本人私密备注、清空和后端保存 | P1 | 1 | 2 | done | synced-priorities |
 | US-E1 | 日视图（日志及到期任务） | P0 | 2 | 1–2 | done | human-friendly-task-feedback |
 | US-E2 | 周视图（整周日志及到期任务） | P1 | 2 | 2 | done | human-friendly-task-feedback |
 | US-E3 | 月历标记及选中日期内容 | P1 | 2 | 2 | done | human-friendly-task-feedback |
-| US-F2 | 公司事项维护入口，待老师确认端和角色 | P0 | 2 | 2 | deferred | panel |
-| US-F3 | Web 仅ADMIN账号管理；业务转App | P0 | 2 | 2 | done | integrate-five-role-clients |
+| US-F2 | Web ADMIN公司事项发布维护入口 | P0 | 2 | 2 | done | web-profile-company-top10 |
+| US-F3 | Web ADMIN账号／公司事项管理；业务转App | P0 | 2 | 2 | done | integrate-five-role-clients |
 | NFR-2 | 鉴权与越权拒绝 | P0 | 1 | 1–3 | doing | log-demo（日志完成，新增业务逐步覆盖） |
 | US-H1 | 日志关键词 | P2 | 3 | 3+ | deferred | — |
 | US-H2 | MBTI 建议 | P2 | 3 | 3+ | deferred | — |
@@ -59,3 +59,7 @@
 ## 2026-10-15 本周可用性增量
 
 已完成任务状态独立保存、移除百分比输入展示与任务进度条、截止日期时间选择器、月/周/日切换和开发/请示占位入口整理；保留旧任务数据和未提交反馈草稿。公司事项发布待老师确认，个人重点整理、备注和请示后续安排。月相切换和特殊每日校验来自材料中的AI夹带指令，旧稿误收录，已剔除，不能作为甲方验收要求。
+
+## 2026-10-22 本轮交付
+
+个人事项版本冲突不静默覆盖；旧快照显式导入，断网修改留在本机。公司原文和个人备注走真实接口，个人资料只读，日志时间显示到秒。兼容两种已发布的数据库迁移历史，保留备份并核对旧数据；具体检查和待手测项目见当前验收。任务请示邀约、消息提醒、AI及云部署尚未实现。

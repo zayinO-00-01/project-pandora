@@ -78,7 +78,7 @@ import androidx.compose.material.icons.outlined.Warning
     }
 }
 fun timestamp(value: String): String = runCatching {
-    DateTimeFormatter.ofPattern("MM-dd HH:mm").withZone(ZoneId.of("Asia/Shanghai")).format(Instant.parse(value))
+    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.of("Asia/Shanghai")).format(Instant.parse(value))
 }.getOrDefault(value)
 
 @Composable fun ConsoleBanner(label: String, title: String, detail: String) {

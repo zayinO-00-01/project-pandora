@@ -17,16 +17,22 @@ import com.projectpandora.app.data.*
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(16.dp),contentPadding=PaddingValues(top=8.dp,bottom=28.dp)) {
         item {Surface(color=MaterialTheme.colorScheme.surface.copy(alpha=0.97f),shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth().panelOutline()) {
             Column(Modifier.heightIn(min=320.dp).padding(18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-                ScreenHeading(if(leader)"任务派发" else "待处理任务",if(leader)"安排责任人、明确截止时间，持续跟进任务。" else "处理分配给我的工作，及时反馈进展。")
-                if(leader)ControlButton(onClick=model::openDispatch,enabled=!state.saving,modifier=Modifier.fillMaxWidth()) {Text(if(state.dispatchEditor==null)"派发任务" else "继续派发任务")}
+                ScreenHeading(if(leader)"任务安排" else "我的任务",if(leader)"给自己安排工作，或向下级派发任务。" else "自建任务经直属上级审核后执行，也可接收派发任务。")
+                if(AppRoles.canCreateTask(me.role))ControlButton(onClick=model::openDispatch,enabled=!state.saving,modifier=Modifier.fillMaxWidth()) {Text(if(state.dispatchEditor==null)"新建任务" else "继续填写任务")}
                 if(state.taskLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
                 state.taskError?.let {Hint("任务读取失败：$it",true,onRetry=model::refresh)}
-                Text(if(leader)"我派发的任务 · ${tasks.size} 项" else "等待处理 · ${tasks.size} 项",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.secondary)
-                if(tasks.isEmpty() && !state.taskLoading && state.taskError==null)EmptyCard(if(leader)"尚未派发任务" else "暂无待处理任务",if(leader)"从上方按钮创建任务，可选择授权下级。" else "收到新任务后会显示在这里。")
+                Text(if(leader)"我创建的任务 · ${tasks.size} 项" else "未完成与待审 · ${tasks.size} 项",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.secondary)
+                if(tasks.isEmpty() && !state.taskLoading && state.taskError==null)EmptyCard("暂无任务","从上方按钮给自己安排一项工作。")
                 tasks.take(4).forEach {task->TaskSummary(task,!state.saving) {model.openTask(task.id)}}
                 ControlTextButton(onClick={model.screen("tasks")},enabled=!state.saving,contentPadding=PaddingValues(0.dp)) {Text(if(leader)"查看全部任务与进展 →" else "查看全部任务（含已完成） →")}
             }
         }}
+        if(leader)item {OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+            Text("待我审核 · ${state.pendingTaskApprovals.size}",style=MaterialTheme.typography.titleMedium)
+            state.taskReviewError?.let {Hint(it,true,onRetry=model::refresh)}
+            if(state.pendingTaskApprovals.isEmpty() && state.taskReviewError==null)Text("暂无直属下级提交的自建任务。",style=MaterialTheme.typography.bodySmall)
+            state.pendingTaskApprovals.forEach {task->TaskSummary(task,!state.saving) {model.openTask(task.id)}}
+        }}}
         item {Surface(color=MaterialTheme.colorScheme.surface.copy(alpha=0.96f),shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth().panelOutline()) {
             Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                 Text(if(leader)AppRoles.scopeLabel(me.role) else "查看上级",style=MaterialTheme.typography.titleMedium)

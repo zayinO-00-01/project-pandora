@@ -74,7 +74,10 @@ public class CompanyNoticeService {
 
     @Transactional
     public String saveNote(Long noticeId, Long userId, String content) {
-        String clean = requireText(content, 2000, "备注不能为空");
+        if (content == null || content.length() > 2000) {
+            throw new ApiException(400, "备注不能为空值且最多 2000 字");
+        }
+        String clean = content.trim();
         var note = notes.findByNoticeIdAndUserId(noticeId, userId).orElseGet(() -> {
             var created = new CompanyNoticeNoteEntity();
             created.setNoticeId(noticeId);

@@ -2,7 +2,7 @@ package com.projectpandora.api.notice;
 
 import com.projectpandora.api.security.AccessService;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 import org.springframework.web.bind.annotation.*;
@@ -40,7 +40,7 @@ public class CompanyNoticeController {
         return NoticeResponse.from(notice, note);
     }
 
-    public record NoteRequest(@NotBlank @Size(max = 2000) String content) {}
+    public record NoteRequest(@NotNull @Size(max = 2000) String content) {}
 
     public record NoticeResponse(Long id, String title, String content, Integer sortOrder, boolean enabled,
                                  String updatedAt, String myNote) {

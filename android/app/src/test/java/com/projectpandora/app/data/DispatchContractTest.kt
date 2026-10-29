@@ -64,7 +64,7 @@ class DispatchContractTest {
                 catch(e:ApiException) {assertEquals(403,e.status)}
             }
             val me=Session(api.server,"t",2,"FOUNDER",null,"f")
-            for(bad in listOf(input.copy(title=" "),input.copy(title="x".repeat(129)),input.copy(detail="x".repeat(5001)),input.copy(priority="urgent"),input.copy(assigneeId=0),input.copy(assigneeId=2),input.copy(dueAt="tomorrow"))) {
+            for(bad in listOf(input.copy(title=" "),input.copy(title="x".repeat(129)),input.copy(detail="x".repeat(5001)),input.copy(priority="urgent"),input.copy(assigneeId=0),input.copy(dueAt="tomorrow"))) {
                 try {api.createTask(me,bad);fail("invalid accepted")} catch(_:IllegalArgumentException) {}
             }
             assertEquals(0,server.requestCount)
@@ -95,7 +95,7 @@ class DispatchContractTest {
         assertNotNull(TaskDispatchValidation.error(draft,emptyList()))
         assertNotNull(TaskDispatchValidation.error(draft,listOf(member.copy(role="ADMIN"))))
         assertNotNull(TaskDispatchValidation.error(draft.copy(dueDate="2026-02-30 10:00"),listOf(member)))
-        assertNotNull(TaskDispatchValidation.error(draft.copy(assigneeId=2),listOf(member.copy(id=2))))
+        assertNull(TaskDispatchValidation.error(draft.copy(assigneeId=2),emptyList()))
     }
     @Test fun organizationRequestsAndReadOnlyMembersKeepExistingRoutes() {
         MockWebServer().use { server ->

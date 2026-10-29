@@ -19,6 +19,7 @@ fun logEditorReadOnly(buffer: EditBuffer,logs: List<WorkLog>): Boolean = buffer.
 object AppRoles {
     fun canViewDown(role: String)=role in setOf("FOUNDER","DEPT_HEAD","TEAM_LEAD")
     fun canDispatch(role: String)=canViewDown(role)
+    fun canCreateTask(role: String)=role in business
     fun homeTitle(role: String)=when(role) {"FOUNDER"->"公司总览";"DEPT_HEAD"->"部门总览";"TEAM_LEAD"->"团队总览";else->"我的工作"}
     fun scopeLabel(role: String)=when(role) {"FOUNDER"->"公司组织";"DEPT_HEAD"->"部门成员";"TEAM_LEAD"->"团队成员";else->"查看上级"}
     val business=setOf("STAFF","TEAM_LEAD","DEPT_HEAD","FOUNDER")
@@ -39,7 +40,10 @@ fun taskDate(task: DispatchTask): LocalDate?=task.dueAt?.let {
 // Used only when upgrading older percentage-only feedback or local drafts.
 fun legacyTaskStatus(progress: Int?): String=when(progress) {0,null->"todo";100->"done";else->"doing"}
 fun taskStatusLabel(status: String)=when(status) {"doing"->"进行中";"done"->"已完成";else->"待开始"}
-fun taskFeedbackLabel(task: DispatchTask)=taskStatusLabel(task.status)
+fun taskIsApproved(task: DispatchTask)=task.approvalStatus==null || task.approvalStatus=="approved"
+fun taskFeedbackLabel(task: DispatchTask)=when(task.approvalStatus) {
+    "pending"->"待上级审核";"rejected"->"审核未通过";else->taskStatusLabel(task.status)
+}
 
 /** Staff see only their pending work; leaders see their authored assignments, including completed ones. */
 fun dutyTasks(tasks: List<DispatchTask>,userId: Long,leader: Boolean): List<DispatchTask> =

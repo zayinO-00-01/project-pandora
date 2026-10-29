@@ -2,10 +2,6 @@
 param([string]$DatabasePath,[string]$JavaHome,[string]$H2Jar)
 $ErrorActionPreference='Stop'
 $repoPath=Split-Path -Parent $PSScriptRoot
-if(Test-Path (Join-Path $repoPath 'backend/src/main/resources/db/migration/V3__dispatch_tasks.sql')){
-    Write-Host '本分支保留原有 V3 tasks / V4 view requests / V5 roles 迁移顺序，由 Flyway 按原序升级。'
-    return
-}
 if(-not $DatabasePath){$DatabasePath=Join-Path $repoPath 'backend/data/pandora'}
 if(-not (Test-Path -LiteralPath "$DatabasePath.mv.db")){Write-Host '数据库尚不存在，首次启动由 Flyway 创建。';return}
 if(-not $JavaHome){

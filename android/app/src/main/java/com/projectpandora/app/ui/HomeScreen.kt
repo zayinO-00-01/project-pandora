@@ -26,7 +26,7 @@ import com.projectpandora.app.data.*
     val company=if(companyExamples)CompanyPriorityExamples.items else state.panels?.companyImportant.orEmpty().sortedBy {it.sortOrder}
     val taskPositions=orderedTasks(state.tasks).mapIndexed {index,task->task.id to index}.toMap()
     val dispatch=state.panels?.companyDispatch.orEmpty().sortedWith(compareBy<PanelItem> {taskPositions[it.id] ?: Int.MAX_VALUE}.thenBy {it.sortOrder ?: Int.MAX_VALUE})
-    val personal=state.localPriorities.personal ?: state.panels?.personalTop.orEmpty().sortedBy {it.sortOrder}
+    val personal=if(state.developmentPreview)state.localPriorities.personal.orEmpty() else state.personal.items
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(top=8.dp,bottom=24.dp)) {
         item {OverviewSection("公司十大事","公司的重点与工作方向",company.size,248.dp,onOpen={selectedPanel="公司十大事"}) {
             if(companyExamples) {
@@ -56,7 +56,10 @@ import com.projectpandora.app.data.*
             }
         }}
         item {OverviewSection("个人十大事","我的工作重点",personal.size,112.dp,onOpen={selectedPanel="个人十大事"}) {
-            if(personal.isEmpty())Text("还没有个人事项，点击查看全部后添加。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            if(state.personalLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
+            state.personalError?.let {Hint(it,true,onRetry=model::refresh)}
+            if(state.personal.dirty)Text("有待同步的个人事项",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.secondary)
+            if(personal.isEmpty() && !state.personalLoading && state.personalError==null)Text("还没有个人事项，点击查看全部后添加。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             personal.take(2).forEachIndexed {index,entry->Text("${index+1}. ${entry.title}",modifier=Modifier.fillMaxWidth().clickable {selectedPanel="个人十大事"}.padding(vertical=3.dp),style=MaterialTheme.typography.bodyMedium,maxLines=1,overflow=TextOverflow.Ellipsis)}
         }}
     }
