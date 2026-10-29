@@ -10,6 +10,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  repository-content:
+    name: Repository content
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject local tool files
+        shell: pwsh
+        run: ./scripts/Check-RepositoryContent.ps1
+
   backend:
     name: Backend (Maven)
     runs-on: ubuntu-latest
