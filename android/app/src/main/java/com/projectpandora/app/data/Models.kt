@@ -7,12 +7,17 @@ fun today(): LocalDate = LocalDate.now(ZoneId.of("Asia/Shanghai"))
 data class Session(val server: String, val token: String, val userId: Long, val role: String, val displayName: String?, val username: String)
 data class LoginResponse(val token: String, val role: String, val displayName: String?, val userId: Long)
 data class UserSummary(val id: Long, val username: String, val displayName: String?, val role: String)
+data class Profile(val id: Long, val username: String, val role: String, val displayName: String?, val managerId: Long?,
+    val managerName: String?, val avatar: String?, val avatarImage: String?, val phone: String?, val idCard: String?, val birthDate: String?,
+    val gender: String?, val hireDate: String?, val emergencyContact: String?, val emergencyPhone: String?, val address: String?)
 data class Organization(val members: List<UserSummary> = emptyList(),val manager: UserSummary? = null, val assignees: List<UserSummary> = emptyList())
 data class ViewRequest(val id: Long,val requester: UserSummary,val target: UserSummary,val reason: String,val status: String,val updatedAt: String)
 data class WorkLog(val id: Long, val userId: Long, val logDate: String, val content: String, val status: String, val createdAt: String, val updatedAt: String)
 data class PanelItem(val id: Long, val title: String, val sortOrder: Int?, val myRemark: String?, val detail: String? = null)
 data class IntegrityResponse(val ok: Boolean, val message: String?)
 data class PanelMap(val companyImportant: List<PanelItem> = emptyList(), val companyDispatch: List<PanelItem> = emptyList(), val personalTop: List<PanelItem> = emptyList(), val todayLogs: List<WorkLog> = emptyList())
+data class AppNotification(val id: Long, val type: String, val title: String, val body: String, val taskId: Long?, val read: Boolean, val createdAt: String)
+data class NotificationList(val items: List<AppNotification> = emptyList(), val unreadCount: Long = 0)
 data class LogInput(val logDate: String, val content: String, val status: String)
 data class EditBuffer(val server: String, val userId: Long, val logId: Long?, val date: String, val content: String, val status: String)
 
@@ -21,7 +26,9 @@ data class DispatchTask(val id: Long, val title: String, val detail: String, val
     val createdBy: Long, val assigneeId: Long, val creatorName: String, val assigneeName: String,
     val createdAt: String, val updatedAt: String,
     val approvalStatus: String? = "approved", val approvalNote: String? = "",
-    val reviewerId: Long? = null, val reviewedAt: String? = null)
+    val reviewerId: Long? = null, val reviewedAt: String? = null,
+    val reviewStatus: String? = "none", val reviewReason: String? = null, val reviewedBy: Long? = null,
+    val lifecycleReviewedAt: String? = null, val deleted: Boolean = false, val pendingChange: String? = null)
 data class TaskProgressInput(val progress: Int?, val progressNote: String, val status: String? = null)
 data class TaskEditBuffer(val server: String, val userId: Long, val taskId: Long, val progress: String, val note: String, val status: String? = null)
 
@@ -35,7 +42,4 @@ data class PersonalPrioritySnapshot(val revision: Long, val items: List<PanelIte
 data class CompanyNotice(val id: Long, val title: String, val content: String, val sortOrder: Int?, val enabled: Boolean, val updatedAt: String, val myNote: String?) {
     fun panel()=PanelItem(id,title,sortOrder,myNote,content)
 }
-data class SelfProfile(val id: Long, val username: String, val role: String, val displayName: String?, val managerId: Long?,
-    val phone: String?, val idCard: String?, val birthDate: String?, val gender: String?, val hireDate: String?,
-    val emergencyContact: String?, val emergencyPhone: String?, val address: String?)
 data class CompanyRemarkInput(val remark: String)

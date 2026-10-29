@@ -11,10 +11,12 @@ fun canWriteLog(date: String,reference: LocalDate=today()): Boolean = runCatchin
     parsed>=reference.minusDays(3) && parsed<=reference
 }.getOrDefault(false)
 
+/** Existing logs are editable only on their log date in Shanghai. */
 fun canModifyLog(date: String,reference: LocalDate=today()): Boolean = date==reference.toString()
+fun canModifyLog(log: WorkLog,reference: LocalDate=today()): Boolean = canModifyLog(log.logDate,reference)
 
 fun logEditorReadOnly(buffer: EditBuffer,logs: List<WorkLog>): Boolean = buffer.logId!=null &&
-    !canModifyLog(logs.firstOrNull {it.id==buffer.logId}?.logDate ?: "")
+    (logs.firstOrNull {it.id==buffer.logId}?.let {!canModifyLog(it)} ?: true)
 
 object AppRoles {
     fun canViewDown(role: String)=role in setOf("FOUNDER","DEPT_HEAD","TEAM_LEAD")
@@ -44,6 +46,12 @@ fun taskIsApproved(task: DispatchTask)=task.approvalStatus==null || task.approva
 fun taskFeedbackLabel(task: DispatchTask)=when(task.approvalStatus) {
     "pending"->"待上级审核";"rejected"->"审核未通过";else->taskStatusLabel(task.status)
 }
+fun taskReviewLabel(reviewStatus: String?): String? = when(reviewStatus) {
+    "pending_done"->"待验收";"pending_change"->"变更待审";"pending_delete"->"删除待审"
+    "rejected"->"已驳回";else->null
+}
+fun isPendingReview(reviewStatus: String?): Boolean =
+    reviewStatus=="pending_done" || reviewStatus=="pending_change" || reviewStatus=="pending_delete"
 
 /** Staff see only their pending work; leaders see their authored assignments, including completed ones. */
 fun dutyTasks(tasks: List<DispatchTask>,userId: Long,leader: Boolean): List<DispatchTask> =

@@ -3,9 +3,8 @@ package com.projectpandora.app.data
 import android.content.Context
 import com.google.gson.Gson
 
+/** Legacy local data is retained for explicit import into server-backed workspace drafts. */
 data class LocalPriorities(val personal: List<PanelItem>? = null, val remarks: Map<Long,String> = emptyMap())
-
-/** Frontend-only snapshot. A future sync must explicitly reconcile it with server data. */
 class PriorityStore(context: Context) {
     private val prefs=context.getSharedPreferences("pandora-priorities",Context.MODE_PRIVATE)
     private val gson=Gson()

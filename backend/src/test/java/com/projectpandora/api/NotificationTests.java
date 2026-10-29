@@ -1,0 +1,111 @@
+package com.projectpandora.api;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.HashMap;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+@Transactional
+class NotificationTests {
+    @Autowired MockMvc mvc;
+    @Autowired ObjectMapper json;
+
+    JsonNode login(String name) throws Exception {
+        return json.readTree(mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("username", name, "password", "demo1234"))))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+    }
+    String token(JsonNode user) { return "Bearer " + user.get("token").asText(); }
+
+    JsonNode create(JsonNode creator, long assigneeId, String title) throws Exception {
+        var body = new HashMap<String, Object>();
+        body.put("title", title); body.put("assigneeId", assigneeId);
+        return json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization", token(creator))
+            .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body)))
+            .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+    }
+    void progress(JsonNode user, long id, String status, Integer value, String note) throws Exception {
+        var body = new HashMap<String, Object>();
+        body.put("status", status); body.put("progressNote", note);
+        if (value != null) body.put("progress", value);
+        mvc.perform(put("/api/v1/tasks/" + id + "/progress").header("Authorization", token(user))
+            .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body)))
+            .andExpect(status().isOk());
+    }
+    void review(JsonNode user, long id, String action, String note) throws Exception {
+        mvc.perform(post("/api/v1/tasks/" + id + "/" + action).header("Authorization", token(user))
+            .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("note", note == null ? "" : note))))
+            .andExpect(status().isOk());
+    }
+    JsonNode notifications(JsonNode user) throws Exception {
+        return json.readTree(mvc.perform(get("/api/v1/notifications").header("Authorization", token(user)))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+    }
+    boolean hasType(JsonNode list, String type) {
+        for (JsonNode n : list.get("items")) if (type.equals(n.get("type").asText())) return true;
+        return false;
+    }
+
+    @Test void dispatchNotifiesAssignee() throws Exception {
+        var team = login("team_lead"); var staff = login("staff");
+        create(team, staff.get("userId").asLong(), "派发通知任务");
+        var list = notifications(staff);
+        assertThat(hasType(list, "task_assigned")).isTrue();
+        assertThat(list.get("unreadCount").asLong()).isGreaterThanOrEqualTo(1);
+    }
+
+    @Test void completionNotifyDispatcherThenApprovalNotifiesAssignee() throws Exception {
+        var team = login("team_lead"); var staff = login("staff");
+        long id = create(team, staff.get("userId").asLong(), "验收通知任务").get("id").asLong();
+        progress(staff, id, "done", 100, "完成");
+        assertThat(hasType(notifications(team), "done_pending")).isTrue();
+        review(team, id, "approve", "通过");
+        assertThat(hasType(notifications(staff), "done_approved")).isTrue();
+    }
+
+    @Test void rejectNotifiesAssigneeWithReason() throws Exception {
+        var team = login("team_lead"); var staff = login("staff");
+        long id = create(team, staff.get("userId").asLong(), "驳回通知任务").get("id").asLong();
+        progress(staff, id, "done", null, "完成");
+        review(team, id, "reject", "请补充");
+        var list = notifications(staff);
+        assertThat(hasType(list, "done_rejected")).isTrue();
+        assertThat(list.toString()).contains("请补充");
+    }
+
+    @Test void changeAndDeleteGoToSuperior() throws Exception {
+        var team = login("team_lead"); var staff = login("staff"); var leader = login("leader");
+        long id = create(team, staff.get("userId").asLong(), "变更通知任务").get("id").asLong();
+        var change = new HashMap<String, Object>();
+        change.put("title", "改标题"); change.put("assigneeId", staff.get("userId").asLong());
+        mvc.perform(put("/api/v1/tasks/" + id).header("Authorization", token(team))
+            .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(change))).andExpect(status().isOk());
+        assertThat(hasType(notifications(leader), "change_pending")).isTrue();
+        review(leader, id, "approve", "同意");
+        assertThat(hasType(notifications(team), "change_approved")).isTrue();
+    }
+
+    @Test void markAllReadClearsUnread() throws Exception {
+        var team = login("team_lead"); var staff = login("staff");
+        create(team, staff.get("userId").asLong(), "已读任务");
+        assertThat(notifications(staff).get("unreadCount").asLong()).isGreaterThanOrEqualTo(1);
+        mvc.perform(post("/api/v1/notifications/read-all").header("Authorization", token(staff)))
+            .andExpect(status().isNoContent());
+        assertThat(notifications(staff).get("unreadCount").asLong()).isZero();
+    }
+}

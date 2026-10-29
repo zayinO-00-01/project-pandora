@@ -97,7 +97,7 @@ import androidx.compose.ui.semantics.contentDescription
     if(discard)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={discard=false},title={Text("放弃这次修改？")},text={Text("未保存内容会被清除，服务器里的日志不会改变。")},confirmButton={ControlTextButton(onClick={discard=false;model.discardEditor()}) {Text("放弃修改")}},dismissButton={ControlTextButton(onClick={discard=false}) {Text("继续编辑")}})
     Column(Modifier.fillMaxSize().imePadding().padding(horizontal=20.dp)) {
         LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=20.dp)) {
-            item {ScreenHeading(if(readOnly)"查看工作日志" else if(editor.logId==null)"新建工作日志" else "编辑工作日志",if(readOnly)"此记录已超出修改期限，内容仅供查看。" else "可补录今天及往前 3 天；仅当天日报可修改。")}
+            item {ScreenHeading(if(readOnly)"查看工作日志" else if(editor.logId==null)"新建工作日志" else "编辑工作日志",if(readOnly)"仅当天日期的日志可修改，历史记录仅供查看。" else "可新建今天及之前三天的日报；仅当天日期的日志可修改。")}
             item {Text(if(readOnly)"历史日志完整保留。" else if(editor.status=="submitted")"保存后，领导刷新即可看到最新内容。" else "草稿仅自己可见，提交后领导才能查看。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
             state.logs.firstOrNull {it.id==editor.logId}?.let {saved->
                 item {Text("创建时间  ${timestamp(saved.createdAt)}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}

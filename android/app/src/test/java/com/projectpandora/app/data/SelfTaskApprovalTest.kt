@@ -26,6 +26,15 @@ class SelfTaskApprovalTest {
         assertNull(TaskDispatchValidation.inputError(TaskDispatchValidation.input(draft),3))
         assertNotNull(TaskDispatchValidation.error(draft.copy(assigneeId=9),emptyList()))
     }
+    @Test fun everyBusinessRoleKeepsSelfAndOnlyLeadersGetAuthorizedSubordinates() {
+        val staff=UserSummary(9,"report","下级","STAFF")
+        for(role in AppRoles.business) {
+            val me=Session("server","s",3,role,null,"me")
+            val assignees=TaskDispatchValidation.assignees(me,Organization(assignees=listOf(staff)))
+            assertEquals(3L,assignees.first().id)
+            assertEquals(if(role=="STAFF")listOf(3L) else listOf(3L,9L),assignees.map {it.id})
+        }
+    }
     @Test fun pendingAndRejectedAreNotExecutableOrShownAsStarted() {
         val parser=com.google.gson.Gson()
         val task=parser.fromJson(pending,DispatchTask::class.java)

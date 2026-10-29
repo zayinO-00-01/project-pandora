@@ -26,7 +26,7 @@ object LogValidation {
     fun error(date: String, content: String, status: String): String? {
         val parsed=try {LocalDate.parse(date)} catch(_:Exception) {return "请选择有效的日志日期"}
         if(parsed>today())return "日志日期不能晚于今天"
-        if(!canWriteLog(date))return "可创建今天及往前 3 天的日报"
+        if(!canWriteLog(date))return "只能新建今天及之前三天的日报"
         if(content.isBlank())return "工作记录不能为空"
         if(content.length>5000)return "工作记录不能超过5000字"
         if(status !in listOf("draft","submitted"))return "无效的日志状态"
@@ -59,6 +59,13 @@ class ApiClient(address: String) {
         return Session(server,result.token,result.userId,result.role,result.displayName,username)
     }
     fun users(session: Session): List<UserSummary> = request("/users","GET",null,session,object:TypeToken<List<UserSummary>>(){}.type)
+    fun profile(session: Session): Profile = request("/users/me","GET",null,session,Profile::class.java)
+    fun changePassword(session: Session, currentPassword: String, newPassword: String) {
+        require(newPassword.length in 6..72) {"新密码需为 6-72 位"}
+        val ignored: Map<String,Any?> = request("/users/me/password","PUT",mapOf("currentPassword" to currentPassword,"newPassword" to newPassword),session,object:TypeToken<Map<String,Any?>>(){}.type)
+        ignored.size
+    }
+    fun updateAvatar(session: Session, avatar: String): Profile = request("/users/me/avatar","PUT",mapOf("avatar" to avatar),session,Profile::class.java)
     fun organization(session: Session): Organization = request("/users/organization","GET",null,session,Organization::class.java)
     fun viewRequests(session: Session): List<ViewRequest> = request("/view-requests","GET",null,session,object:TypeToken<List<ViewRequest>>(){}.type)
     fun requestView(session: Session,targetId: Long,reason: String): ViewRequest = request("/view-requests","POST",mapOf("targetId" to targetId,"reason" to reason),session,ViewRequest::class.java)
@@ -91,7 +98,6 @@ class ApiClient(address: String) {
         if(result.id!=id)throw ApiException(502,"服务器返回的任务编号不一致，请刷新后重试")
         return result
     }
-    fun profile(session: Session): SelfProfile = request("/users/me","GET",null,session,SelfProfile::class.java)
     fun companyNotices(session: Session): List<CompanyNotice> = request("/company-notices","GET",null,session,object:TypeToken<List<CompanyNotice>>(){}.type)
     fun saveCompanyNote(session: Session,id: Long,content: String): CompanyNotice {
         require(id>0 && content.length<=2000)
@@ -110,17 +116,65 @@ class ApiClient(address: String) {
         return result
     }
     fun panels(session: Session): PanelMap = request("/panels/map","GET",null,session,PanelMap::class.java)
+    fun taskReviews(session: Session): List<DispatchTask> = request("/tasks/reviews","GET",null,session,object:TypeToken<List<DispatchTask>>(){}.type)
+    fun approveTask(session: Session, id: Long, note: String): DispatchTask {
+        require(id>0) {"无效的任务编号"}
+        return request("/tasks/$id/approve","POST",mapOf("note" to note),session,DispatchTask::class.java)
+    }
+    fun rejectTask(session: Session, id: Long, note: String): DispatchTask {
+        require(id>0) {"无效的任务编号"}
+        if(note.isBlank())throw IllegalArgumentException("请填写驳回理由")
+        return request("/tasks/$id/reject","POST",mapOf("note" to note),session,DispatchTask::class.java)
+    }
+    fun changeTask(session: Session, id: Long, input: TaskCreateInput): DispatchTask {
+        require(id>0) {"无效的任务编号"}
+        TaskDispatchValidation.inputError(input,session.userId)?.let {throw IllegalArgumentException(it)}
+        return request("/tasks/$id","PUT",input,session,DispatchTask::class.java)
+    }
+    fun deleteTask(session: Session, id: Long) {
+        require(id>0) {"无效的任务编号"}
+        requestVoid("/tasks/$id","DELETE",session)
+    }
+    fun notifications(session: Session): NotificationList = request("/notifications","GET",null,session,NotificationList::class.java)
+    fun readNotification(session: Session, id: Long) {
+        require(id>0) {"无效的消息编号"}
+        requestVoid("/notifications/$id/read","POST",session)
+    }
+    fun readAllNotifications(session: Session) { requestVoid("/notifications/read-all","POST",session) }
     fun save(session: Session, id: Long?, input: LogInput): WorkLog {
         LogValidation.error(input.logDate,input.content,input.status)?.let {throw IllegalArgumentException(it)}
         if(id!=null) {
             require(id>0) {"无效的日志编号"}
-            require(canModifyLog(input.logDate)) {"仅能修改今天的日报"}
         }
         return request(if(id==null)"/logs" else "/logs/$id",if(id==null)"POST" else "PUT",input,session,WorkLog::class.java)
     }
     fun submit(session: Session, id: Long): WorkLog {
         require(id>0) {"无效的日志编号"}
         return request("/logs/$id/submit","POST",null,session,WorkLog::class.java)
+    }
+    private fun requestVoid(path: String, method: String, session: Session) {
+        if(session.role !in AppRoles.business)throw ApiException(403,"此账号不能使用 App 业务接口")
+        require(session.server==server) {"服务器已改变，请重新登录"}
+        val connection=URI(server+path).toURL().openConnection() as HttpURLConnection
+        try {
+            connection.connectTimeout=8000;connection.readTimeout=8000
+            connection.instanceFollowRedirects=false
+            connection.requestMethod=method
+            connection.setRequestProperty("Accept","application/json")
+            connection.setRequestProperty("Authorization","Bearer ${session.token}")
+            val status=connection.responseCode
+            if(status !in 200..299) {
+                val response=connection.errorStream?.bufferedReader(Charsets.UTF_8)?.use {it.readText()} ?: ""
+                val serverMessage=runCatching {JsonParser.parseString(response).asJsonObject.get("message")?.asString}.getOrNull()
+                throw ApiException(status,serverMessage ?: when(status) {
+                    403->"无权操作这条记录"
+                    404->"暂时找不到这项内容，请刷新"
+                    else->"暂时无法完成操作，请稍后重试"
+                })
+            }
+        } catch(e:SocketTimeoutException) {throw ApiException(0,"连接超时，请确认服务器已启动，手机与电脑在同一网络")}
+          catch(e:IOException) {throw ApiException(0,"连接失败，请检查服务器地址、同一 Wi-Fi 和电脑防火墙")}
+          finally {connection.disconnect()}
     }
     private fun <T> request(path: String, method: String, body: Any?, session: Session?, type: Type): T {
         if(session!=null && session.role !in AppRoles.business)throw ApiException(403,"此账号不能使用 App 业务接口")

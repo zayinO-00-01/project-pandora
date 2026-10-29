@@ -1,7 +1,10 @@
-## ADDED Requirements
+# user-profile Specification
 
+## Purpose
+用户人事档案字段（手机号、身份证号、出生日期、性别、入职日期、紧急联系人、住址）的取值校验、唯一性与可见性规则，以及本人通过 `/users/me` 读取完整档案的行为。
+## Requirements
 ### Requirement: Profile fields are validated and visible by role
-The system SHALL store phone as required unique, id card as optional unique, and birth date, gender, hire date, emergency contact and phone, address as optional. Malformed phone, id card, future birth date or unknown gender SHALL return 400. The ID card number SHALL be visible only to the account owner and ADMIN; member lists SHALL mask it for others.
+The system SHALL require a phone when creating an account and keep it unique when present; id card SHALL be optional and unique when present; birth date, gender, hire date, emergency contact and phone, address SHALL be optional. Seeded demo accounts MAY have no phone until an ADMIN edits them. Malformed phone, malformed id card, future birth date or unknown gender SHALL return 400. The ID card number SHALL be visible only to the account owner and ADMIN; member and organization lists SHALL NOT expose it to others.
 
 #### Scenario: Admin creates account with profile
 - **WHEN** ADMIN submits a valid phone and optional profile fields

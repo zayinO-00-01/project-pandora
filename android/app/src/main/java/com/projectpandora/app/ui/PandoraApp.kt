@@ -1,6 +1,8 @@
 package com.projectpandora.app.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -28,6 +30,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
 import com.projectpandora.app.R
@@ -37,6 +41,12 @@ import androidx.compose.ui.semantics.selected
 import com.projectpandora.app.AppState
 import com.projectpandora.app.PandoraViewModel
 import com.projectpandora.app.data.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.text.style.TextOverflow
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun PandoraApp(state: AppState, model: PandoraViewModel) {
@@ -65,18 +75,23 @@ import com.projectpandora.app.data.*
         state.screen=="logs" -> "工作日志"
         state.screen=="day" -> "工作视图"
         state.screen=="profile" -> "我的"
+        state.screen=="notifications" -> "消息中心"
         else -> "潘多拉"
     }
     Box(Modifier.fillMaxSize()) {
     WorkspaceBackground(Modifier.matchParentSize())
     Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(MaterialTheme.colorScheme.background))
-    Scaffold(containerColor=Color.Transparent,contentColor=MaterialTheme.colorScheme.onBackground,topBar={Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)).padding(top=12.dp,bottom=6.dp),contentAlignment=Alignment.TopCenter) {TopAppBar(modifier=Modifier.widthIn(max=600.dp).fillMaxWidth(),expandedHeight=headerHeight,windowInsets=WindowInsets(0,0,0,0),title={Column(Modifier.padding(start=8.dp).semantics {if(homeHeader && readFailures.isNotEmpty())contentDescription="同步失败"}.clickable(enabled=homeHeader && readFailures.isNotEmpty()) {syncDetails=true},verticalArrangement=Arrangement.spacedBy(2.dp)) {
+    Scaffold(containerColor=Color.Transparent,contentColor=MaterialTheme.colorScheme.onBackground,topBar={Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)).padding(top=12.dp,bottom=6.dp),contentAlignment=Alignment.TopCenter) {TopAppBar(modifier=Modifier.widthIn(max=600.dp).fillMaxWidth(),expandedHeight=headerHeight,windowInsets=WindowInsets(0,0,0,0),navigationIcon={if(state.screen!="profile")Box(contentAlignment=Alignment.TopEnd){IconButton(onClick={feedback();model.loadNotifications();model.screen("notifications")},enabled=!state.saving){Icon(painterResource(R.drawable.console_bell),contentDescription="消息",modifier=Modifier.size(21.dp))};if(state.unreadCount>0)Badge(modifier=Modifier.align(Alignment.TopEnd).offset(x=6.dp,y=(-6).dp)){Text(if(state.unreadCount>99)"99+" else state.unreadCount.toString())}}},title={Column(Modifier.padding(start=8.dp).semantics {if(homeHeader && readFailures.isNotEmpty())contentDescription="同步失败"}.clickable(enabled=homeHeader && readFailures.isNotEmpty()) {syncDetails=true},verticalArrangement=Arrangement.spacedBy(2.dp)) {
         Text(pageTitle,style=MaterialTheme.typography.headlineSmall,fontFamily=ConsoleDisplay,fontWeight=androidx.compose.ui.text.font.FontWeight.SemiBold)
         if(homeHeader)Text("${today().monthValue}月${today().dayOfMonth}日 · ${listOf("周一","周二","周三","周四","周五","周六","周日")[today().dayOfWeek.value-1]}${if(readFailures.isNotEmpty())"" else if(state.developmentPreview)" · 未连接" else if(state.loading)" · 同步中" else " · 已同步"}",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2)
         if(homeHeader && readFailures.isNotEmpty())Text("同步失败 · ${if(retained)"上次内容" else "查看原因"} ›",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.error,maxLines=2)
         if(state.developmentPreview)Text("本地预览",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }},actions={
-        if(canCreate) {WriteLogButton(enabled=!state.saving,onClick={model.edit()});Spacer(Modifier.width(4.dp))}
+        if(canCreate) {
+            if(state.screen=="day") {
+                if(AppRoles.canCreateTask(state.session.role)) {InlineAction("新建任务",enabled=!state.saving,icon=R.drawable.console_add) {feedback();model.openDispatch()};Spacer(Modifier.width(4.dp))}
+            } else {WriteLogButton(enabled=!state.saving,onClick={model.edit()});Spacer(Modifier.width(4.dp))}
+        }
         if(state.screen!="profile")InlineAction(if(homeHeader && readFailures.isNotEmpty())"重试" else "刷新",enabled=!state.loading && !state.organizationLoading && !state.saving,icon=R.drawable.console_sync,secondary=true,loading=state.loading || state.organizationLoading) {feedback();if(state.screen=="organization")model.loadOrganization() else model.refresh()}
     },colors=TopAppBarDefaults.topAppBarColors(containerColor=Color.Transparent))}},bottomBar={
         if(state.editor==null && state.selectedTaskId==null && !state.dispatchOpen)Column {
@@ -102,11 +117,39 @@ import com.projectpandora.app.data.*
             "day" -> CalendarScreen(state,model)
             "ai" -> HomeScreen(state,model)
             "profile" -> ProfileScreen(state,model)
+            "notifications" -> NotificationsScreen(state,model)
             "organization" -> OrganizationScreen(state,model)
         }
     }}}
     }
 }
+
+@Composable private fun NotificationsScreen(state: AppState, model: PandoraViewModel) {
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp),contentPadding=PaddingValues(top=4.dp,bottom=28.dp)) {
+        item {Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            ScreenHeading("消息中心","派发、验收、变更与删除的提醒都会出现在这里。")
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+                Text(if(state.unreadCount>0)"未读 ${state.unreadCount} 条" else "全部已读",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                ControlTextButton(onClick=model::markAllNotificationsRead,enabled=!state.saving && state.unreadCount>0) {Text("全部已读")}
+            }
+            if(state.notificationsLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
+        }}
+        if(state.notifications.isEmpty() && !state.notificationsLoading)item {EmptyCard("暂无消息","有新的派发或审核进展时会在这里提醒你。")}
+        items(state.notifications,key={it.id}) {n->OutlinedCard(onClick={model.openNotification(n)},enabled=!state.saving,modifier=Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+                    Text(n.title,style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis,modifier=Modifier.weight(1f),color=if(n.read)MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.secondary)
+                    if(!n.read)Badge {Text("新")}
+                }
+                Text(n.body,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(notificationTime(n.createdAt),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }}
+    }
+}
+private fun notificationTime(value: String): String = runCatching {
+    DateTimeFormatter.ofPattern("MM-dd HH:mm").withZone(ZoneId.of("Asia/Shanghai")).format(Instant.parse(value))
+}.getOrDefault(value)
 
 @Composable private fun WorkspaceBackground(modifier: Modifier) {
     val dark=LocalAppearance.current.mode==Appearance.DARK
@@ -127,6 +170,13 @@ import com.projectpandora.app.data.*
     val appearance=LocalAppearance.current
     var leaving by remember {mutableStateOf(false)}
     var details by remember {mutableStateOf<String?>(null)}
+    var avatarPicker by remember {mutableStateOf(false)}
+    var passwordDialog by remember {mutableStateOf(false)}
+    var currentPw by remember {mutableStateOf("")}
+    var newPw by remember {mutableStateOf("")}
+    val avatars=listOf("🦊","🐼","🐯","🐻","🦉","🐳","🌿","⭐","🔥","🍀")
+    val context=LocalContext.current
+    val pickImage=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {uri-> if(uri!=null) {val data=imageUriToDataUrl(context,uri); if(data!=null){model.changeAvatar(data);avatarPicker=false}}}
     val permissionText=when(me.role) {
         "FOUNDER"->"创始人：可查看公司业务成员已提交的日志与任务；可向授权下级派发任务，给自己建任务直接生效。"
         "DEPT_HEAD"->"部门老总：自建任务须直属上级审核，可审核直属下级自建任务；可穿透查看部门下属；查看直属上级须申请并获批准。"
@@ -135,14 +185,37 @@ import com.projectpandora.app.data.*
         else->"员工：可给自己建任务，经直属上级审核后执行；记录工作并处理分配任务；查看直属上级须申请并获批准。"
     }
     details?.let {section->AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={details=null},title={Text(if(section=="access")"账号与权限" else "当前服务")},text={Text(if(section=="access")"$permissionText\n\n资料与组织关系由管理员在 Web 维护；组织查看与申请从职能入口进入。" else "${me.server}\n\n工作记录保存在此服务。无法连接时，请检查网络或联系管理员。")},confirmButton={ControlTextButton(onClick={details=null}) {Text("关闭")}})}
+    if(avatarPicker)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={avatarPicker=false},title={Text("选择头像")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+        avatars.chunked(5).forEach {row-> Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+            row.forEach {emoji-> Surface(shape=androidx.compose.foundation.shape.CircleShape,color=if(state.profile?.avatar==emoji)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,modifier=Modifier.size(48.dp).clickable(enabled=!state.saving){model.changeAvatar(emoji);avatarPicker=false}) {Box(contentAlignment=Alignment.Center){Text(emoji,style=MaterialTheme.typography.titleLarge)}}
+        }}
+        HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
+        ControlTextButton(onClick={pickImage.launch("image/*")},enabled=!state.saving) {Text("从相册上传图片")}
+        Text("可选系统头像，或从相册上传方形照片（会自动压缩）。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    }},confirmButton={ControlTextButton(onClick={avatarPicker=false}) {Text("关闭")}})
+    if(passwordDialog)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={if(!state.saving)passwordDialog=false},title={Text("修改密码")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+        OutlinedTextField(value=currentPw,onValueChange={currentPw=it},enabled=!state.saving,label={Text("原密码")},singleLine=true,visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth())
+        OutlinedTextField(value=newPw,onValueChange={newPw=it.take(72)},enabled=!state.saving,label={Text("新密码（6-72 位）")},singleLine=true,visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth())
+        Text("忘记密码请联系管理员在 Web 重置。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    }},confirmButton={ControlTextButton(onClick={model.changePassword(currentPw,newPw){passwordDialog=false;currentPw="";newPw=""}},enabled=!state.saving && currentPw.isNotBlank() && newPw.length in 6..72) {Text(if(state.saving)"提交中…" else "确认修改")}},dismissButton={ControlTextButton(onClick={passwordDialog=false},enabled=!state.saving) {Text("取消")}})
     if(leaving)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={leaving=false},title={Text(if(state.developmentPreview)"退出开发预览？" else "退出当前账号？")},text={Text(if(state.developmentPreview)"预览没有登录业务账号，也未向服务器提交数据。" else "工作记录已保存在当前服务。未提交输入会保留在这台设备，再次登录原账号可继续。")},confirmButton={ControlTextButton(onClick={leaving=false;model.logout()}) {Text("退出登录")}},dismissButton={ControlTextButton(onClick={leaving=false}) {Text("取消")}})
     Column(Modifier.fillMaxSize()) {
     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal=24.dp).padding(top=12.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+        val profile=state.profile
+        val avatarImage=remember(state.profile?.avatarImage){decodeAvatarImage(state.profile?.avatarImage)}
         Row(Modifier.fillMaxWidth().padding(vertical=12.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
-            Icon(painterResource(R.drawable.console_person),null,tint=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.size(28.dp))
-            Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                Text(me.displayName ?: me.username,style=MaterialTheme.typography.titleMedium)
-                Text("${me.username} · ${AppRoles.label(me.role)}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            Surface(shape=androidx.compose.foundation.shape.CircleShape,color=MaterialTheme.colorScheme.surfaceVariant,modifier=Modifier.size(56.dp).clickable(enabled=!state.saving && !state.developmentPreview){avatarPicker=true}) {
+                Box(contentAlignment=androidx.compose.ui.Alignment.Center,modifier=Modifier.fillMaxSize()) {
+                    if(avatarImage!=null) Image(bitmap=avatarImage,contentDescription="头像",contentScale=ContentScale.Crop,modifier=Modifier.fillMaxSize().clip(androidx.compose.foundation.shape.CircleShape))
+                    else Text(profile?.avatar?.takeIf {it.isNotBlank()} ?: (me.displayName ?: me.username).take(1),style=MaterialTheme.typography.titleLarge)
+                }
+            }
+            Column(verticalArrangement=Arrangement.spacedBy(4.dp),modifier=Modifier.weight(1f)) {
+                Text(profile?.displayName ?: me.displayName ?: me.username,style=MaterialTheme.typography.titleMedium)
+                Text("手机号：${profile?.phone?.takeIf {it.isNotBlank()} ?: "未填写"}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                val manager=profile?.managerName
+                val managerText=when {profile?.managerId==null->"未设置";manager.isNullOrBlank()->"#${profile.managerId}";else->"$manager（#${profile.managerId}）"}
+                Text("直属上级：$managerText",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
@@ -183,6 +256,10 @@ import com.projectpandora.app.data.*
         HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
         ControlTextButton(onClick={details="access"},enabled=!state.saving,contentPadding=PaddingValues(0.dp),modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
             Text("账号与权限",style=MaterialTheme.typography.bodyMedium)
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,null,modifier=Modifier.size(20.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
+        }}
+        ControlTextButton(onClick={currentPw="";newPw="";passwordDialog=true},enabled=!state.saving && !state.developmentPreview,contentPadding=PaddingValues(0.dp),modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+            Text("修改密码",style=MaterialTheme.typography.bodyMedium)
             Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,null,modifier=Modifier.size(20.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
         }}
         ControlTextButton(onClick={details="service"},enabled=!state.saving,contentPadding=PaddingValues(0.dp),modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {

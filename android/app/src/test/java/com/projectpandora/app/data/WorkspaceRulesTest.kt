@@ -2,27 +2,39 @@ package com.projectpandora.app.data
 
 import org.junit.Assert.*
 import org.junit.Test
+import java.time.Instant
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.MockResponse
 
 class WorkspaceRulesTest {
-    @Test fun logWindowIncludesThreeDaysAgoAndTodayAcrossYears() {
+    @Test fun logWindowCoversTodayAndThreePriorDays() {
         val reference=LocalDate.of(2026,1,3)
-        assertTrue(canWriteLog("2025-12-31",reference))
+        assertTrue(canWriteLog("2026-01-01",reference))
         assertTrue(canWriteLog("2026-01-03",reference))
+        assertTrue(canWriteLog("2025-12-31",reference))
         assertFalse(canWriteLog("2025-12-30",reference))
         assertFalse(canWriteLog("2026-01-04",reference))
         assertFalse(canWriteLog("2026-02-30",reference))
         assertFalse(canWriteLog("bad-date",reference))
     }
-    @Test fun expiredOriginalCannotBeUnlockedByChangingBufferDate() {
-        val old=today().minusDays(8).toString()
-        val log=WorkLog(91,1,old,"history","submitted","","")
-        val buffer=EditBuffer("http://server",1,91,today().toString(),"changed","submitted")
-        assertTrue(logEditorReadOnly(buffer,listOf(log)))
-        assertFalse(logEditorReadOnly(buffer.copy(logId=null),emptyList()))
-        assertFalse(logEditorReadOnly(buffer,listOf(log.copy(logDate=today().toString()))))
+    @Test fun editWindowUsesShanghaiLogDateNotCreationTime() {
+        val now=Instant.now()
+        val backfill=WorkLog(91,1,today().minusDays(2).toString(),"backfill","submitted",now.toString(),now.toString())
+        val stale=WorkLog(92,1,today().toString(),"old","submitted",now.minus(25,ChronoUnit.HOURS).toString(),now.toString())
+        val freshBuffer=EditBuffer("http://server",1,91,today().toString(),"changed","submitted")
+        val staleBuffer=EditBuffer("http://server",1,92,today().toString(),"changed","submitted")
+        assertTrue(logEditorReadOnly(freshBuffer,listOf(backfill)))
+        assertFalse(logEditorReadOnly(staleBuffer,listOf(stale)))
+        assertFalse(logEditorReadOnly(freshBuffer.copy(logId=null),emptyList()))
+    }
+    @Test fun logDateBoundaryIsIndependentOfWriteAge() {
+        val reference=LocalDate.of(2026,1,1)
+        val log=WorkLog(91,1,"2025-12-31","backfill","submitted","2026-01-01T01:00:00Z","2026-01-01T01:00:00Z")
+        assertFalse(canModifyLog(log,reference))
+        assertTrue(canModifyLog(log.copy(logDate="2026-01-01"),reference))
+        assertFalse(canModifyLog(log.copy(logDate="2026-01-02"),reference))
     }
     @Test fun missingOriginalLogCannotUnlockRestoredEditor() {
         val buffer=EditBuffer("http://server",1,91,today().toString(),"changed","submitted")

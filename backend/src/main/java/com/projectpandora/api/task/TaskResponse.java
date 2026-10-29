@@ -6,13 +6,17 @@ import java.time.Instant;
 public record TaskResponse(Long id, String title, String detail, String priority, String status,
         Instant dueAt, Integer progress, String progressNote, Long createdBy, Long assigneeId,
         String creatorName, String assigneeName, Instant createdAt, Instant updatedAt,
-        String approvalStatus, String approvalNote, Long reviewerId, Instant reviewedAt) {
+        String approvalStatus, String approvalNote, Long reviewerId, Instant reviewedAt,
+        String reviewStatus, String reviewReason, Long reviewedBy, Instant lifecycleReviewedAt,
+        boolean deleted, String pendingChange) {
     static TaskResponse from(TaskEntity task) {
         return new TaskResponse(task.getId(), task.getTitle(), task.getDetail(), task.getPriority(),
                 task.getStatus(),
                 task.getDueAt(), task.getProgress(), task.getProgressNote(), task.getCreator().getId(), task.getAssignee().getId(),
                 name(task.getCreator()), name(task.getAssignee()), task.getCreatedAt(), task.getUpdatedAt(),
-                task.getApprovalStatus(), task.getApprovalNote(), task.getReviewerId(), task.getReviewedAt());
+                task.getApprovalStatus(), task.getApprovalNote(), task.getReviewerId(), task.getReviewedAt(),
+                task.getReviewStatus(), task.getReviewReason(), task.getReviewedBy(), task.getLifecycleReviewedAt(),
+                task.isDeleted(), task.getPendingChange());
     }
     private static String name(UserEntity user) {
         return user.getDisplayName() == null || user.getDisplayName().isBlank() ? user.getUsername() : user.getDisplayName();

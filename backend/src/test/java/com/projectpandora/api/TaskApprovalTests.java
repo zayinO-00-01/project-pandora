@@ -95,4 +95,36 @@ class TaskApprovalTests {
         mvc.perform(get("/api/v1/panels/map").header("Authorization",token(staff))).andExpect(status().isOk()).andExpect(jsonPath("$.companyDispatch.length()").value(10));
         mvc.perform(get("/api/v1/tasks").header("Authorization",token(staff))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(22));
     }
+    @Test void selfTaskCompletionNeedsCurrentManagerAndKeepsInitialApprovalAudit() throws Exception {
+        var founder=user("founder",Role.FOUNDER,null);var department=user("department",Role.DEPT_HEAD,founder);
+        var manager=user("manager",Role.TEAM_LEAD,department);var next=user("next",Role.TEAM_LEAD,department);
+        var staff=user("staff",Role.STAFF,manager);
+        long id=read(create(staff,staff).andExpect(status().isCreated())).get("id").asLong();
+        var approved=read(decide(manager,id,"approved","initial approval").andExpect(status().isOk()));
+        staff.setManagerId(next.getId());users.saveAndFlush(staff);
+        mvc.perform(put("/api/v1/tasks/"+id+"/progress").header("Authorization",token(staff)).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"status\":\"done\",\"progressNote\":\"finished\"}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.reviewStatus").value("pending_done"));
+        mvc.perform(post("/api/v1/tasks/"+id+"/approve").header("Authorization",token(staff)))
+            .andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/tasks/"+id+"/approve").header("Authorization",token(manager)))
+            .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/tasks/reviews").header("Authorization",token(next)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(id));
+        var completed=read(mvc.perform(post("/api/v1/tasks/"+id+"/approve").header("Authorization",token(next)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.reviewStatus").value("approved"))
+            .andExpect(jsonPath("$.reviewedBy").value(next.getId())));
+        assertThat(completed.get("reviewedAt")).isEqualTo(approved.get("reviewedAt"));
+        assertThat(completed.get("reviewerId")).isEqualTo(approved.get("reviewerId"));
+        assertThat(completed.get("approvalNote")).isEqualTo(approved.get("approvalNote"));
+        assertThat(completed.get("lifecycleReviewedAt").asText()).isNotBlank();
+    }
+    @Test void deletedPendingSelfTaskLeavesApprovalInboxAndCannotBeApproved() throws Exception {
+        var manager=user("manager",Role.TEAM_LEAD,null);var staff=user("staff",Role.STAFF,manager);
+        long id=read(create(staff,staff).andExpect(status().isCreated())).get("id").asLong();
+        mvc.perform(delete("/api/v1/tasks/"+id).header("Authorization",token(staff))).andExpect(status().isNoContent());
+        pending(manager).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        decide(manager,id,"approved","").andExpect(status().isNotFound());
+    }
+
 }

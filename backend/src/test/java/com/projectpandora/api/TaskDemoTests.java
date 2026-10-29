@@ -92,7 +92,7 @@ class TaskDemoTests {
         assertThat(list(leader).findValuesAsText("id")).containsExactly(created.get("id").asText(), own.get("id").asText(), direct.get("id").asText());
         assertThat(list(staff).findValuesAsText("id")).containsExactly(created.get("id").asText(), direct.get("id").asText());
         assertThat(list(other).findValuesAsText("id")).containsExactly(hidden.get("id").asText());
-        mvc.perform(post("/api/v1/tasks").header("Authorization", token(leader)).contentType(MediaType.APPLICATION_JSON).content(payload(other, "越权")))
+        mvc.perform(post("/api/v1/tasks").header("Authorization", token(leader)).contentType(MediaType.APPLICATION_JSON).content(payload(other, "跨队任务")))
             .andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(leader)).contentType(MediaType.APPLICATION_JSON).content(payload(leader, "自派")))
             .andExpect(status().isCreated()).andExpect(jsonPath("$.approvalStatus").value("pending"));
