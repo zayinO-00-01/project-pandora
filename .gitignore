@@ -58,3 +58,21 @@ backend/src/main/resources/static/
 !/docs/原型/安卓控制台/日志窗口-*.png
 
 !/docs/原型/安卓控制台/流畅水墨-*.png
+
+# 本机 AI / 编辑器配置与记忆，不属于项目交付
+.cursor/
+.workbuddy/
+.agents/
+.codex/
+.claude/
+.windsurf/
+.trae/
+.qoder/
+.kiro/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.cursorrules
+.cursorignore
+.windsurfrules
+.kotlin/
