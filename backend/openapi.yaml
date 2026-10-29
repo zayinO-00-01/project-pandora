@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Pandora API
-  version: 0.8.1
+  version: 0.8.2
   description: 老师方案整合版：保留用户自建审批、年月直选和清单同步；全公司业务成员选人，非创始人创建与进度提交由当前直属上级审批；创始人本人操作免审。删除暂按创建人条件直删/上级审核。日志按创建后24小时修改，任务日历与日志分离。
 servers:
 - url: /api/v1
@@ -885,6 +885,28 @@ paths:
           $ref: '#/components/responses/Error404'
         '409':
           $ref: '#/components/responses/Error409'
+    get:
+      summary: 读取单条任务详情
+      description: 正常任务查看权限，或该任务当前待审申请的有效审核人可读。审批临时权限不扩展任务列表、日志和私密备注权限。
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400': &id001
+          $ref: '#/components/responses/Error400'
+        '401': &id002
+          $ref: '#/components/responses/Error401'
+        '403': &id003
+          $ref: '#/components/responses/Error403'
+        '404': &id004
+          $ref: '#/components/responses/Error404'
+        '409': &id005
+          $ref: '#/components/responses/Error409'
   /task-reviews:
     get:
       summary: 本人申请或待本人审核的进度与关键词操作
@@ -1329,6 +1351,59 @@ paths:
           $ref: '#/components/responses/Error403'
         '409':
           $ref: '#/components/responses/Error409'
+  /tasks/{id}/note:
+    parameters:
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: integer
+        format: int64
+    get:
+      summary: 读取本人任务私密备注
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskNote'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+    put:
+      summary: 保存或清空本人任务私密备注
+      description: 仅已生效且未删除、本人具备正常查看权限的任务。身份取自令牌，不接受其他用户ID；空白内容清空。
+      security:
+      - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - content
+              properties:
+                content:
+                  type: string
+                  maxLength: 2000
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskNote'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
 components:
   securitySchemes:
     bearer:
@@ -2170,6 +2245,11 @@ components:
         createdAt:
           type: string
           format: date-time
+        referenceId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 查看授权申请ID；旧消息可为空，taskId仍只表示任务
     NotificationList:
       type: object
       properties:
@@ -2254,6 +2334,22 @@ components:
           type: string
         avatarData:
           type: string
+          nullable: true
+    TaskNote:
+      type: object
+      required:
+      - taskId
+      - content
+      properties:
+        taskId:
+          type: integer
+          format: int64
+        content:
+          type: string
+          maxLength: 2000
+        updatedAt:
+          type: string
+          format: date-time
           nullable: true
   responses:
     Error400:

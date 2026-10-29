@@ -86,6 +86,12 @@ class ApiClient(address: String) {
     fun memberTasks(session: Session,userId: Long): List<DispatchTask> = request("/tasks?userId=$userId","GET",null,session,object:TypeToken<List<DispatchTask>>(){}.type)
     fun logs(session: Session): List<WorkLog> = request("/logs","GET",null,session,object:TypeToken<List<WorkLog>>(){}.type)
     fun integrity(session: Session): IntegrityResponse = request("/logs/integrity","GET",null,session,IntegrityResponse::class.java)
+    fun task(session: Session,id: Long): DispatchTask = request("/tasks/$id","GET",null,session,DispatchTask::class.java)
+    fun taskNote(session: Session,id: Long): TaskNote = request("/tasks/$id/note","GET",null,session,TaskNote::class.java)
+    fun saveTaskNote(session: Session,id: Long,content: String): TaskNote {
+        require(content.length<=2000) {"备注不能超过2000字"}
+        return request("/tasks/$id/note","PUT",mapOf("content" to content),session,TaskNote::class.java)
+    }
     fun tasks(session: Session): List<DispatchTask> = request("/tasks","GET",null,session,object:TypeToken<List<DispatchTask>>(){}.type)
     fun createTask(session: Session,input: TaskCreateInput): DispatchTask {
         if(!AppRoles.canCreateTask(session.role))throw ApiException(403,"仅业务成员可创建任务")

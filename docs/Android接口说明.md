@@ -31,3 +31,8 @@
 400参数错误，401需重登，403无权或日志只读，404不存在，409版本或申请冲突。失败保留输入，不虚报成功。完整契约见 [OpenAPI](../backend/openapi.yaml)。
 
 管理员的本人私密备注：GET/PUT /admin/company-notices/{id}/note，PUT {content}，空字符串可清空，停用事项也可维护。业务 /company-notices 端点仍拒绝 ADMIN。
+
+
+## 0.8.2新增接口
+
+GET /tasks/{id} 返回Task；允许正常查看或当前待审申请的有效审核人，临时审核权限不扩展任务列表/日志/本人备注。GET/PUT /tasks/{id}/note 仅正常可见且已批准未删除任务，响应{taskId,content,updatedAt}；PUT {content}最多2000字，空白清空，身份来自令牌。通知响应增加referenceId（nullable），view-request对应授权申请，taskId继续只表示任务。App版本51/0.8.2-workflow-notes，云端http://39.107.204.229。

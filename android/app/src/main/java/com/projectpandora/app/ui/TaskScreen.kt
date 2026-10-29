@@ -20,7 +20,9 @@ import java.time.format.DateTimeFormatter
 
 @Composable fun TaskScreen(state: AppState, model: PandoraViewModel) {
     val selected=state.selectedTaskId
-    val task=state.tasks.firstOrNull {it.id==selected} ?: state.pendingTaskApprovals.firstOrNull {it.id==selected} ?: state.reviews.firstOrNull {it.id==selected}
+    val listedTask=state.tasks.firstOrNull {it.id==selected} ?: state.pendingTaskApprovals.firstOrNull {it.id==selected} ?: state.reviews.firstOrNull {it.id==selected}
+    val task=if(state.taskDetailError!=null)null else state.selectedTaskDetail?.takeIf {it.id==selected} ?: listedTask
+    val ordinaryDetail=listedTask!=null
     var reviewNote by rememberSaveable(selected) {mutableStateOf("")}
     val buffer=state.taskEditor
     var discard by remember {mutableStateOf(false)}
@@ -63,7 +65,8 @@ import java.time.format.DateTimeFormatter
             if(selected!=null)ControlTextButton(onClick=model::closeTask,enabled=!state.saving,contentPadding=PaddingValues(0.dp)) {Text("← 返回任务列表")}
             ScreenHeading(if(selected==null)"任务工作台" else "任务详情",if(selected==null)"接收派发，持续反馈工作进展。" else "查看责任、时间节点与最新进度。")
             if(selected==null)Text("查看任务，及时记录进展与需要协调的问题。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-            if(state.taskLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
+            if(state.taskLoading || state.taskDetailLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
+            state.taskDetailError?.let {Hint("任务详情读取失败：$it",true,onRetry=model::loadSelectedTaskDetail)}
             state.taskError?.let {Hint("任务读取失败：$it\n请刷新；已显示的任务可能是上次读取的内容。",true)}
         }}
         if(buffer!=null && buffer.taskId!=selected)item {Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
@@ -106,7 +109,7 @@ import java.time.format.DateTimeFormatter
                 }
             }}
         } else if(task==null) {
-            if(!state.taskLoading && state.taskError==null)item {EmptyCard("暂时无法查看此任务","任务可能已不在你的可见范围内，请返回列表或刷新。")}
+            if(!state.taskLoading && !state.taskDetailLoading && state.taskError==null && state.taskDetailError==null)item {EmptyCard("暂时无法查看此任务","任务可能已不在你的可见范围内，请返回列表或刷新。")}
             if(buffer?.taskId==selected)item {Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
                 Hint("未提交反馈仍在本机保留。刷新确认任务后即可继续填写。")
                 Text("状态：${taskStatusLabel(buffer.status ?: "todo")}\n说明：${buffer.note}",style=MaterialTheme.typography.bodyMedium)
@@ -129,9 +132,10 @@ import java.time.format.DateTimeFormatter
                 Text("创建人：${task.creatorName}\n责任人：${task.assigneeName}\n截止时间：${dueLabel(task.dueAt)}",style=MaterialTheme.typography.bodyMedium)
             }}}
             item {TaskKeywords(task,state,model)}
+            if(taskIsApproved(task) && !task.deleted && state.taskNote.taskId==task.id)item {PrivateTaskNote(state,model)}
             if(!taskIsApproved(task))item {Hint(if(task.approvalStatus=="pending")"等待创建人当前直属上级审核，批准后才能开始反馈进度。" else "此任务未获批准，请根据审核意见重新安排。")}
             if(!task.approvalNote.isNullOrBlank())item {Hint("审核意见：${task.approvalNote}")}
-            if(task.createdBy==mine && (task.approvalStatus=="pending" || task.reviewStatus=="pending_change"))item {
+            if(ordinaryDetail && task.createdBy==mine && (task.approvalStatus=="pending" || task.reviewStatus=="pending_change"))item {
                 ControlOutlinedButton(onClick={model.withdrawTask(task.id)},enabled=!state.saving) {Text("撤回申请")}
             }
             pendingRecords.forEach {record->item(key="pending-${record.id}") {
@@ -174,7 +178,7 @@ import java.time.format.DateTimeFormatter
                     ControlTextButton(onClick={rejectTarget=task;rejectReason=""},enabled=!state.saving) {Text("驳回")}
                 } else if(isPendingReview(task.reviewStatus))Text("等待相关人审核。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }}}
-            if(!task.deleted && (task.createdBy==mine || isFounder))item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            if(ordinaryDetail && !task.deleted && (task.createdBy==mine || isFounder))item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 if((task.createdBy==mine || isFounder) && task.approvalStatus!="pending" && !pendingReview)ControlTextButton(onClick={model.editTaskDetails(task)},enabled=!state.saving) {Text("修改任务")}
                 ControlTextButton(onClick={deleteTarget=task},enabled=!state.saving && (!pendingReview || isFounder)) {Text("删除任务")}
             }}
@@ -183,7 +187,8 @@ import java.time.format.DateTimeFormatter
                 Text("最新进度说明",style=MaterialTheme.typography.titleMedium)
                 Text(task.progressNote.ifBlank {"尚未反馈进度"},style=MaterialTheme.typography.bodyLarge)
             }}}
-            if(pendingReview)item {Hint("此任务已有待审申请，处理或撤回后可再次反馈进度。") }
+            if(!ordinaryDetail)item {Hint("当前通过审核申请查看此任务，仅供阅读和处理该申请。") }
+            else if(pendingReview)item {Hint("此任务已有待审申请，处理或撤回后可再次反馈进度。") }
             else if(task.assigneeId!=state.session?.userId)item {Hint("仅当前责任人可反馈进度，你可以查看任务详情。")}
             else if(buffer?.taskId==selected) {
                 item {Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -207,6 +212,25 @@ import java.time.format.DateTimeFormatter
             }
         }
     }
+}
+@Composable private fun PrivateTaskNote(state: AppState,model: PandoraViewModel) {
+    val note=state.taskNote
+    OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+        Text("我的私密备注",style=MaterialTheme.typography.titleMedium)
+        Text("仅本人可见，保存后可在重新登录时读取。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        if(note.loading)LinearProgressIndicator(Modifier.fillMaxWidth())
+        if(note.loaded) {
+            OutlinedTextField(value=note.content,onValueChange=model::changeTaskNote,enabled=!note.loading,
+                label={Text("任务备注")},minLines=3,supportingText={Text("${note.content.length} / 2000")},modifier=Modifier.fillMaxWidth())
+            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                ControlButton(onClick=model::saveTaskNote,enabled=note.dirty && !note.saving && !note.loading) {Text(if(note.saving)"保存中…" else "保存备注")}
+                ControlTextButton(onClick={model.changeTaskNote("")},enabled=note.content.isNotEmpty() && !note.loading) {Text("清空输入")}
+            }
+            if(note.dirty)Text("未保存；切换任务会保留本机输入。清空后也需保存。",style=MaterialTheme.typography.bodySmall)
+            else note.savedMessage?.let {Text(it,style=MaterialTheme.typography.bodySmall)}
+        }
+        note.error?.let {Hint(it,true,onRetry=if(note.loaded)model::saveTaskNote else model::loadTaskNote,retryEnabled=!note.saving && !note.loading)}
+    }}
 }
 private fun dueLabel(value: String?): String = if(value==null)"未设置" else runCatching {
     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.of("Asia/Shanghai")).format(Instant.parse(value))
