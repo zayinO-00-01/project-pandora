@@ -39,7 +39,7 @@ class LogWriteWindowTests {
         }
     }
     @Test void oldHistoryCanBeReadButCannotBeMovedOrSubmitted() throws Exception {
-        var e=seed(today().minusDays(1),"draft");var path="/api/v1/logs/"+e.getId();
+        var e=seed(today().minusDays(1),"draft");org.springframework.test.util.ReflectionTestUtils.setField(e,"createdAt",java.time.Instant.now().minusSeconds(86401));var path="/api/v1/logs/"+e.getId();
         mvc.perform(get("/api/v1/logs").param("date",e.getLogDate().toString()).header("Authorization",token(staff())))
             .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(e.getId())).andExpect(jsonPath("$[0].content").value("original history"));
         mvc.perform(put(path).header("Authorization",token(staff())).contentType(MediaType.APPLICATION_JSON).content(body(today())))
@@ -58,18 +58,16 @@ class LogWriteWindowTests {
         }
         assertThat(e.getContent()).isEqualTo("original history");assertThat(e.getLogDate()).isEqualTo(today());
     }
-    @Test void creationIncludesThreeDaysAgoButBackfillIsImmediatelyReadOnly() throws Exception {
+    @Test void backfilledRecordsRemainEditableWithin24Hours() throws Exception {
         for(int offset=0;offset<=3;offset++) {
             var date=today().minusDays(offset);
             var response=mvc.perform(post("/api/v1/logs").header("Authorization",token(staff())).contentType(MediaType.APPLICATION_JSON).content(body(date)))
                 .andExpect(status().isCreated()).andReturn();
             long id=json.readTree(response.getResponse().getContentAsString()).get("id").asLong();
-            if(offset>0) {
-                mvc.perform(put("/api/v1/logs/"+id).header("Authorization",token(staff())).contentType(MediaType.APPLICATION_JSON).content(body(today())))
-                    .andExpect(status().isForbidden());
-                mvc.perform(post("/api/v1/logs/"+id+"/submit").header("Authorization",token(staff()))).andExpect(status().isForbidden());
-                assertThat(logs.findById(id).orElseThrow().getLogDate()).isEqualTo(date);
-            }
+            mvc.perform(put("/api/v1/logs/"+id).header("Authorization",token(staff())).contentType(MediaType.APPLICATION_JSON).content(body(date)))
+                .andExpect(status().isOk());
+            mvc.perform(post("/api/v1/logs/"+id+"/submit").header("Authorization",token(staff()))).andExpect(status().isOk());
+            assertThat(logs.findById(id).orElseThrow().getLogDate()).isEqualTo(date);
         }
     }
     @Test void todayCannotBeMovedToAnOtherwiseCreatablePastDate() throws Exception {

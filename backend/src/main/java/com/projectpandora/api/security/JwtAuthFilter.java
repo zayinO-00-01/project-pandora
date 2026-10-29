@@ -38,7 +38,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                         .findById(userId)
                         .ifPresent(
                                 user -> {
-                                    if (user.isDisabled()) {
+                                    if (user.isDisabled() || user.getTokenVersion()!=(claims.get("ver")==null ? 0 : claims.get("ver",Integer.class))) {
                                         SecurityContextHolder.clearContext();
                                         return;
                                     }

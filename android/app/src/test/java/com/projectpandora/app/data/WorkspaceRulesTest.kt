@@ -22,7 +22,7 @@ class WorkspaceRulesTest {
         val buffer=EditBuffer("http://server",1,91,today().toString(),"changed","submitted")
         assertTrue(logEditorReadOnly(buffer,listOf(log)))
         assertFalse(logEditorReadOnly(buffer.copy(logId=null),emptyList()))
-        assertFalse(logEditorReadOnly(buffer,listOf(log.copy(logDate=today().toString()))))
+        assertFalse(logEditorReadOnly(buffer,listOf(log.copy(logDate=today().toString(),createdAt=java.time.Instant.now().toString()))))
     }
     @Test fun missingOriginalLogCannotUnlockRestoredEditor() {
         val buffer=EditBuffer("http://server",1,91,today().toString(),"changed","submitted")

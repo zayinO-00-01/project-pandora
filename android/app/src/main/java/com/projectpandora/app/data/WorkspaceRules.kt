@@ -11,14 +11,17 @@ fun canWriteLog(date: String,reference: LocalDate=today()): Boolean = runCatchin
     parsed>=reference.minusDays(3) && parsed<=reference
 }.getOrDefault(false)
 
-fun canModifyLog(date: String,reference: LocalDate=today()): Boolean = date==reference.toString()
+fun canModifyLog(createdAt: String,reference: Instant=Instant.now()): Boolean = runCatching {
+    val created=Instant.parse(createdAt)
+    !reference.isBefore(created) && reference.isBefore(created.plusSeconds(24*60*60))
+}.getOrDefault(false)
 
 fun logEditorReadOnly(buffer: EditBuffer,logs: List<WorkLog>): Boolean = buffer.logId!=null &&
-    !canModifyLog(logs.firstOrNull {it.id==buffer.logId}?.logDate ?: "")
+    logs.firstOrNull {it.id==buffer.logId}?.let {!canModifyLog(it.createdAt)} != false
 
 object AppRoles {
     fun canViewDown(role: String)=role in setOf("FOUNDER","DEPT_HEAD","TEAM_LEAD")
-    fun canDispatch(role: String)=canViewDown(role)
+    fun canDispatch(role: String)=role in business
     fun homeTitle(role: String)=when(role) {"FOUNDER"->"公司总览";"DEPT_HEAD"->"部门总览";"TEAM_LEAD"->"团队总览";else->"我的工作"}
     fun scopeLabel(role: String)=when(role) {"FOUNDER"->"公司组织";"DEPT_HEAD"->"部门成员";"TEAM_LEAD"->"团队成员";else->"查看上级"}
     val business=setOf("STAFF","TEAM_LEAD","DEPT_HEAD","FOUNDER")
@@ -56,3 +59,10 @@ fun reorderedPriorities(items: List<PanelItem>,id: Long,targetId: Long): List<Pa
     if(from<0 || to<0 || from==to)return items
     return items.toMutableList().apply {add(to,removeAt(from))}.mapIndexed {index,item->item.copy(sortOrder=index)}
 }
+
+val WorkLog.lastDate: String get()=endDate ?: logDate
+fun WorkLog.covers(date: String): Boolean = date>=logDate && date<=lastDate
+fun WorkLog.isMultiDay(): Boolean = lastDate>logDate
+fun logRangeDays(start: String,end: String?): Long = runCatching {java.time.temporal.ChronoUnit.DAYS.between(LocalDate.parse(start),LocalDate.parse(end ?: start))+1}.getOrDefault(0)
+fun logDateLabel(start: String,end: String?): String = if(end==null || end==start)start else "$start 至 $end · ${logRangeDays(start,end)} 天"
+fun canWriteLogRange(start: String,end: String?,reference: LocalDate=today()): Boolean = canWriteLog(start,reference) && canWriteLog(end ?: start,reference) && (end ?: start)>=start

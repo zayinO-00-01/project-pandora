@@ -9,5 +9,7 @@ public interface TaskRepository extends JpaRepository<TaskEntity,Long> {
     @EntityGraph(attributePaths={"creator","assignee"})
     List<TaskEntity> findByAssigneeIdOrderByCreatedAtDescIdDesc(Long assigneeId,Pageable pageable);
     @EntityGraph(attributePaths={"creator","assignee"})
+    List<TaskEntity> findByAssigneeIdInOrCreatorIdOrderByCreatedAtDescIdDesc(List<Long> assigneeIds,Long creatorId,Pageable pageable);
+    @EntityGraph(attributePaths={"creator","assignee"})
     List<TaskEntity> findByAssigneeIdInOrderByCreatedAtDescIdDesc(List<Long> assigneeIds,Pageable pageable);
 }

@@ -40,6 +40,15 @@ public class UserEntity {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    @Column(name="avatar_data",columnDefinition="TEXT")
+    private String avatarData;
+    @Column(name="token_version",nullable=false)
+    private int tokenVersion=0;
+    public String getAvatarData() {return avatarData;}
+    public void setAvatarData(String value) {avatarData=value;}
+    public int getTokenVersion() {return tokenVersion;}
+    public void revokeSessions() {tokenVersion++;}
+
     public Long getId() {
         return id;
     }

@@ -21,7 +21,7 @@ import com.projectpandora.app.data.*
     val member=state.member
     BackHandler(enabled=member!=null && !state.saving) {model.loadOrganization()}
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=32.dp)) {
-        item {ControlTextButton(onClick={if(member!=null)model.loadOrganization() else model.screen("functions")},enabled=!state.saving,contentPadding=PaddingValues(0.dp)) {Text(if(member!=null)"返回组织" else "返回职能")}}
+        item {ControlTextButton(onClick={if(member!=null)model.loadOrganization() else model.screen("day")},enabled=!state.saving,contentPadding=PaddingValues(0.dp)) {Text(if(member!=null)"返回组织" else "返回视图")}}
         if(state.organizationLoading)item {LinearProgressIndicator(Modifier.fillMaxWidth())}
         state.organizationError?.let {item {Hint(it,true,onRetry={if(member!=null)model.openMember(member) else model.loadOrganization()},retryEnabled=enabled)}}
         if(member!=null) {

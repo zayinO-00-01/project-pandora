@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Pandora API
-  version: 0.5.0
-  description: 五角色本地原型。Web仅ADMIN账号管理；Android四业务角色。公开注册关闭；任务邀约、十大事写入等尚未实现。
+  version: 0.7.0
+  description: 五角色本地原型。Web仅ADMIN账号管理；Android四业务角色。公开注册关闭；支持任务审核、品牌标签、应用内通知和个人账号设置。
 servers:
   - url: /api/v1
 paths:
@@ -248,7 +248,7 @@ paths:
           $ref: "#/components/responses/Error409"
       security:
         - bearer: []
-      description: 仅上海today-7..today两端包含的8日期；非法新建日期400。作者来自当前身份。
+      description: 起止日期均须在上海today-3..today内，共用一份正文，可保存草稿；非法范围400。作者来自当前身份。
       requestBody:
         required: true
         content:
@@ -277,7 +277,7 @@ paths:
           $ref: "#/components/responses/Error409"
       security:
         - bearer: []
-      description: 原日期必须仍可编辑，否则403；目标日期非法400。已提交不可回草稿，保持同ID。
+      description: 创建后24小时内作者可修改，否则403；日期范围不能改变，非法变动400。已提交不可回草稿，保持同ID。
       parameters:
         - in: path
           name: id
@@ -456,7 +456,7 @@ paths:
           $ref: "#/components/responses/Error409"
       security:
         - bearer: []
-      description: 默认角色读范围；指定userId读取其负责的任务（须有成员读权限）。FOUNDER全公司，部门/团队领导实际下级树，员工本人；ADMIN403。
+      description: 返回本人创建、本人负责及已有权限内的任务，含已完成；未生效创建仅申请人和审核人可见。指定userId须有成员读权限，且仅返回其已生效任务。ADMIN403。
       parameters:
         - in: query
           name: userId
@@ -464,7 +464,7 @@ paths:
             type: integer
             format: int64
     post:
-      summary: 业务领导向实际下级派发
+      summary: 业务成员创建任务并选择任意公司成员
       responses:
         "201":
           description: 成功
@@ -484,7 +484,7 @@ paths:
           $ref: "#/components/responses/Error409"
       security:
         - bearer: []
-      description: FOUNDER/DEPT_HEAD/TEAM_LEAD可向实际manager_id链中较低角色的启用业务成员派发；ADMIN/STAFF拒绝。
+      description: 所有业务成员可选择公司内有效业务成员，包括自己；创始人直接生效，其余由直属上级审核。无有效上级返回409，不创建半成品。
       requestBody:
         required: true
         content:
@@ -513,7 +513,7 @@ paths:
           $ref: "#/components/responses/Error409"
       security:
         - bearer: []
-      description: 独立保存status(todo/doing/done)，progress选填可null；填值时todo仅0、doing为0..99、done仅100。说明非空最多2000字。旧请求仅缺status且有整数progress时兼容推导。查看批准不授予反馈权限。
+      description: 非创始人提交直属上级审核，批准后更新。创始人直接生效。独立保存status(todo/doing/done)，progress选填可null；填值时todo仅0、doing为0..99、done仅100。说明非空最多2000字。旧请求仅缺status且有整数progress时兼容推导。查看批准不授予反馈权限。
       parameters:
         - in: path
           name: id
@@ -550,6 +550,187 @@ paths:
       security:
         - bearer: []
       description: 本人今日日志、当前可读最新10任务；两个十大事板块暂空。ADMIN403。
+  /tasks/{id}:
+    parameters:
+      - {in: path, name: id, required: true, schema: {type: integer, format: int64}}
+    put:
+      summary: 创建人或创始人编辑任务
+      description: 创始人直接生效；其他创建人由直属上级审核；同一任务同时只能有一个待审核变更。拒绝或撤回后可以重新编辑。
+      security: [{bearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TaskInput'}
+      responses:
+        '200': {description: 返回当前生效内容；非创始人的新内容保存到审核记录}
+        '403': {$ref: '#/components/responses/Error403'}
+        '409': {$ref: '#/components/responses/Error409'}
+    delete:
+      summary: 仅创始人可删除，直接生效
+      description: 软删除任务；取消待审申请，保留审核历史并通知相关成员。
+      security: [{bearer: []}]
+      responses:
+        '200': {description: 任务已删除}
+        '403': {$ref: '#/components/responses/Error403'}
+  /task-reviews:
+    get:
+      summary: 本人提交或需本人审批的任务变更
+      security: [{bearer: []}]
+      responses:
+        '200': {description: 按提交时间倒序，包含操作、拟议内容、审批人、状态和时间}
+  /task-reviews/{id}:
+    parameters:
+      - {in: path, name: id, required: true, schema: {type: integer, format: int64}}
+    put:
+      summary: 直属上级批准或拒绝；申请人可撤回
+      security: [{bearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: {type: string, enum: [approved, rejected, canceled]}
+      responses:
+        '200': {description: 处理后的审核记录}
+        '403': {$ref: '#/components/responses/Error403'}
+        '409': {$ref: '#/components/responses/Error409'}
+  /labels:
+    get:
+      summary: 所有业务成员可读取启用标签
+      security: [{bearer: []}]
+      responses:
+        '200': {description: 标签数组，含 id、name、color、active}
+    post:
+      summary: 创始人新增标签
+      security: [{bearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LabelInput'}
+      responses:
+        '200': {description: 已创建标签}
+        '403': {$ref: '#/components/responses/Error403'}
+  /labels/{id}:
+    parameters:
+      - {in: path, name: id, required: true, schema: {type: integer, format: int64}}
+    put:
+      summary: 创始人更新标签名称及颜色，关联任务和日历同步反映
+      security: [{bearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LabelInput'}
+      responses:
+        '200': {description: 已更新标签}
+    delete:
+      summary: 创始人停用标签；历史关联保留
+      security: [{bearer: []}]
+      responses:
+        '200': {description: 已停用}
+  /notifications:
+    get:
+      summary: 当前账号的应用内通知
+      security: [{bearer: []}]
+      responses:
+        '200': {description: 按时间倒序，含 id、title、message、type、referenceId、createdAt、readAt}
+  /notifications/{id}/read:
+    parameters:
+      - {in: path, name: id, required: true, schema: {type: integer, format: int64}}
+    put:
+      summary: 将自己的通知标为已读
+      security: [{bearer: []}]
+      responses:
+        '200': {description: 更新后的通知}
+        '403': {$ref: '#/components/responses/Error403'}
+  /profile:
+    get:
+      summary: 读取自己的资料及头像
+      security: [{bearer: []}]
+      responses:
+        '200': {description: 含 id、username、displayName、role、avatarData}
+  /profile/avatar:
+    put:
+      summary: 上传自己的头像或清空头像
+      security: [{bearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [avatarData]
+              properties:
+                avatarData: {type: string, maxLength: 60000, description: 'PNG/JPEG data URL；解码后最大45KB、1024×1024；空串移除'}
+      responses:
+        '200': {description: 已更新的本人资料}
+  /profile/password:
+    put:
+      summary: 验证当前密码后修改自己的密码
+      description: 新密码8至72字符，且UTF-8最多72字节；成功后旧会话全部失效。
+      security: [{bearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: {type: string, maxLength: 72}
+                newPassword: {type: string, minLength: 8, maxLength: 72}
+      responses:
+        '200': {description: 修改成功，客户端重新登录}
+  /tasks/{id}/keywords:
+    parameters:
+      - {in: path, name: id, required: true, schema: {type: integer, format: int64}}
+    post:
+      summary: 任务创建人及执行人共同添加关键词
+      description: 仅已生效任务，每任务最多12个词，每词1至24字，不允许重复或控制字符。有待审变更时先处理审核。
+      security: [{bearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TaskKeywordInput'}
+      responses:
+        '200': {description: 关键词已添加}
+        '400': {$ref: '#/components/responses/Error400'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+  /tasks/{id}/keywords/{keywordId}:
+    parameters:
+      - {in: path, name: id, required: true, schema: {type: integer, format: int64}}
+      - {in: path, name: keywordId, required: true, schema: {type: integer, format: int64}}
+    put:
+      summary: 修改关键词，修改他人词需直属上级审核
+      description: 自己添加的词直接修改；创始人免审。其他修改保留原词直至直属上级批准，复用任务审核及通知。响应message说明是否已提交审核。
+      security: [{bearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TaskKeywordInput'}
+      responses:
+        '200': {description: 已更新或已提交直属上级审核}
+        '400': {$ref: '#/components/responses/Error400'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+    delete:
+      summary: 删除关键词，删除他人词需直属上级审核
+      security: [{bearer: []}]
+      responses:
+        '200': {description: 已删除或已提交直属上级审核，批准前保留原词}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
 components:
   securitySchemes:
     bearer:
@@ -557,6 +738,30 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    TaskKeywordInput:
+      type: object
+      required: [text]
+      properties:
+        text: {type: string, minLength: 1, maxLength: 24}
+    TaskKeyword:
+      type: object
+      properties:
+        id: {type: integer, format: int64}
+        text: {type: string, maxLength: 24}
+        createdBy: {type: integer, format: int64}
+    LabelInput:
+      type: object
+      required: [name, color]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 64}
+        color: {type: string, pattern: '^#[0-9a-fA-F]{6}$'}
+    WorkLabel:
+      allOf:
+        - {$ref: '#/components/schemas/LabelInput'}
+        - type: object
+          properties:
+            id: {type: integer, format: int64}
+            active: {type: boolean}
     UserSummary:
       type: object
       properties:
@@ -692,10 +897,19 @@ components:
     LogInput:
       type: object
       properties:
+        labelId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 选择标签ID；0清空；更新省略或null保留原标签
         logDate:
           type: string
           format: date
-          description: Asia/Shanghai today-7..today inclusive; eight dates
+          description: Creation uses Asia/Shanghai today-3..today; edits allowed within 24 hours after createdAt; date range is immutable.
+        endDate:
+          type: string
+          format: date
+          description: Inclusive end; defaults to logDate; both endpoints within today-3..today.
         content:
           type: string
           minLength: 1
@@ -712,6 +926,10 @@ components:
     WorkLog:
       type: object
       properties:
+        label:
+          allOf:
+            - {$ref: '#/components/schemas/WorkLabel'}
+          nullable: true
         id:
           type: integer
           format: int64
@@ -721,7 +939,11 @@ components:
         logDate:
           type: string
           format: date
-          description: Asia/Shanghai today-7..today inclusive; eight dates
+          description: Creation uses Asia/Shanghai today-3..today; edits allowed within 24 hours after createdAt; date range is immutable.
+        endDate:
+          type: string
+          format: date
+          description: Inclusive end; defaults to logDate; both endpoints within today-3..today.
         content:
           type: string
           minLength: 1
@@ -802,6 +1024,11 @@ components:
     TaskInput:
       type: object
       properties:
+        labelId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 选择标签ID；0清空；更新省略或null保留原标签
         title:
           type: string
           minLength: 1
@@ -830,6 +1057,17 @@ components:
     Task:
       type: object
       properties:
+        keywords:
+          type: array
+          maxItems: 12
+          items: {$ref: '#/components/schemas/TaskKeyword'}
+        label:
+          allOf:
+            - {$ref: '#/components/schemas/WorkLabel'}
+          nullable: true
+        approvalStatus:
+          type: string
+          enum: [approved, pending, rejected]
         id:
           type: integer
           format: int64
@@ -963,6 +1201,9 @@ components:
       properties:
         ok:
           type: boolean
+        supportsDateRanges:
+          type: boolean
+          description: True when the server supports inclusive endDate on work logs.
         message:
           type: string
   responses:

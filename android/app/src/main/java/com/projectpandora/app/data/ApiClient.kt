@@ -23,10 +23,11 @@ object ServerAddress {
     }
 }
 object LogValidation {
-    fun error(date: String, content: String, status: String): String? {
+    fun error(date: String, content: String, status: String, endDate: String? = null,creating: Boolean = true): String? {
         val parsed=try {LocalDate.parse(date)} catch(_:Exception) {return "请选择有效的日志日期"}
-        if(parsed>today())return "日志日期不能晚于今天"
-        if(!canWriteLog(date))return "可创建今天及往前 3 天的日报"
+        if(creating && parsed>today())return "日志日期不能晚于今天"
+        if(creating && !canWriteLog(date))return "可创建今天及往前 3 天的日报"
+        if(creating && !canWriteLogRange(date,endDate))return "起止日期须连续且在今天及往前 3 天内"
         if(content.isBlank())return "工作记录不能为空"
         if(content.length>5000)return "工作记录不能超过5000字"
         if(status !in listOf("draft","submitted"))return "无效的日志状态"
@@ -58,6 +59,20 @@ class ApiClient(address: String) {
         if(result.token.isNullOrBlank() || result.userId<=0 || result.role !in AppRoles.business)throw ApiException(502,"登录响应不完整，请检查服务地址")
         return Session(server,result.token,result.userId,result.role,result.displayName,username)
     }
+    fun labels(session: Session): List<WorkLabel> = request("/labels","GET",null,session,object:TypeToken<List<WorkLabel>>(){}.type)
+    fun reviews(session: Session): List<TaskReview> = request("/task-reviews","GET",null,session,object:TypeToken<List<TaskReview>>(){}.type)
+    fun notifications(session: Session): List<InboxMessage> = request("/notifications","GET",null,session,object:TypeToken<List<InboxMessage>>(){}.type)
+    fun readNotification(session: Session,id: Long): InboxMessage = request("/notifications/$id/read","PUT",null,session,InboxMessage::class.java)
+    fun decideTask(session: Session,id: Long,status: String): TaskReview = request("/task-reviews/$id","PUT",mapOf("status" to status),session,TaskReview::class.java)
+    fun deleteTask(session: Session,id: Long): ActionResult = request("/tasks/$id","DELETE",null,session,ActionResult::class.java)
+    fun editTask(session: Session,id: Long,input: TaskCreateInput): DispatchTask = request("/tasks/$id","PUT",input,session,DispatchTask::class.java)
+    fun saveKeyword(session: Session,taskId: Long,id: Long?,text: String): ActionResult = request(if(id==null)"/tasks/$taskId/keywords" else "/tasks/$taskId/keywords/$id",if(id==null)"POST" else "PUT",mapOf("text" to text),session,ActionResult::class.java)
+    fun deleteKeyword(session: Session,taskId: Long,id: Long): ActionResult = request("/tasks/$taskId/keywords/$id","DELETE",null,session,ActionResult::class.java)
+    fun saveLabel(session: Session,id: Long?,name: String,color: String): WorkLabel = request(if(id==null)"/labels" else "/labels/$id",if(id==null)"POST" else "PUT",mapOf("name" to name,"color" to color),session,WorkLabel::class.java)
+    fun archiveLabel(session: Session,id: Long): ActionResult = request("/labels/$id","DELETE",null,session,ActionResult::class.java)
+    fun profile(session: Session): MyProfile = request("/profile","GET",null,session,MyProfile::class.java)
+    fun avatar(session: Session,data: String): MyProfile = request("/profile/avatar","PUT",mapOf("avatarData" to data),session,MyProfile::class.java)
+    fun password(session: Session,current: String,new: String): ActionResult = request("/profile/password","PUT",mapOf("currentPassword" to current,"newPassword" to new),session,ActionResult::class.java)
     fun users(session: Session): List<UserSummary> = request("/users","GET",null,session,object:TypeToken<List<UserSummary>>(){}.type)
     fun organization(session: Session): Organization = request("/users/organization","GET",null,session,Organization::class.java)
     fun viewRequests(session: Session): List<ViewRequest> = request("/view-requests","GET",null,session,object:TypeToken<List<ViewRequest>>(){}.type)
@@ -85,11 +100,11 @@ class ApiClient(address: String) {
     }
     fun panels(session: Session): PanelMap = request("/panels/map","GET",null,session,PanelMap::class.java)
     fun save(session: Session, id: Long?, input: LogInput): WorkLog {
-        LogValidation.error(input.logDate,input.content,input.status)?.let {throw IllegalArgumentException(it)}
+        LogValidation.error(input.logDate,input.content,input.status,input.endDate,creating=id==null)?.let {throw IllegalArgumentException(it)}
         if(id!=null) {
             require(id>0) {"无效的日志编号"}
-            require(canModifyLog(input.logDate)) {"仅能修改今天的日报"}
         }
+        if(input.endDate!=null && input.endDate!=input.logDate && !integrity(session).supportsDateRanges)throw ApiException(409,"当前服务器尚未支持多日日志，请先更新后端；内容已保留")
         return request(if(id==null)"/logs" else "/logs/$id",if(id==null)"POST" else "PUT",input,session,WorkLog::class.java)
     }
     fun submit(session: Session, id: Long): WorkLog {

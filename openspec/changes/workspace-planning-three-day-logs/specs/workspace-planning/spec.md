@@ -102,3 +102,19 @@ Debug Android SHALL offer ten local company card examples through development en
 #### Scenario: Empty authenticated company data
 - **WHEN** a Debug user opts into example cards from an empty company panel
 - **THEN** the labelled examples appear locally and returning to actual data restores the server state
+
+
+### Requirement: Consecutive multi-day logs
+A work log SHALL support an inclusive start/end date range with one shared description. Both endpoints SHALL remain within Shanghai today minus three days through today; reversed or future ranges SHALL be rejected. Existing single-day clients and data SHALL remain compatible. Historical ranges SHALL be read-only and cannot be unlocked by changing their dates.
+#### Scenario: Three days of sick leave
+- **WHEN** an author submits a log from two days ago through today with one leave description
+- **THEN** one record covers all three days, shows a linked calendar frame and the same full description when any covered date is selected
+#### Scenario: Weekly details
+- **WHEN** a multi-day record intersects the displayed week
+- **THEN** its shared details appear once, with coverage counts and cross-references on later days
+#### Scenario: Old backend or failed save
+- **WHEN** the server does not advertise date-range support or saving fails
+- **THEN** no unsupported multi-day POST is made and the full local date range and content are retained
+#### Scenario: Historic migration
+- **WHEN** the database upgrades
+- **THEN** old records receive an end date equal to their start date without losing content

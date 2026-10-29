@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 class TaskDemoTests {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
+    @Autowired com.projectpandora.api.user.UserRepository users;
 
     JsonNode login(String name) throws Exception {
         return json.readTree(mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
@@ -43,18 +44,34 @@ class TaskDemoTests {
             "assigneeId", assignee.get("userId").asLong(), "dueAt", "2026-10-01T15:59:59Z"));
     }
     JsonNode create(JsonNode creator, JsonNode assignee, String title) throws Exception {
-        return json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization", token(creator))
+        var response=json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization", token(creator))
             .contentType(MediaType.APPLICATION_JSON).content(payload(assignee, title)))
             .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+        if("pending".equals(response.path("approvalStatus").asText()))approveLatest(creator);
+        long id=response.get("id").asLong();
+        for(var item:list(creator))if(item.get("id").asLong()==id)return item;
+        throw new AssertionError("created task missing");
+    }
+    void approveLatest(JsonNode applicant) throws Exception {
+        long userId=applicant.get("userId").asLong();var user=users.findById(userId).orElseThrow();
+        var manager=users.findById(user.getManagerId()).orElseThrow();var reviewer=login(manager.getUsername());
+        var items=json.readTree(mvc.perform(get("/api/v1/task-reviews").header("Authorization",token(applicant))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+        for(var review:items)if("pending".equals(review.get("status").asText())) {
+            mvc.perform(put("/api/v1/task-reviews/"+review.get("id").asLong()).header("Authorization",token(reviewer)).contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"approved\"}")).andExpect(status().isOk());return;
+        }
+        throw new AssertionError("pending review missing");
     }
     JsonNode list(JsonNode user) throws Exception {
         return json.readTree(mvc.perform(get("/api/v1/tasks").header("Authorization", token(user)))
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
     }
     JsonNode progress(JsonNode user, long id, int value, String note) throws Exception {
-        return json.readTree(mvc.perform(put("/api/v1/tasks/" + id + "/progress").header("Authorization", token(user))
+        mvc.perform(put("/api/v1/tasks/" + id + "/progress").header("Authorization", token(user))
             .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("progress", value, "progressNote", note))))
-            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+            .andExpect(status().isOk());
+        approveLatest(user);
+        for(var item:list(user))if(item.get("id").asLong()==id)return item;
+        throw new AssertionError("task missing");
     }
 
     @Test void dispatchFeedbackRoundTripKeepsIdentityAndImmutableFields() throws Exception {
@@ -92,18 +109,13 @@ class TaskDemoTests {
         assertThat(list(leader).findValuesAsText("id")).containsExactly(created.get("id").asText(), own.get("id").asText(), direct.get("id").asText());
         assertThat(list(staff).findValuesAsText("id")).containsExactly(created.get("id").asText(), direct.get("id").asText());
         assertThat(list(other).findValuesAsText("id")).containsExactly(hidden.get("id").asText());
-        mvc.perform(post("/api/v1/tasks").header("Authorization", token(leader)).contentType(MediaType.APPLICATION_JSON).content(payload(other, "越权")))
-            .andExpect(status().isForbidden());
-        mvc.perform(post("/api/v1/tasks").header("Authorization", token(leader)).contentType(MediaType.APPLICATION_JSON).content(payload(leader, "自派")))
-            .andExpect(status().isForbidden());
-        mvc.perform(post("/api/v1/tasks").header("Authorization", token(staff)).contentType(MediaType.APPLICATION_JSON).content(payload(staff, "越权")))
-            .andExpect(status().isForbidden());
+        create(leader,other,"跨部门任务");create(leader,leader,"自派任务");create(staff,staff,"员工创建任务");
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON).content(payload(admin, "管理员")))
             .andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(founder)).contentType(MediaType.APPLICATION_JSON)
             .content("{\"title\":\"不存在\",\"assigneeId\":9223372036854775807}"))
             .andExpect(status().isNotFound());
-        assertThat(list(founder).size()).isEqualTo(4);
+        assertThat(list(founder).size()).isEqualTo(7);
     }
 
     @Test void onlyAssigneeCanUpdateIncludingCreatorAndAdmin() throws Exception {
@@ -191,10 +203,8 @@ class TaskDemoTests {
         var task=create(leader,staff,"状态优先任务"); long id=task.get("id").asLong();
         assertThat(task.get("progress").isNull()).isTrue();
         for (String state : new String[]{"doing", "done", "todo"}) {
-            var result=json.readTree(mvc.perform(put("/api/v1/tasks/"+id+"/progress")
-                .header("Authorization",token(staff)).contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("status",state,"progressNote","实际工作说明"))))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+            mvc.perform(put("/api/v1/tasks/"+id+"/progress").header("Authorization",token(staff)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("status",state,"progressNote","实际工作说明")))).andExpect(status().isOk());
+            approveLatest(staff);var result=list(staff).get(0);
             assertThat(result.get("status").asText()).isEqualTo(state);
             assertThat(result.get("progress").isNull()).isTrue();
             assertThat(list(leader).get(0)).isEqualTo(result);

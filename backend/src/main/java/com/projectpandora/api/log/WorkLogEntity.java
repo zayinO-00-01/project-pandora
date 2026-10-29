@@ -25,6 +25,11 @@ public class WorkLogEntity {
     @Column(name = "log_date", nullable = false)
     private LocalDate logDate;
 
+    @Column(name = "end_date")
+    private LocalDate endDate;
+    public LocalDate getEndDate() { return endDate == null ? logDate : endDate; }
+    public void setEndDate(LocalDate date) { endDate = date; }
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
@@ -48,6 +53,11 @@ public class WorkLogEntity {
     void onUpdate() {
         updatedAt = Instant.now();
     }
+
+    @jakarta.persistence.ManyToOne(fetch=jakarta.persistence.FetchType.EAGER) @jakarta.persistence.JoinColumn(name="label_id")
+    private com.projectpandora.api.label.WorkLabel label;
+    public com.projectpandora.api.label.WorkLabel getLabel(){return label;}
+    public void setLabel(com.projectpandora.api.label.WorkLabel value){label=value;}
 
     public Long getId() {
         return id;

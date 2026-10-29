@@ -1,0 +1,10 @@
+CREATE TABLE work_labels (id BIGINT AUTO_INCREMENT PRIMARY KEY,name VARCHAR(64) NOT NULL,color VARCHAR(7) NOT NULL,active BOOLEAN NOT NULL DEFAULT TRUE);
+ALTER TABLE dispatch_tasks ADD COLUMN label_id BIGINT REFERENCES work_labels(id);
+ALTER TABLE dispatch_tasks ADD COLUMN approval_status VARCHAR(16) NOT NULL DEFAULT 'approved';
+ALTER TABLE dispatch_tasks ADD COLUMN deleted BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE dispatch_tasks ADD COLUMN version BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE work_logs ADD COLUMN label_id BIGINT REFERENCES work_labels(id);
+CREATE TABLE task_reviews (id BIGINT AUTO_INCREMENT PRIMARY KEY,task_id BIGINT NOT NULL REFERENCES dispatch_tasks(id),applicant_id BIGINT NOT NULL REFERENCES users(id),reviewer_id BIGINT NOT NULL REFERENCES users(id),operation VARCHAR(16) NOT NULL,payload TEXT NOT NULL,status VARCHAR(16) NOT NULL,base_version BIGINT NOT NULL,created_at TIMESTAMP NOT NULL,decided_at TIMESTAMP);
+CREATE INDEX idx_review_pending ON task_reviews(task_id,status);
+CREATE TABLE notifications (id BIGINT AUTO_INCREMENT PRIMARY KEY,recipient_id BIGINT NOT NULL REFERENCES users(id),title VARCHAR(128) NOT NULL,message VARCHAR(1000) NOT NULL,type VARCHAR(32) NOT NULL,reference_id BIGINT,created_at TIMESTAMP NOT NULL,read_at TIMESTAMP);
+CREATE INDEX idx_notification_recipient ON notifications(recipient_id,created_at);

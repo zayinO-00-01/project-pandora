@@ -61,7 +61,7 @@ class IntegratedPolicyTests {
     }
     @Test void expiredDraftCannotBeSubmitted() throws Exception {
         var historic=new WorkLogEntity();historic.setUserId(user("staff").getId());historic.setLogDate(today().minusDays(4));
-        historic.setContent("过期草稿");historic.setStatus("draft");logs.saveAndFlush(historic);
+        historic.setContent("过期草稿");historic.setStatus("draft");logs.saveAndFlush(historic);org.springframework.test.util.ReflectionTestUtils.setField(historic,"createdAt",java.time.Instant.now().minusSeconds(86401));
         mvc.perform(post("/api/v1/logs/"+historic.getId()+"/submit").header("Authorization",token("staff")))
             .andExpect(status().isForbidden());
         assertThat(logs.findById(historic.getId()).orElseThrow().getStatus()).isEqualTo("draft");
@@ -77,13 +77,13 @@ class IntegratedPolicyTests {
             .andExpect(status().isOk()).andExpect(jsonPath("$.assignees").isArray()).andReturn().getResponse().getContentAsString());
         assertThat(organization.get("members").findValuesAsText("username"))
             .contains("unlinked_assignee","peer_founder","leader","team_lead","staff").doesNotContain("admin","disabled_assignee","founder");
-        assertThat(organization.get("assignees").findValuesAsText("username")).containsExactly("leader","team_lead","staff");
+        assertThat(organization.get("assignees").findValuesAsText("username")).contains("founder","leader","team_lead","staff","peer_founder","unlinked_assignee").doesNotContain("admin","disabled_assignee");
         String lead=token("team_lead");var r=request(lead,user("leader").getId());decision(token("leader"),r.get("id").asLong(),"approved",200);
         mvc.perform(get("/api/v1/users/organization").header("Authorization",lead)).andExpect(status().isOk())
-            .andExpect(jsonPath("$.assignees.length()").value(1)).andExpect(jsonPath("$.assignees[0].username").value("staff"));
+            .andExpect(jsonPath("$.assignees.length()").value(6));
         String staff=token("staff");var staffRequest=request(staff,user("team_lead").getId());decision(lead,staffRequest.get("id").asLong(),"approved",200);
         mvc.perform(get("/api/v1/users/organization").header("Authorization",staff)).andExpect(status().isOk())
-            .andExpect(jsonPath("$.assignees.length()").value(0));
+            .andExpect(jsonPath("$.assignees.length()").value(6));
     }
     @Test void adminCannotUseAnyBusinessEntryPoint() throws Exception {
         String admin=token("admin");
@@ -99,7 +99,7 @@ class IntegratedPolicyTests {
             mvc.perform(post("/api/v1/logs").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(logBody(date,"draft")))
                 .andExpect(status().isBadRequest());
         var historic=new WorkLogEntity(); historic.setUserId(user("staff").getId());historic.setLogDate(today().minusDays(4));
-        historic.setContent("历史记录");historic.setStatus("draft");logs.saveAndFlush(historic);
+        historic.setContent("历史记录");historic.setStatus("draft");logs.saveAndFlush(historic);org.springframework.test.util.ReflectionTestUtils.setField(historic,"createdAt",java.time.Instant.now().minusSeconds(86401));
         mvc.perform(put("/api/v1/logs/"+historic.getId()).header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(logBody(today(),"submitted")))
             .andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/logs/"+historic.getId()+"/submit").header("Authorization",staff)).andExpect(status().isForbidden());

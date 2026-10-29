@@ -1,4 +1,9 @@
+> 最新交付为 0.7.0：协作关键词、固定悬浮操作与总览转场；需要配套 APK 和后端 JAR，见 [升级说明](../docs/协作关键词与总览转场.md)。
+
 # Pandora API
+
+> 0.6.0更新：任务/日志分离、四宫格总览、审核通知、品牌标签、24小时日志编辑及个人账号设置。最新规则见 [任务工作台与四宫格总览](../docs/任务工作台与四宫格总览.md)。
+
 
 Spring Boot3 / Java17；默认本机 H2 文件库，公开注册关闭。契约见 [openapi.yaml](openapi.yaml)。推荐根目录 `start-demo.cmd` 启动，Web/API 同端口。单独开发在本目录 `mvn spring-boot:run`。健康检查 `GET /api/v1/health`。
 
