@@ -2,6 +2,7 @@ package com.projectpandora.api.task;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.projectpandora.api.common.ApiException;
+import com.projectpandora.api.notification.NotificationService;
 import com.projectpandora.api.security.AccessService;
 import com.projectpandora.api.user.*;
 import java.time.Instant;
@@ -20,10 +21,12 @@ public class TaskService {
     private final AccessService access;
     private final OrganizationGuard organization;
     private final TaskEventRepository events;
+    private final NotificationService notifications;
     private final ObjectMapper json;
     public TaskService(TaskRepository tasks,UserRepository users,AccessService access,OrganizationGuard organization,
-            TaskEventRepository events,ObjectMapper json) {
-        this.tasks=tasks;this.users=users;this.access=access;this.organization=organization;this.events=events;this.json=json;
+            TaskEventRepository events,NotificationService notifications,ObjectMapper json) {
+        this.tasks=tasks;this.users=users;this.access=access;this.organization=organization;this.events=events;
+        this.notifications=notifications;this.json=json;
     }
     public List<TaskResponse> list(Long userId) {
         if(userId!=null) {
@@ -56,6 +59,8 @@ public class TaskService {
         var creator=users.findById(me.getId()).orElseThrow(()->new ApiException(401,"账号不可用，请重新登录"));
         var task=tasks.saveAndFlush(new TaskEntity(request,creator,assignee));
         logEvent(task.getId(),"created",me.getId(),"派发任务");
+        notifyUser(assignee.getId(),me.getId(),"task_assigned","收到新任务",
+            "「"+task.getTitle()+"」由 "+displayName(creator)+" 派发给你，请在任务工作台查看。",task.getId());
         return TaskResponse.from(task);
     }
     @Transactional
@@ -79,6 +84,8 @@ public class TaskService {
             } else {
                 task.setReviewStatus("pending_done");task.setReviewReason(null);
                 logEvent(id,"review_requested",me.getId(),"提交完成待派发人验收");
+                notifyUser(task.getCreator().getId(),me.getId(),"done_pending","待你验收",
+                    "「"+task.getTitle()+"」已由 "+displayName(task.getAssignee())+" 提交完成，请验收。",task.getId());
             }
         } else {
             task.updateProgress(state,request.progress(),request.progressNote());
@@ -102,6 +109,8 @@ public class TaskService {
             task.setPendingChange(payloadJson(request));
             task.setReviewStatus("pending_change");task.setReviewReason(null);
             logEvent(id,"review_requested",me.getId(),"提交任务变更待上级审核");
+            notifyUser(superiorOf(task.getCreator()),me.getId(),"change_pending","变更待你审核",
+                displayName(task.getCreator())+" 申请修改「"+task.getTitle()+"」，请审核。",task.getId());
         }
         return TaskResponse.from(tasks.saveAndFlush(task));
     }
@@ -121,6 +130,15 @@ public class TaskService {
         }
         task.setReviewReason(note);task.setReviewedBy(me.getId());task.setReviewedAt(Instant.now());
         logEvent(id,"approved",me.getId(),note==null||note.isBlank()?"审核通过":note);
+        switch(rs) {
+            case "pending_done" -> notifyUser(task.getAssignee().getId(),me.getId(),"done_approved","验收通过",
+                "你的任务「"+task.getTitle()+"」已通过验收。",task.getId());
+            case "pending_change" -> notifyUser(task.getCreator().getId(),me.getId(),"change_approved","变更已通过",
+                "「"+task.getTitle()+"」的修改已通过。",task.getId());
+            case "pending_delete" -> notifyUser(task.getCreator().getId(),me.getId(),"delete_approved","删除已通过",
+                "「"+task.getTitle()+"」的删除申请已通过。",task.getId());
+            default -> {}
+        }
         return TaskResponse.from(tasks.saveAndFlush(task));
     }
     @Transactional
@@ -139,6 +157,15 @@ public class TaskService {
         }
         task.setReviewReason(request.note());task.setReviewedBy(me.getId());task.setReviewedAt(Instant.now());
         logEvent(id,"rejected",me.getId(),request.note());
+        switch(rs) {
+            case "pending_done" -> notifyUser(task.getAssignee().getId(),me.getId(),"done_rejected","验收被驳回",
+                "你的任务「"+task.getTitle()+"」被驳回："+request.note(),task.getId());
+            case "pending_change" -> notifyUser(task.getCreator().getId(),me.getId(),"change_rejected","变更被驳回",
+                "「"+task.getTitle()+"」的修改被驳回："+request.note(),task.getId());
+            case "pending_delete" -> notifyUser(task.getCreator().getId(),me.getId(),"delete_rejected","删除被驳回",
+                "「"+task.getTitle()+"」的删除申请被驳回："+request.note(),task.getId());
+            default -> {}
+        }
         return TaskResponse.from(tasks.saveAndFlush(task));
     }
     @Transactional
@@ -148,6 +175,8 @@ public class TaskService {
         if(me.getRole()==Role.FOUNDER) {
             task.softDelete(me.getId());task.setReviewStatus("approved");
             logEvent(id,"deleted",me.getId(),"创始人删除任务");
+            notifyUser(task.getAssignee().getId(),me.getId(),"task_deleted","任务已删除",
+                "任务「"+task.getTitle()+"」已被创始人删除。",task.getId());
             tasks.saveAndFlush(task);return;
         }
         if(!task.getCreator().getId().equals(me.getId())) throw new ApiException(403,"只有派发人或创始人可以删除任务");
@@ -158,16 +187,22 @@ public class TaskService {
         if(untouched) {
             task.softDelete(me.getId());
             logEvent(id,"deleted",me.getId(),"删除未开始的任务");
+            notifyUser(task.getAssignee().getId(),me.getId(),"task_deleted","任务已删除",
+                "任务「"+task.getTitle()+"」已被派发人删除。",task.getId());
             tasks.saveAndFlush(task);return;
         }
         Long reviewer=superiorOf(task.getCreator());
         if(reviewer==null) {
             task.softDelete(me.getId());task.setReviewStatus("approved");
             logEvent(id,"deleted",me.getId(),"无上级可审，自动删除");
+            notifyUser(task.getAssignee().getId(),me.getId(),"task_deleted","任务已删除",
+                "任务「"+task.getTitle()+"」已被删除。",task.getId());
             tasks.saveAndFlush(task);return;
         }
         task.setReviewStatus("pending_delete");task.setReviewReason(null);
         logEvent(id,"review_requested",me.getId(),"提交删除待上级审核");
+        notifyUser(reviewer,me.getId(),"delete_pending","删除待你审核",
+            displayName(task.getCreator())+" 申请删除「"+task.getTitle()+"」，请审核。",task.getId());
         tasks.saveAndFlush(task);
     }
     private TaskEntity activeTask(Long id) {
@@ -218,5 +253,12 @@ public class TaskService {
     }
     private void logEvent(Long taskId,String type,Long actorId,String note) {
         events.save(new TaskEventEntity(taskId,type,actorId,note));
+    }
+    private void notifyUser(Long recipient,Long actor,String type,String title,String body,Long taskId) {
+        if(recipient==null || recipient.equals(actor)) return;
+        notifications.notifyUser(recipient,type,title,body,taskId);
+    }
+    private static String displayName(UserEntity u) {
+        return u.getDisplayName()==null||u.getDisplayName().isBlank()?u.getUsername():u.getDisplayName();
     }
 }

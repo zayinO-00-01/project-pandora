@@ -111,6 +111,12 @@ class ApiClient(address: String) {
         require(id>0) {"无效的任务编号"}
         requestVoid("/tasks/$id","DELETE",session)
     }
+    fun notifications(session: Session): NotificationList = request("/notifications","GET",null,session,NotificationList::class.java)
+    fun readNotification(session: Session, id: Long) {
+        require(id>0) {"无效的消息编号"}
+        requestVoid("/notifications/$id/read","POST",session)
+    }
+    fun readAllNotifications(session: Session) { requestVoid("/notifications/read-all","POST",session) }
     fun saveCompanyNote(session: Session, id: Long, content: String): CompanyNotice {
         require(id>0) {"无效的事项编号"}
         if(content.length>2000)throw IllegalArgumentException("备注不能超过2000字")
