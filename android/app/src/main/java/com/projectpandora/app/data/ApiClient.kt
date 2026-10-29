@@ -28,7 +28,6 @@ object LogValidation {
         if(creating && parsed>today())return "日志日期不能晚于今天"
         if(creating && !canWriteLog(date))return "可创建今天及往前 3 天的日报"
         if(creating && !canWriteLogRange(date,endDate))return "起止日期须连续且在今天及往前 3 天内"
-        if(!creating && (!canModifyLog(date) || (endDate!=null && endDate!=date)))return "仅当天日期的单日日志可修改"
         if(content.isBlank())return "工作记录不能为空"
         if(content.length>5000)return "工作记录不能超过5000字"
         if(status !in listOf("draft","submitted"))return "无效的日志状态"
@@ -89,15 +88,16 @@ class ApiClient(address: String) {
     fun integrity(session: Session): IntegrityResponse = request("/logs/integrity","GET",null,session,IntegrityResponse::class.java)
     fun tasks(session: Session): List<DispatchTask> = request("/tasks","GET",null,session,object:TypeToken<List<DispatchTask>>(){}.type)
     fun createTask(session: Session,input: TaskCreateInput): DispatchTask {
-        if(!AppRoles.canCreateTask(session.role) || (input.assigneeId!=session.userId && !AppRoles.canDispatch(session.role)))throw ApiException(403,"可给自己安排任务；向下级派发仅限业务领导")
+        if(!AppRoles.canCreateTask(session.role))throw ApiException(403,"仅业务成员可创建任务")
         TaskDispatchValidation.inputError(input,session.userId)?.let {throw IllegalArgumentException(it)}
         val result: DispatchTask=request("/tasks","POST",input,session,DispatchTask::class.java)
         if(result.id<=0 || result.assigneeId!=input.assigneeId || result.createdBy!=session.userId)throw ApiException(502,"服务器返回的任务信息不一致，请刷新确认后重试")
         return result
     }
+    fun withdrawTask(session: Session,id: Long): DispatchTask = request("/tasks/$id/withdraw","POST",null,session,DispatchTask::class.java)
     fun pendingTaskApprovals(session: Session): List<DispatchTask> = request("/tasks/pending-approvals","GET",null,session,object:TypeToken<List<DispatchTask>>(){}.type)
     fun decideTaskApproval(session: Session,id: Long,decision: String,note: String): DispatchTask {
-        if(!AppRoles.canDispatch(session.role))throw ApiException(403,"仅直属上级可以审核任务")
+        if(!AppRoles.canViewDown(session.role))throw ApiException(403,"仅直属上级可以审核任务")
         require(id>0 && decision in setOf("approved","rejected") && note.length<=500) {"请填写有效的审核决定和意见"}
         val result: DispatchTask=request("/tasks/$id/approval","PUT",mapOf("decision" to decision,"note" to note.trim()),session,DispatchTask::class.java)
         if(result.id!=id || result.approvalStatus!=decision)throw ApiException(502,"审核响应不一致，请刷新确认")

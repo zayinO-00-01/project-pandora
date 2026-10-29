@@ -24,7 +24,7 @@ import com.projectpandora.app.data.*
             item {Text("待处理审核与我提交的变更",style=MaterialTheme.typography.titleMedium)}
             state.taskReviewError?.let {item {Hint(it,true,onRetry=model::refresh)}}
             if(state.pendingTaskApprovals.isNotEmpty()) {
-                item {Text("自建任务待审批 · ${state.pendingTaskApprovals.size}",style=MaterialTheme.typography.titleSmall)}
+                item {Text("创建申请待审批 · ${state.pendingTaskApprovals.size}",style=MaterialTheme.typography.titleSmall)}
                 items(state.pendingTaskApprovals,key={"initial-${it.id}"}) {task->TaskSummary(task,!state.saving) {model.openTask(task.id)}}
             }
             if(state.reviews.isNotEmpty()) {
@@ -33,9 +33,9 @@ import com.projectpandora.app.data.*
                     Column {Text(taskReviewLabel(task.reviewStatus).orEmpty(),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.secondary);TaskSummary(task,!state.saving) {model.openTask(task.id)}}
                 }
             }
-            item {Text("关键词审核记录",style=MaterialTheme.typography.titleSmall)}
-            if(state.keywordReviews.isEmpty() && state.pendingTaskApprovals.isEmpty() && state.reviews.isEmpty())item {Text("暂无任务审核记录")}
-            items(state.keywordReviews.sortedBy {it.status!="pending"},key={"review-${it.id}"}) {review->OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            item {Text("进度与关键词审核记录",style=MaterialTheme.typography.titleSmall)}
+            if(state.taskReviewRecords.isEmpty() && state.pendingTaskApprovals.isEmpty() && state.reviews.isEmpty())item {Text("暂无任务审核记录")}
+            items(state.taskReviewRecords.sortedBy {it.status!="pending"},key={"review-${it.id}"}) {review->OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 Text(review.taskTitle,style=MaterialTheme.typography.titleMedium)
                 Text("${reviewOperation(review.operation)} · ${reviewStatus(review.status)}",color=MaterialTheme.colorScheme.secondary)
                 Text("申请人 ${review.applicantName} · 审核人 ${review.reviewerName}",style=MaterialTheme.typography.bodySmall)
@@ -68,7 +68,7 @@ import com.projectpandora.app.data.*
 }
 internal fun reviewDetails(payload: String): String=runCatching {
     val data=com.google.gson.JsonParser.parseString(payload).asJsonObject
-    listOf("title" to "事项","detail" to "说明","priority" to "优先级","assigneeName" to "责任人","dueAt" to "截止时间","status" to "进度状态","progressNote" to "进度说明","labelId" to "品牌标签编号","labelName" to "品牌标签","labelColor" to "背景颜色","keywordBefore" to "原关键词","keywordText" to "新关键词").mapNotNull {(key,title)->
+    listOf("title" to "事项","detail" to "说明","priority" to "优先级","assigneeName" to "责任人","dueAt" to "截止时间","status" to "进度状态","progressNote" to "进度说明","progress" to "百分比","labelId" to "品牌标签编号","labelName" to "品牌标签","labelColor" to "背景颜色","keywordBefore" to "原关键词","keywordText" to "新关键词").mapNotNull {(key,title)->
         data[key]?.takeUnless {it.isJsonNull}?.asString?.takeIf {it.isNotBlank()}?.let {value->"$title：${when(key){"priority"->taskPriorityLabel(value);"status"->taskStatusLabel(value);"dueAt"->timestamp(value);else->value}}"}
     }.joinToString("\n")
 }.getOrDefault("无法读取变更说明，请刷新后重试。")

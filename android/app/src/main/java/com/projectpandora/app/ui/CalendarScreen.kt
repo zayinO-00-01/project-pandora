@@ -97,28 +97,25 @@ import androidx.compose.ui.text.font.FontWeight
         }}
         item {HorizontalDivider(Modifier.padding(top=12.dp),color=MaterialTheme.colorScheme.outlineVariant)}
         if(state.loading)item {LinearProgressIndicator(Modifier.fillMaxWidth())}
-        state.logError?.let {item {Hint("日志读取失败：$it",true)}}
         state.taskError?.let {item {Hint("任务读取失败：$it。请同步后重试。",true)}}
         val agendaDates=if(mode=="week")dates else listOf(selected)
         agendaDates.forEach {agendaDate->
-            val logs=state.logs.filter {it.covers(agendaDate.toString())}
             val tasks=orderedTasks(state.tasks.filter {taskIsApproved(it) && !it.deleted && taskDate(it)==agendaDate})
             item {Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface.copy(alpha=0.96f),MaterialTheme.shapes.medium).panelOutline().padding(12.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("${agendaDate.monthValue} 月 ${agendaDate.dayOfMonth} 日 · 周${listOf("一","二","三","四","五","六","日")[agendaDate.dayOfWeek.value-1]}",style=MaterialTheme.typography.titleMedium)
-                    Text("${logs.size} 条日志 · ${tasks.size} 项任务",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${tasks.size} 项任务",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 ControlTextButton(onClick={if(mode=="week") {model.selectDate(agendaDate.toString());model.calendarMode("day")} else showHelp=true}) {Text(if(mode=="week")"查看当日" else "说明",style=MaterialTheme.typography.labelMedium)}
             }}
-            if(logs.isEmpty() && tasks.isEmpty() && !state.loading && state.taskError==null && state.logError==null)item {
+            if(tasks.isEmpty() && !state.taskLoading && state.taskError==null)item {
                 if(mode=="week")Text("暂无安排",modifier=Modifier.padding(horizontal=12.dp,vertical=8.dp),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 else Column(Modifier.fillMaxWidth().padding(vertical=24.dp)) {
-                    Text("这一天暂无记录",style=MaterialTheme.typography.titleLarge.copy(fontWeight=androidx.compose.ui.text.font.FontWeight.Medium))
+                    Text("这一天暂无任务",style=MaterialTheme.typography.titleLarge.copy(fontWeight=androidx.compose.ui.text.font.FontWeight.Medium))
                     Spacer(Modifier.height(8.dp))
-                    Text("切换日期查看日志与任务，未设截止时间的事项可打开全部任务查看。",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("切换日期查看任务，未设截止时间的事项可打开全部任务查看。日志在日志页独立管理。",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            logs.sortedBy {it.updatedAt}.forEach {log->item(key="${agendaDate}-log-${log.id}") {LogCard(log,state.saving,{model.edit(log)})}}
             tasks.forEach {task->
                 item(key="${agendaDate}-task-${task.id}") {
                     AgendaEntry(task,!state.saving) {feedback();model.openTask(task.id)}
@@ -128,7 +125,7 @@ import androidx.compose.ui.text.font.FontWeight
         item {TaskManagementSection(state,model)}
     }
     if(showDateJump)CalendarJumpDialog(selected,onDismiss={showDateJump=false},onConfirm={date->model.selectDate(date.toString());showDateJump=false})
-    if(showHelp)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={showHelp=false},title={Text("显示说明")},text={Text("月视图查看整月，周视图查看周一至周日及整周工作安排，日视图专注当天详情。点击日期标题可直接输入年份并选择月份；跳转保留所选日期，超出当月天数时使用月末。箭头按当前视图切换月、周或天，“今天”返回当前日期。日期摘要最多两排，详细内容在下方显示。仅展示当前已同步内容，没有截止日期的任务可在任务列表查看。")},confirmButton={ControlTextButton(onClick={showHelp=false}) {Text("关闭")}})
+    if(showHelp)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={showHelp=false},title={Text("显示说明")},text={Text("日历仅显示任务，日志在日志页独立管理。月视图查看整月，周视图查看周一至周日及整周工作安排，日视图专注当天详情。点击日期标题可直接输入年份并选择月份；跳转保留所选日期，超出当月天数时使用月末。箭头按当前视图切换月、周或天，“今天”返回当前日期。日期摘要最多两排，详细内容在下方显示。仅展示当前已同步内容，没有截止日期的任务可在任务列表查看。")},confirmButton={ControlTextButton(onClick={showHelp=false}) {Text("关闭")}})
 }
 @Composable private fun CalendarDateNumber(date: LocalDate,state: AppState,label: WorkLabel?) {
     val selected=date.toString()==state.selectedDate

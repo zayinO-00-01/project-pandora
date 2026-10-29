@@ -26,6 +26,8 @@ class TaskReviewTests {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired TaskEventRepository events;
+    @Autowired com.projectpandora.api.task.TaskRepository tasks;
+    @Autowired com.projectpandora.api.user.UserRepository users;
 
     JsonNode login(String name) throws Exception {
         return json.readTree(mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
@@ -37,9 +39,10 @@ class TaskReviewTests {
     JsonNode create(JsonNode creator, long assigneeId, String title) throws Exception {
         var body = new HashMap<String, Object>();
         body.put("title", title); body.put("assigneeId", assigneeId);
-        return json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization", token(creator))
+        var created=json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization", token(creator))
             .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body)))
             .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+        return TaskPolicyTestSupport.approveInitial(mvc,json,created,"leader");
     }
     JsonNode progress(JsonNode user, long id, String status, Integer value, String note) throws Exception {
         var body = new HashMap<String, Object>();
@@ -59,30 +62,43 @@ class TaskReviewTests {
             .andExpect(status().is(expected));
     }
 
-    @Test void completionIsReviewedByDispatcherAndNotByAnyoneElse() throws Exception {
-        var team = login("team_lead"); var staff = login("staff"); var leader = login("leader");
-        long id = create(team, staff.get("userId").asLong(), "验收任务").get("id").asLong();
-        var done = progress(staff, id, "done", 100, "完成");
-        assertThat(done.get("reviewStatus").asText()).isEqualTo("pending_done");
-        assertThat(reviews(team).findValuesAsText("id")).contains("" + id);
-        assertThat(reviews(leader).findValuesAsText("id")).doesNotContain("" + id);
-        review(leader, id, "approve", "", 403);
-        review(team, id, "approve", "通过", 200);
-        assertThat(reviews(team).findValuesAsText("id")).doesNotContain("" + id);
-        mvc.perform(put("/api/v1/tasks/" + id + "/progress").header("Authorization", token(staff))
-            .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("status", "doing", "progressNote", "改"))))
-            .andExpect(status().isForbidden());
+    @Test void progressIsReviewedByCurrentAssigneeManagerAndCompletedTaskCanReopen() throws Exception {
+        var team=login("team_lead");var staff=login("staff");var leader=login("leader");
+        long id=create(team,staff.get("userId").asLong(),"验收任务").get("id").asLong();
+        var unchanged=progress(staff,id,"done",100,"完成");
+        assertThat(unchanged.get("status").asText()).isEqualTo("todo");
+        assertThat(unchanged.get("reviewStatus").asText()).isEqualTo("none");
+        assertThat(reviews(team).isEmpty()).isTrue();
+        long review=TaskPolicyTestSupport.pendingReview(mvc,json,id,"team_lead");
+        mvc.perform(put("/api/v1/task-reviews/"+review).header("Authorization",token(leader)).contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"approved\"}")).andExpect(status().isForbidden());
+        TaskPolicyTestSupport.decide(mvc,json,id,"team_lead","approved");
+        assertThat(TaskPolicyTestSupport.task(mvc,json,id,"staff").get("status").asText()).isEqualTo("done");
+        assertThat(progress(staff,id,"doing",40,"重新处理").get("status").asText()).isEqualTo("done");
+        TaskPolicyTestSupport.decide(mvc,json,id,"team_lead","approved");
+        assertThat(TaskPolicyTestSupport.task(mvc,json,id,"staff").get("status").asText()).isEqualTo("doing");
     }
 
-    @Test void rejectedCompletionReturnsToDoingAndClearsOnNextProgress() throws Exception {
-        var team = login("team_lead"); var staff = login("staff");
-        long id = create(team, staff.get("userId").asLong(), "驳回任务").get("id").asLong();
-        progress(staff, id, "done", null, "完成");
-        review(team, id, "reject", "请补充说明", 200);
-        assertThat(reviews(team).findValuesAsText("id")).doesNotContain("" + id);
-        var resumed = progress(staff, id, "doing", 40, "继续处理");
-        assertThat(resumed.get("status").asText()).isEqualTo("doing");
-        assertThat(resumed.get("reviewStatus").asText()).isEqualTo("none");
+    @Test void rejectedCompletionPreservesEffectiveFeedbackAndAllowsResubmission() throws Exception {
+        var team=login("team_lead");var staff=login("staff");
+        long id=create(team,staff.get("userId").asLong(),"驳回任务").get("id").asLong();
+        progress(staff,id,"doing",40,"先前进度");TaskPolicyTestSupport.decide(mvc,json,id,"team_lead","approved");
+        var original=TaskPolicyTestSupport.task(mvc,json,id,"staff");
+        assertThat(progress(staff,id,"done",null,"完成")).isEqualTo(original);
+        TaskPolicyTestSupport.decide(mvc,json,id,"team_lead","rejected");
+        assertThat(TaskPolicyTestSupport.task(mvc,json,id,"staff")).isEqualTo(original);
+        progress(staff,id,"doing",60,"继续处理");TaskPolicyTestSupport.decide(mvc,json,id,"team_lead","approved");
+        assertThat(TaskPolicyTestSupport.task(mvc,json,id,"staff").get("progress").asInt()).isEqualTo(60);
+    }
+
+    @Test void legacyCompletionReviewUsesCurrentAssigneeManagerWithoutFounderOverride() throws Exception {
+        var founder=login("founder");var staff=login("staff");var team=login("team_lead");var leader=login("leader");
+        long id=create(founder,staff.get("userId").asLong(),"历史验收").get("id").asLong();
+        var task=tasks.findById(id).orElseThrow();org.springframework.test.util.ReflectionTestUtils.setField(task,"status","done");task.setReviewStatus("pending_done");tasks.saveAndFlush(task);
+        var assignee=users.findByUsername("staff").orElseThrow();assignee.setManagerId(leader.get("userId").asLong());users.saveAndFlush(assignee);
+        assertThat(reviews(team).isEmpty()).isTrue();assertThat(reviews(leader).findValuesAsText("id")).contains(""+id);
+        review(team,id,"approve","",403);review(founder,id,"approve","",403);review(leader,id,"approve","历史验收通过",200);
+        assertThat(TaskPolicyTestSupport.task(mvc,json,id,"staff").get("reviewStatus").asText()).isEqualTo("approved");
+        assertThat(TaskPolicyTestSupport.task(mvc,json,id,"staff").get("status").asText()).isEqualTo("done");
     }
 
     @Test void definitionChangeIsReviewedBySuperiorAndAppliedOnApproval() throws Exception {
@@ -94,9 +110,9 @@ class TaskReviewTests {
             .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(change))).andExpect(status().isOk());
         assertThat(reviews(team).findValuesAsText("id")).doesNotContain("" + id);
         assertThat(reviews(leader).findValuesAsText("id")).contains("" + id);
-        // Not frozen: assignee can still move progress while the change awaits review.
-        assertThat(progress(staff, id, "doing", 30, "先干着").get("status").asText()).isEqualTo("doing");
+        mvc.perform(put("/api/v1/tasks/"+id+"/progress").header("Authorization",token(staff)).contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"doing\",\"progressNote\":\"先干着\"}")).andExpect(status().isConflict());
         review(leader, id, "approve", "同意", 200);
+        progress(staff,id,"doing",30,"获批后执行");TaskPolicyTestSupport.decide(mvc,json,id,"team_lead","approved");
         var list = json.readTree(mvc.perform(get("/api/v1/tasks").header("Authorization", token(team)))
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
         assertThat(list.findValuesAsText("title")).contains("新标题");
@@ -112,6 +128,7 @@ class TaskReviewTests {
 
         long progressed = create(team, staff.get("userId").asLong(), "有进度任务").get("id").asLong();
         progress(staff, progressed, "doing", 50, "进行中");
+        TaskPolicyTestSupport.decide(mvc,json,progressed,"team_lead","approved");
         mvc.perform(delete("/api/v1/tasks/" + progressed).header("Authorization", token(team))).andExpect(status().isNoContent());
         assertThat(reviews(leader).findValuesAsText("id")).contains("" + progressed);
         review(leader, progressed, "approve", "同意删除", 200);
@@ -131,6 +148,8 @@ class TaskReviewTests {
         var left = json.readTree(mvc.perform(get("/api/v1/tasks").header("Authorization", token(team)))
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
         assertThat(left.findValuesAsText("id")).doesNotContain("" + id);
+        var generic=json.readTree(mvc.perform(get("/api/v1/task-reviews").header("Authorization",token(staff))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertThat(generic.get(0).get("status").asText()).isEqualTo("canceled");
         assertThat(events.findByTaskIdOrderByIdAsc(id).stream().map(e -> e.getEventType()).toList()).contains("deleted");
     }
 }

@@ -96,7 +96,8 @@ public class TaskEntity {
     void softDelete(Long actor) { this.deletedAt = Instant.now(); this.deletedBy = actor; }
     boolean isDeleted() { return deletedAt != null; }
 
-    void requireApproval() { approvalStatus = "pending"; }
+    void requireApproval() { approvalStatus="pending";approvalNote="";reviewerId=null;reviewedAt=null; }
+    void withdrawApproval() { approvalStatus="rejected";approvalNote="申请已撤回"; }
     void review(String decision, String note, Long reviewer) {
         approvalStatus = decision; approvalNote = note; reviewerId = reviewer; reviewedAt = Instant.now();
     }

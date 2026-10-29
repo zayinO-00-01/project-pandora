@@ -43,18 +43,21 @@ class TaskDemoTests {
             "assigneeId", assignee.get("userId").asLong(), "dueAt", "2026-10-01T15:59:59Z"));
     }
     JsonNode create(JsonNode creator, JsonNode assignee, String title) throws Exception {
-        return json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization", token(creator))
+        var created=json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization", token(creator))
             .contentType(MediaType.APPLICATION_JSON).content(payload(assignee, title)))
             .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+        return TaskPolicyTestSupport.approveInitial(mvc,json,created,"leader");
     }
     JsonNode list(JsonNode user) throws Exception {
         return json.readTree(mvc.perform(get("/api/v1/tasks").header("Authorization", token(user)))
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
     }
     JsonNode progress(JsonNode user, long id, int value, String note) throws Exception {
-        return json.readTree(mvc.perform(put("/api/v1/tasks/" + id + "/progress").header("Authorization", token(user))
+        json.readTree(mvc.perform(put("/api/v1/tasks/" + id + "/progress").header("Authorization", token(user))
             .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("progress", value, "progressNote", note))))
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+        TaskPolicyTestSupport.decide(mvc,json,id,"team_lead","approved");
+        return TaskPolicyTestSupport.task(mvc,json,id,"staff");
     }
 
     @Test void dispatchFeedbackRoundTripKeepsIdentityAndImmutableFields() throws Exception {
@@ -93,7 +96,7 @@ class TaskDemoTests {
         assertThat(list(staff).findValuesAsText("id")).containsExactly(created.get("id").asText(), direct.get("id").asText());
         assertThat(list(other).findValuesAsText("id")).containsExactly(hidden.get("id").asText());
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(leader)).contentType(MediaType.APPLICATION_JSON).content(payload(other, "跨队任务")))
-            .andExpect(status().isForbidden());
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.approvalStatus").value("pending"));
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(leader)).contentType(MediaType.APPLICATION_JSON).content(payload(leader, "自派")))
             .andExpect(status().isCreated()).andExpect(jsonPath("$.approvalStatus").value("pending"));
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(staff)).contentType(MediaType.APPLICATION_JSON).content(payload(staff, "越权")))
@@ -103,7 +106,7 @@ class TaskDemoTests {
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(founder)).contentType(MediaType.APPLICATION_JSON)
             .content("{\"title\":\"不存在\",\"assigneeId\":9223372036854775807}"))
             .andExpect(status().isNotFound());
-        assertThat(list(founder).size()).isEqualTo(6);
+        assertThat(list(founder).size()).isEqualTo(4);
     }
 
     @Test void onlyAssigneeCanUpdateIncludingCreatorAndAdmin() throws Exception {
@@ -195,6 +198,8 @@ class TaskDemoTests {
                 .header("Authorization",token(staff)).contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(Map.of("status",state,"progressNote","实际工作说明"))))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+            TaskPolicyTestSupport.decide(mvc,json,id,"team_lead","approved");
+            result=TaskPolicyTestSupport.task(mvc,json,id,"staff");
             assertThat(result.get("status").asText()).isEqualTo(state);
             assertThat(result.get("progress").isNull()).isTrue();
             assertThat(list(leader).get(0)).isEqualTo(result);

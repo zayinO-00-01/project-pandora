@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Pandora API
-  version: 0.8.0
-  description: 五角色整合原型。ADMIN维护账号、档案与公司事项；Android办理业务。自建任务由当前直属上级审核（创始人免审），领导向实际下级派发。保留个人清单同步、私密备注，增加任务生命周期审核、站内通知、标签、跨日日志和协作关键词。
+  version: 0.8.1
+  description: 老师方案整合版：保留用户自建审批、年月直选和清单同步；全公司业务成员选人，非创始人创建与进度提交由当前直属上级审批；创始人本人操作免审。删除暂按创建人条件直删/上级审核。日志按创建后24小时修改，任务日历与日志分离。
 servers:
 - url: /api/v1
 paths:
@@ -248,7 +248,7 @@ paths:
           $ref: '#/components/responses/Error409'
       security:
       - bearer: []
-      description: 单日或连续多日，起止均为上海今天及前三天；历史或跨日记录直接提交。只有单独今天的记录可再编辑/提交草稿。
+      description: 上海今天及前三天可创建单日/连续多日日志，起止日期均须在范围内；draft保持私密，submitted可供授权上级查看。创建后24小时内允许作者编辑或提交。
       requestBody:
         required: true
         content:
@@ -277,7 +277,7 @@ paths:
           $ref: '#/components/responses/Error409'
       security:
       - bearer: []
-      description: 仅作者当天单日记录可修改，日期范围创建后固定；历史及跨日记录只读，不能改日期绕过。
+      description: 仅作者可在createdAt≤当前时间<createdAt+24小时内修改（含历史/跨日和已提交日志）。日期范围固定，updatedAt不延长窗口；submitted不能退回draft，超时403。
       parameters:
       - in: path
         name: id
@@ -313,7 +313,7 @@ paths:
           $ref: '#/components/responses/Error409'
       security:
       - bearer: []
-      description: 旧记录超出窗口403；重复提交保持同ID。
+      description: 仅作者在创建后24小时内可提交，适用于历史和跨日草稿；提交不延长编辑窗口。
       parameters:
       - in: path
         name: id
@@ -484,7 +484,7 @@ paths:
           $ref: '#/components/responses/Error409'
       security:
       - bearer: []
-      description: 业务成员可给自己安排任务；非创始人的自建任务先进入pending，当前有效直属上级批准后执行。领导向实际下级派发直接生效。不能向不在授权范围的其他人派发。
+      description: 所有业务成员可选全公司有效业务成员为责任人，包括自己；非创始人创建均待创建者当前有效直属上级批准，创始人直接生效。待批准只对创建者和有效审核人可见；不扩大日志权限。
       requestBody:
         required: true
         content:
@@ -493,7 +493,7 @@ paths:
               $ref: '#/components/schemas/TaskInput'
   /tasks/pending-approvals:
     get:
-      summary: 当前直属下级提交的待审批自主任务
+      summary: 待本人审批的任务创建申请（含自建与派发）
       description: 仅返回当前直属上级为登录用户、作者启用且职级低于审批人的pending自主任务。组织调整后由新的直属上级审批，原上级失去审批权；ADMIN403。
       security:
       - bearer: []
@@ -513,7 +513,7 @@ paths:
   /tasks/{id}/approval:
     put:
       summary: 当前直属上级审批自主任务
-      description: 仅当前直属且职级较高的业务上级可审批本人创建并负责的pending任务，禁止自批和越级代批。已审批任务返回409。只更新审批审计字段，不更改工作状态或进度。
+      description: 由创建者当前有效直属上级批准或拒绝；非创始人创建均需初审。组织变更后原上级失权，当前有效上级可审批。
       security:
       - bearer: []
       parameters:
@@ -551,7 +551,7 @@ paths:
       summary: 仅责任人反馈进度
       responses:
         '200':
-          description: 成功
+          description: 返回当前生效任务；非创始人申请的拟议内容在/task-reviews读取。审批通过后刷新任务。
           content:
             application/json:
               schema:
@@ -568,7 +568,7 @@ paths:
           $ref: '#/components/responses/Error409'
       security:
       - bearer: []
-      description: 责任人反馈状态和说明；仅已批准的任务可执行。完成可能进入pending_done等待派发人验收，自建任务由当前直属上级验收，创始人自建直接完成。
+      description: 仅责任人提交。非创始人提交todo/doing/done均生成PROGRESS审核，当前有效直属上级批准前保持旧状态与说明；仅创始人本人作为责任人操作直接生效。
       parameters:
       - in: path
         name: id
@@ -846,8 +846,8 @@ paths:
         type: integer
         format: int64
     put:
-      summary: 任务创建人提出内容变更
-      description: 创建人提出内容变更，创始人直接生效；其他创建人的变更交上级审核，批准前保留有效内容。责任人保持不变。
+      summary: 创建人申请内容变更或创始人直接编辑
+      description: 创建人可提出变更，非创始人由当前直属上级审批，生效前保留旧定义；创始人可直接修改他人任务。责任人固定不通过此操作更换。被拒绝或撤回的创建申请可经编辑重新送审。
       security:
       - bearer: []
       requestBody:
@@ -887,7 +887,7 @@ paths:
           $ref: '#/components/responses/Error409'
   /task-reviews:
     get:
-      summary: 本人提交或待本人审核的跨作者关键词修改申请
+      summary: 本人申请或待本人审核的进度与关键词操作
       security:
       - bearer: []
       responses:
@@ -899,7 +899,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/KeywordReview'
-      description: 仅用于KEYWORD_EDIT/KEYWORD_DELETE。任务自建审批走/tasks/pending-approvals，完成/内容变更/删除审核走/tasks/reviews。
+      description: PROGRESS、KEYWORD_EDIT、KEYWORD_DELETE。审核权随申请人的当前有效直属上级变化。初审仍走/tasks/pending-approvals，定义变更/删除审核走/tasks/reviews。
   /task-reviews/{id}:
     parameters:
     - in: path
@@ -1303,6 +1303,30 @@ paths:
           $ref: '#/components/responses/Error403'
         '404':
           $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+  /tasks/{id}/withdraw:
+    post:
+      summary: 申请人撤回任务创建或定义变更申请
+      security:
+      - bearer: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      description: 仅申请人可操作。创建撤回保留记录并置rejected、说明申请已撤回；编辑后可重新送审。PROGRESS与关键词审核使用/task-reviews/{id}的canceled。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '403':
+          $ref: '#/components/responses/Error403'
         '409':
           $ref: '#/components/responses/Error409'
 components:
@@ -1936,7 +1960,7 @@ components:
           description: 选填，驳回也允许空说明。
     TaskProgress:
       type: object
-      description: 责任人反馈状态和说明；仅已批准的任务可执行。完成可能进入pending_done等待派发人验收，自建任务由当前直属上级验收，创始人自建直接完成。
+      description: 仅责任人提交。非创始人提交todo/doing/done均生成PROGRESS审核，当前有效直属上级批准前保持旧状态与说明；仅创始人本人作为责任人操作直接生效。
       properties:
         status:
           type: string
@@ -2188,16 +2212,19 @@ components:
         reviewerId:
           type: integer
           format: int64
+          nullable: true
+          description: 待审时使用申请人当前有效直属上级；无有效上级为null，旧审核人不能决定。
         reviewerName:
           type: string
         operation:
           type: string
           enum:
+          - PROGRESS
           - KEYWORD_EDIT
           - KEYWORD_DELETE
         payload:
           type: string
-          description: JSON字符串，含原词、拟议词或删除操作
+          description: JSON字符串；PROGRESS含拟议status/progressNote，可选progress；关键词含原词/新词及操作。
         status:
           type: string
           enum:
@@ -2212,6 +2239,7 @@ components:
           type: string
           format: date-time
           nullable: true
+      description: 通用进度或关键词审核；沿用此schema名称以兼容已记录契约。
     AccountProfile:
       type: object
       properties:

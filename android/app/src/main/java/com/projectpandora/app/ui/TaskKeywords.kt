@@ -25,7 +25,7 @@ import com.projectpandora.app.data.*
 @Composable fun TaskKeywords(task: DispatchTask,state: AppState,model: PandoraViewModel) {
     val me=state.session ?: return
     val participant=task.createdBy==me.userId || task.assigneeId==me.userId || me.role=="FOUNDER"
-    val enabled=participant && !state.saving && !state.developmentPreview && taskIsApproved(task) && !task.deleted
+    val enabled=participant && !state.saving && !state.developmentPreview && taskIsApproved(task) && !task.deleted && state.taskReviewRecordsReady && !taskHasPendingReview(task,state.taskReviewRecords)
     var open by remember(task.id) {mutableStateOf(false)}
     var editing by remember(task.id) {mutableStateOf<TaskKeyword?>(null)}
     var text by remember(task.id) {mutableStateOf("")}

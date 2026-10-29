@@ -16,7 +16,7 @@ The app SHALL show full read-only company content from ADMIN Web publications an
 - **WHEN** a user saves or clears a note
 - **THEN** the full original stays unchanged and another user cannot read the note
 ### Requirement: Readable calendar agenda
-The month calendar SHALL use compact week rows (72dp minimum at normal font scale, replacing 98dp rows), retain at least 48dp touch targets, show compact task and log summaries beneath each day and SHALL show selected-day work details below the grid.
+The month calendar SHALL use compact week rows (72dp minimum at normal font scale, replacing 98dp rows), retain at least 48dp touch targets, show compact approved task summaries beneath each day and SHALL show selected-day task details below the grid.
 #### Scenario: Select busy day
 - **WHEN** a day has multiple dated tasks
 - **THEN** its cell wraps readable summaries into at most two text lines and selecting it reveals all loaded entries
@@ -67,7 +67,7 @@ The app SHALL offer optional media-volume button sound and system touch haptics,
 - **THEN** the white content boxes have a thin black outline and retain their current spacing
 
 ### Requirement: Calendar month week and day modes
-Calendar SHALL offer month/week/day modes sharing one selected date. Month SHALL show two-line summaries and selected-day details; week SHALL show Monday-Sunday and grouped weekly records with day-detail actions; day SHALL show only its date's agenda. Arrows SHALL move by the active period. Today SHALL retain mode; mode changes SHALL retain date and reset scrolling. Refresh and period navigation SHALL be borderless; content panels SHALL retain borders.
+Calendar SHALL offer month/week/day modes sharing one selected date. Month SHALL show two-line summaries and selected-day details; week SHALL show Monday-Sunday and grouped weekly records with day-detail actions; day SHALL show only its date's task agenda. Arrows SHALL move by the active period. Today SHALL retain mode; mode changes SHALL retain date and reset scrolling. Refresh and period navigation SHALL be borderless; content panels SHALL retain borders.
 #### Scenario: Week across a year boundary
 - **WHEN** the selected date is January 1, 2027 in week mode
 - **THEN** the week runs from December 28, 2026 through January 3, 2027
@@ -107,13 +107,13 @@ Debug Android SHALL offer ten local company card examples through development en
 
 
 ### Requirement: Consecutive multi-day logs
-A work log SHALL support an inclusive start/end date range with one shared description. Both endpoints SHALL remain within Shanghai today minus three days through today; reversed or future ranges SHALL be rejected. Existing single-day clients and data SHALL remain compatible. Only single-day records dated Shanghai today MAY be edited or submitted as drafts. Historical and multi-day records SHALL be submitted on creation and remain read-only. Created date ranges SHALL remain immutable.
+A work log SHALL support an inclusive start/end date range with one shared description. Both endpoints SHALL remain within Shanghai today minus three days through today; reversed or future ranges SHALL be rejected. Existing single-day clients and data SHALL remain compatible. Authors MAY edit or submit records during the half-open interval from createdAt through createdAt plus 24 hours, including historical and multi-day drafts. Updates SHALL NOT extend this interval. Drafts SHALL remain private until submission. Future createdAt values SHALL NOT grant editing. Created date ranges SHALL remain immutable.
 #### Scenario: Three days of sick leave
 - **WHEN** an author submits a log from two days ago through today with one leave description
-- **THEN** one record covers all three days in the log list with a shared description; each covered date remains available in the calendar log agenda
+- **THEN** one record covers all three days in the log list with a shared description; the independent log list shows the range; the task calendar SHALL NOT include it
 #### Scenario: Weekly details
 - **WHEN** a multi-day record intersects the displayed week
-- **THEN** it remains one log record, and remains readable alongside task entries in the calendar
+- **THEN** it remains one log record, in the independent log list, without appearing as calendar tasks
 #### Scenario: Old backend or failed save
 - **WHEN** the server does not advertise date-range support or saving fails
 - **THEN** no unsupported multi-day POST is made and the full local date range and content are retained
@@ -121,19 +121,29 @@ A work log SHALL support an inclusive start/end date range with one shared descr
 - **WHEN** the database upgrades
 - **THEN** old records receive an end date equal to their start date without losing content
 
-### Requirement: Self tasks, scoped dispatch and separate reviews
-All business members SHALL create tasks assigned to self. Non-founder self tasks SHALL require approval from the current valid direct manager before execution; founder self tasks SHALL take effect directly. Leaders SHALL dispatch only to authorized actual subordinates. Pending or rejected initial approvals SHALL not enter execution calendars or accept progress. Initial approval and subsequent lifecycle reviews SHALL retain separate state and audit timestamps.
-#### Scenario: Staff creates own work
-- **WHEN** staff creates a self task
-- **THEN** the current valid direct manager can approve or reject it; another manager cannot decide
-#### Scenario: Completion acceptance
-- **WHEN** an assignee marks a non-founder-created task complete
-- **THEN** acceptance is requested from the creator for dispatched work or the current direct manager for self work; founder-created tasks retain direct completion
-#### Scenario: Definition changes and deletion
-- **WHEN** a non-founder creator requests a definition change or deletion of started work
-- **THEN** existing effective content remains until lifecycle review is processed; unstarted work and founder actions follow the existing direct-delete policy
+### Requirement: Self tasks, company-wide creation and separate reviews
+All active business members SHALL create tasks assigned to any active business member, including self. All non-founder creation SHALL require the creator's current valid direct manager to approve before execution; founder creation SHALL take effect directly. Pending creation SHALL be visible only to the applicant and current valid reviewer. Creation approval SHALL preserve its existing endpoints and audit timestamps. Scope expansion SHALL NOT expand log or member-profile visibility.
+#### Scenario: Employee assigns work across teams
+- **WHEN** staff creates a task assigned outside their team
+- **THEN** the creator and current valid manager can view the pending task; only after approval does the assignee receive an executable task
+#### Scenario: Organization changes before approval
+- **WHEN** the applicant's direct manager changes
+- **THEN** the former manager immediately loses approval rights and the current valid manager can handle pending work
+### Requirement: Reviewed progress with actor-based founder exemption
+Only the assignee SHALL submit task progress. Non-founder assignees SHALL request approval from their own current valid direct manager for todo, doing and done updates. A pending PROGRESS review SHALL preserve effective status and note. Approval applies the proposed values, rejection or applicant withdrawal preserves effective content. Founder assignees MAY update directly. A founder creator SHALL NOT exempt another assignee from progress review. Approved progress SHALL NOT require a second acceptance stage.
+#### Scenario: Founder dispatches to staff
+- **WHEN** staff submits progress for founder-created work
+- **THEN** staff's direct manager reviews it and the previous effective progress remains until approval
+#### Scenario: Withdraw or reject progress
+- **WHEN** an applicant withdraws, or their current valid manager rejects, a pending progress change
+- **THEN** the task retains its previous effective status and feedback and may receive a new request
+### Requirement: Definition changes and conditional deletion
+Creators MAY request definition changes without replacing effective content until current-manager approval. Founders MAY directly edit existing task definitions, including others' tasks, but SHALL NOT modify the assignee through definition editing. Creators MAY directly delete unstarted work under the existing untouched-task conditions; deletion of started work requires superior review. Founders MAY directly soft-delete. Pending initial and definition applications SHALL support applicant withdrawal. Task deletion cancels pending generic reviews and retains audit data.
+#### Scenario: Creator deletes started work
+- **WHEN** a non-founder creator requests deletion of started work
+- **THEN** superior review is required before the task disappears
 ### Requirement: Collaborative task keywords
-Creators and assignees SHALL add keywords to approved tasks. Authors MAY directly modify their own keywords, and founders MAY directly maintain keywords. Changes to another author's keyword SHALL require the applicant's current valid direct manager through the separate keyword-review endpoint. Withdrawals and task deletion SHALL cancel pending keyword reviews, and stale task or organization state SHALL reject decisions.
+Creators and assignees SHALL add keywords to approved tasks. Authors MAY directly modify their own keywords, and founders MAY directly maintain keywords. Changes to another author's keyword SHALL require the applicant's current valid direct manager through the generic task-review endpoint (also used for PROGRESS). Withdrawals and task deletion SHALL cancel pending keyword reviews, and stale task or organization state SHALL reject decisions.
 #### Scenario: Change another participant's keyword
 - **WHEN** an assignee submits an edit to the creator's keyword
 - **THEN** the original text remains effective until the applicant's direct manager approves
@@ -147,3 +157,9 @@ Business members SHALL change their own avatar and password. Password changes SH
 #### Scenario: Change password
 - **WHEN** an authenticated member successfully changes their password
 - **THEN** previous tokens are rejected and the app requests login with the new password
+
+### Requirement: Task calendar and preserved year selection
+Month/week/day calendar SHALL show approved tasks by deadline, with label colors and shared selected date. Logs SHALL remain in their independent list. The direct year/month chooser SHALL preserve view mode and clamp invalid month-end days, alongside Today and period arrows.
+#### Scenario: Leap-year navigation
+- **WHEN** a user chooses another year and month from a selected month-end day
+- **THEN** the date clamps to the valid last day without losing the selected calendar mode

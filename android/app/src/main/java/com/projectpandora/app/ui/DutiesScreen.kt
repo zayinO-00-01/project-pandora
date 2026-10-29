@@ -15,15 +15,15 @@ import com.projectpandora.app.data.*
     val tasks=dutyTasks(state.tasks,me.userId,leader)
     Column(Modifier.fillMaxWidth().padding(top=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         Text("任务管理",style=MaterialTheme.typography.titleLarge)
-        ControlOutlinedButton(onClick={model.screen("inbox")},modifier=Modifier.fillMaxWidth()) {Text("通知与审核 · ${state.unreadCount} 条未读 · ${state.pendingTaskApprovals.size+state.reviews.size+state.keywordReviews.count {it.status=="pending" && it.reviewerId==me.userId}} 项待审")}
+        ControlOutlinedButton(onClick={model.screen("inbox")},modifier=Modifier.fillMaxWidth()) {Text("通知与审核 · ${state.unreadCount} 条未读 · ${state.pendingTaskApprovals.size+state.reviews.size+state.taskReviewRecords.count {it.status=="pending" && it.reviewerId==me.userId}} 项待审")}
         Surface(color=MaterialTheme.colorScheme.surface.copy(alpha=0.97f),shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth().panelOutline()) {
             Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-                ScreenHeading(if(leader)"任务安排" else "待处理任务",if(leader)"给自己安排工作，或向下级派发任务。" else "自建任务经直属上级审核后执行，也可接收派发任务。")
+                ScreenHeading(if(leader)"任务安排" else "待处理任务",if(me.role=="FOUNDER")"可为公司任一业务成员安排任务，创建与本人进度直接生效。" else "可为公司任一业务成员安排任务；创建和进度均经本人当前直属上级批准后生效。")
                 ControlButton(onClick=model::openDispatch,enabled=!state.saving,modifier=Modifier.fillMaxWidth()) {Text(if(state.dispatchEditor==null)"创建任务" else "继续创建任务")}
                 if(state.taskLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
                 state.taskError?.let {Hint("任务读取失败：$it",true,onRetry=model::refresh)}
                 Text(if(leader)"我创建的任务 · ${tasks.size} 项" else "等待处理 · ${tasks.size} 项",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.secondary)
-                if(tasks.isEmpty() && !state.taskLoading && state.taskError==null)EmptyCard(if(leader)"尚未派发任务" else "暂无待处理任务",if(leader)"从上方按钮给自己安排工作，或向授权下级派发。" else "收到新任务后会显示在这里。")
+                if(tasks.isEmpty() && !state.taskLoading && state.taskError==null)EmptyCard(if(leader)"尚未派发任务" else "暂无待处理任务",if(leader)"从上方按钮为公司业务成员安排工作。" else "收到新任务后会显示在这里。")
                 tasks.take(4).forEach {task->TaskSummary(task,!state.saving) {model.openTask(task.id)}}
                 ControlTextButton(onClick={model.screen("tasks")},enabled=!state.saving,contentPadding=PaddingValues(0.dp)) {Text(if(leader)"查看全部任务与进展 →" else "查看全部任务（含已完成） →")}
             }

@@ -100,14 +100,14 @@ import androidx.compose.ui.semantics.contentDescription
     if(discard)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={discard=false},title={Text("放弃这次修改？")},text={Text("未保存内容会被清除，服务器里的日志不会改变。")},confirmButton={ControlTextButton(onClick={discard=false;model.discardEditor()}) {Text("放弃修改")}},dismissButton={ControlTextButton(onClick={discard=false}) {Text("继续编辑")}})
     Column(Modifier.fillMaxSize().imePadding().padding(horizontal=20.dp)) {
         LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=20.dp)) {
-            item {ScreenHeading(if(readOnly)"查看工作日志" else if(editor.logId==null)"新建工作日志" else "编辑工作日志",if(readOnly)"仅当天日期的日志可修改，历史记录仅供查看。" else "可新建今天及之前三天的日报；仅当天日期的日志可修改。")}
+            item {ScreenHeading(if(readOnly)"查看工作日志" else if(editor.logId==null)"新建工作日志" else "编辑工作日志",if(readOnly)"创建后超过 24 小时，当前记录仅供查看。" else "可记录今天及之前三天；创建后 24 小时内可修改和提交，更新不会延长期限。")}
             item {Text(if(readOnly)"历史日志完整保留。" else if(editor.status=="submitted")"保存后，领导刷新即可看到最新内容。" else "草稿仅自己可见，提交后领导才能查看。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
             state.logs.firstOrNull {it.id==editor.logId}?.let {saved->
                 item {Text("创建时间  ${timestamp(saved.createdAt)}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
                 item {Text("最近修改  ${timestamp(saved.updatedAt)}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
             }
             item {LogDateRangeButton(editor.date,editor.endDate,!state.saving && !readOnly && editor.logId==null) {start,end->model.changeEditor(date=start,endDate=end)}}
-            if(editor.logId==null && editor.date!=today().toString())item {Hint("连续多日共用一份说明，保存后即为历史记录、仅供查看。请确认内容后直接提交。")}
+            if(editor.logId==null && editor.date!=today().toString())item {Hint("历史与连续多日日志也可存草稿；创建后 24 小时内可编辑，保存后日期范围固定。")}
             state.workspaceError?.let {item {Hint("标签读取失败：$it",true)}}
             if(!readOnly)state.labelError?.let {item {Hint(it,true,onRetry=model::loadWorkspaceExtras)}}
             if(!readOnly)item {LabelPicker(state.labels,editor.labelId,!state.saving) {model.changeEditor(labelId=it)}}
@@ -118,7 +118,7 @@ import androidx.compose.ui.semantics.contentDescription
             if(readOnly)ControlTextButton(onClick={model.discardEditor()},enabled=!state.saving) {Text("返回")}
             else {
             ControlTextButton(onClick={discard=true},enabled=!state.saving) {Text("取消")}
-            if(editor.status!="submitted" && editor.date==today().toString() && (editor.endDate==null || editor.endDate==editor.date))ControlOutlinedButton(onClick={model.save("draft")},enabled=!state.saving) {Text("存草稿")}
+            if(editor.status!="submitted")ControlOutlinedButton(onClick={model.save("draft")},enabled=!state.saving) {Text("存草稿")}
             ControlButton(onClick={model.save("submitted")},enabled=!state.saving && !state.checkingIntegrity,modifier=Modifier.weight(1f)) {Text(if(state.saving)"保存中…" else if(editor.status=="submitted")"保存修改" else "提交日志")}
             }
         }

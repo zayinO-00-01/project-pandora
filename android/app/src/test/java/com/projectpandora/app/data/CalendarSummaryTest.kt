@@ -17,11 +17,11 @@ class CalendarSummaryTest {
         assertEquals(first,calendarDayLabel(date,listOf(base,high.copy(label=null))))
         assertEquals(null,calendarDayLabel(date.plusDays(1),listOf(base,high)))
     }
-    @Test fun calendarShowsDueTaskTitlesAndFirstNonblankLogLines() {
+    @Test fun calendarShowsOnlyDueTaskTitles() {
         val date=LocalDate.of(2026,10,17)
         val task=DispatchTask(1,"任务摘要","","normal","doing","2026-10-16T18:00:00Z",null,"反馈",1,2,"主管","员工","","")
         val log=WorkLog(2,2,"2026-10-17","\n日志摘要\n更多内容","submitted","","")
-        assertEquals(listOf("任务摘要","日志摘要"),calendarSummaries(date,listOf(log),listOf(task)))
+        assertEquals(listOf("任务摘要"),calendarSummaries(date,listOf(log),listOf(task)))
         assertEquals(emptyList<String>(),calendarSummaries(date.plusDays(1),listOf(log),listOf(task)))
     }
 }

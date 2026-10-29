@@ -11,16 +11,18 @@ fun canWriteLog(date: String,reference: LocalDate=today()): Boolean = runCatchin
     parsed>=reference.minusDays(3) && parsed<=reference
 }.getOrDefault(false)
 
-/** Existing logs are editable only on their log date in Shanghai. */
-fun canModifyLog(date: String,reference: LocalDate=today()): Boolean = date==reference.toString()
-fun canModifyLog(log: WorkLog,reference: LocalDate=today()): Boolean = !log.isMultiDay() && canModifyLog(log.logDate,reference)
+/** The creation instant fixes the edit deadline, including historical and range logs. */
+fun canModifyLog(log: WorkLog,reference: Instant=Instant.now()): Boolean = runCatching {
+    val created=Instant.parse(log.createdAt)
+    !reference.isBefore(created) && reference.isBefore(created.plusSeconds(24*60*60))
+}.getOrDefault(false)
 
 fun logEditorReadOnly(buffer: EditBuffer,logs: List<WorkLog>): Boolean = buffer.logId!=null &&
     (logs.firstOrNull {it.id==buffer.logId}?.let {!canModifyLog(it)} ?: true)
 
 object AppRoles {
     fun canViewDown(role: String)=role in setOf("FOUNDER","DEPT_HEAD","TEAM_LEAD")
-    fun canDispatch(role: String)=canViewDown(role)
+    fun canDispatch(role: String)=role in business
     fun canCreateTask(role: String)=role in business
     fun homeTitle(role: String)=when(role) {"FOUNDER"->"公司总览";"DEPT_HEAD"->"部门总览";"TEAM_LEAD"->"团队总览";else->"我的工作"}
     fun scopeLabel(role: String)=when(role) {"FOUNDER"->"公司组织";"DEPT_HEAD"->"部门成员";"TEAM_LEAD"->"团队成员";else->"查看上级"}
@@ -43,8 +45,10 @@ fun taskDate(task: DispatchTask): LocalDate?=task.dueAt?.let {
 fun legacyTaskStatus(progress: Int?): String=when(progress) {0,null->"todo";100->"done";else->"doing"}
 fun taskStatusLabel(status: String)=when(status) {"doing"->"进行中";"done"->"已完成";else->"待开始"}
 fun taskIsApproved(task: DispatchTask)=task.approvalStatus==null || task.approvalStatus=="approved"
-fun taskCanReportProgress(task: DispatchTask)=taskIsApproved(task) && !task.deleted &&
-    task.reviewStatus!="pending_delete" && task.reviewStatus!="approved"
+fun taskHasPendingReview(task: DispatchTask,records: List<TaskReview> = emptyList()) =
+    isPendingReview(task.reviewStatus) || records.any {it.taskId==task.id && it.status=="pending"}
+fun taskCanReportProgress(task: DispatchTask,records: List<TaskReview> = emptyList())=
+    taskIsApproved(task) && !task.deleted && !taskHasPendingReview(task,records)
 fun taskFeedbackLabel(task: DispatchTask)=when(task.approvalStatus) {
     "pending"->"待上级审核";"rejected"->"审核未通过";else->taskStatusLabel(task.status)
 }

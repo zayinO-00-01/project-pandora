@@ -165,14 +165,15 @@ import java.time.format.DateTimeFormatter
     var leaving by remember {mutableStateOf(false)}
     var details by remember {mutableStateOf<String?>(null)}
     var avatarPicker by remember {mutableStateOf(false)}
+    var showProfileDetails by remember {mutableStateOf(false)}
     val avatars=listOf("🦊","🐼","🐯","🐻","🦉","🐳","🌿","⭐","🔥","🍀")
     val pickImage=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {uri-> if(uri!=null) {model.changeAvatar(uri);avatarPicker=false}}
     val permissionText=when(me.role) {
-        "FOUNDER"->"创始人：可查看公司业务成员已提交的日志与任务；可向授权下级派发任务，给自己建任务直接生效。"
-        "DEPT_HEAD"->"部门老总：自建任务须直属上级审核，可审核直属下级自建任务；可穿透查看部门下属；查看直属上级须申请并获批准。"
-        "TEAM_LEAD"->"团队长：自建任务须直属上级审核，可审核直属下级自建任务；可查看团队下属；查看直属上级须申请并获批准。"
+        "FOUNDER"->"创始人：可给公司任一业务成员建任务、修改任务定义；创建及本人提交进度直接生效，其他成员的进度仍须其当前直属上级审批。"
+        "DEPT_HEAD"->"部门老总：可给公司任一业务成员建任务，创建及本人进度须当前直属上级审批；可审核直属下级申请；可穿透查看部门下属；查看直属上级须申请并获批准。"
+        "TEAM_LEAD"->"团队长：可给公司任一业务成员建任务，创建及本人进度须当前直属上级审批；可审核直属下级申请；可查看团队下属；查看直属上级须申请并获批准。"
         "LEADER"->"当前连接旧版演示服务，权限以该服务为准。"
-        else->"员工：可给自己建任务，经直属上级审核后执行；记录工作并处理分配任务；查看直属上级须申请并获批准。"
+        else->"员工：可给公司任一业务成员建任务，创建及本人进度经当前直属上级审批后生效；查看直属上级须申请并获批准。"
     }
     details?.let {section->AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={details=null},title={Text(if(section=="access")"账号与权限" else "当前服务")},text={Text(if(section=="access")"$permissionText\n\n资料与组织关系由管理员在 Web 维护；组织查看与申请从视图下方进入。" else "${me.server}\n\n工作记录保存在此服务。无法连接时，请检查网络或联系管理员。")},confirmButton={ControlTextButton(onClick={details=null}) {Text("关闭")}})}
     if(avatarPicker)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={avatarPicker=false},title={Text("选择头像")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
@@ -208,7 +209,8 @@ import java.time.format.DateTimeFormatter
         if(state.profileLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
         state.profileError?.let {Hint(it,true,onRetry=model::refresh)}
         if(state.developmentPreview)Text("登录业务账号后可查看个人资料",style=MaterialTheme.typography.bodySmall)
-        state.profile?.let {profile->
+        ControlTextButton(onClick={showProfileDetails=!showProfileDetails},enabled=!state.saving) {Text(if(showProfileDetails)"收起本人档案" else "查看本人档案")}
+        if(showProfileDetails)state.profile?.let {profile->
             listOf("姓名" to profile.displayName,"手机号" to profile.phone,"身份证号" to profile.idCard,
                 "出生日期" to profile.birthDate,"性别" to profile.gender,"入职日期" to profile.hireDate,
                 "紧急联系人" to profile.emergencyContact,"紧急联系电话" to profile.emergencyPhone,"联系地址" to profile.address,

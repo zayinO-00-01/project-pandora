@@ -35,18 +35,18 @@ class LogRangeTests {
             mvc.perform(get("/api/v1/logs").param("date",date.toString()).header("Authorization",token("staff")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.id == "+id+")].endDate").value(org.hamcrest.Matchers.hasItem(today().toString())));
         }
-        mvc.perform(put("/api/v1/logs/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(today(),today(),"submitted"))).andExpect(status().isForbidden());
-        mvc.perform(post("/api/v1/logs/"+id+"/submit").header("Authorization",token("staff"))).andExpect(status().isForbidden());
+        mvc.perform(put("/api/v1/logs/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(today(),today(),"submitted"))).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/v1/logs/"+id+"/submit").header("Authorization",token("staff"))).andExpect(status().isOk());
         assertThat(logs.findById(id).orElseThrow().getLogDate()).isEqualTo(today().minusDays(2));
     }
-    @Test void rejectsReverseExpiredFutureAndSubmitsHistoricalDrafts() throws Exception {
+    @Test void rejectsReverseExpiredFutureAndPreservesHistoricalDraftPrivacy() throws Exception {
         for(var pair:java.util.List.of(new LocalDate[]{today(),today().minusDays(1)},new LocalDate[]{today().minusDays(4),today()},new LocalDate[]{today(),today().plusDays(1)}))
             mvc.perform(post("/api/v1/logs").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(pair[0],pair[1],"submitted"))).andExpect(status().isBadRequest());
-        mvc.perform(post("/api/v1/logs").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(today().minusDays(2),today(),"draft"))).andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("submitted"));
-        mvc.perform(post("/api/v1/logs").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(today().minusDays(1),today().minusDays(1),"draft"))).andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("submitted"));
+        mvc.perform(post("/api/v1/logs").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(today().minusDays(2),today(),"draft"))).andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("draft"));
+        mvc.perform(post("/api/v1/logs").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(today().minusDays(1),today().minusDays(1),"draft"))).andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("draft"));
         mvc.perform(post("/api/v1/logs").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(today(),today(),"draft"))).andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("draft"));
     }
-    @Test void todayOnlyRemainsEditableAndOtherAuthorsCannotWrite() throws Exception {
+    @Test void newRecordsRemainEditableAndOtherAuthorsCannotWrite() throws Exception {
         var result=mvc.perform(post("/api/v1/logs").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(today(),today(),"draft"))).andExpect(status().isCreated()).andReturn();
         long id=json.readTree(result.getResponse().getContentAsString()).get("id").asLong();
         mvc.perform(put("/api/v1/logs/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(today(),today(),"submitted"))).andExpect(status().isOk());

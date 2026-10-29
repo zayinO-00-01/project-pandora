@@ -52,7 +52,7 @@ data class NoticeNote(val id: Long, val myNote: String?)
 
 data class WorkLabel(val id: Long,val name: String,val color: String,val active: Boolean = true)
 data class TaskReview(val id: Long,val taskId: Long,val taskTitle: String,val applicantId: Long,val applicantName: String,val reviewerId: Long,val reviewerName: String,val operation: String,val payload: String,val status: String,val createdAt: String,val decidedAt: String?)
-fun reviewOperation(value: String)=when(value) {"CREATE"->"创建任务";"EDIT"->"编辑任务";"DELETE"->"删除任务";"KEYWORD_EDIT"->"修改他人关键词";"KEYWORD_DELETE"->"删除他人关键词";else->"更新进度"}
+fun reviewOperation(value: String)=when(value) {"CREATE"->"创建任务";"EDIT"->"编辑任务";"DELETE"->"删除任务";"KEYWORD_EDIT"->"修改他人关键词";"KEYWORD_DELETE"->"删除他人关键词";"PROGRESS"->"更新进度";else->"任务变更"}
 fun reviewStatus(value: String?)=when(value) {"pending"->"待审核";"approved"->"已批准";"canceled"->"已撤回";else->"已拒绝"}
 
 data class TaskKeyword(val id: Long,val text: String,val createdBy: Long)

@@ -19,7 +19,7 @@ class LogRangeTest {
         val log=WorkLog(1,1,"2026-02-27","病假","submitted","","","2026-03-01")
         for(date in listOf("2026-02-27","2026-02-28","2026-03-01")) {
             assertTrue(log.covers(date))
-            assertEquals(listOf("病假"),calendarSummaries(LocalDate.parse(date),listOf(log),emptyList()))
+            assertEquals(emptyList<String>(),calendarSummaries(LocalDate.parse(date),listOf(log),emptyList()))
         }
         assertFalse(log.covers("2026-03-02"))
         assertFalse(log.copy(endDate=null).covers("2026-02-28"))

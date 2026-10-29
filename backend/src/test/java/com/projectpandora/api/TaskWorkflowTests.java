@@ -25,28 +25,34 @@ class TaskWorkflowTests {
     }
     JsonNode getList(String path,String token) throws Exception {var result=json.readTree(mvc.perform(get("/api/v1/"+path).header("Authorization",token)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));return path.equals("notifications")?result.get("items"):result;}
     String body(String name,String assignee) throws Exception {return json.writeValueAsString(Map.of("title",name,"detail","工作说明","assigneeId",users.findByUsername(assignee).orElseThrow().getId(),"priority","high"));}
-    JsonNode create(String actor,String title,String assignee) throws Exception {return json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization",token(actor)).contentType(MediaType.APPLICATION_JSON).content(body(title,assignee))).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));}
+    JsonNode rawCreate(String actor,String title,String assignee) throws Exception {return json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization",token(actor)).contentType(MediaType.APPLICATION_JSON).content(body(title,assignee))).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));}
+    JsonNode create(String actor,String title,String assignee) throws Exception {
+        return TaskPolicyTestSupport.approveInitial(mvc,json,rawCreate(actor,title,assignee),actor.equals("staff")?"team_lead":"leader");
+    }
     long latestReview(String actor) throws Exception {return getList("task-reviews",token(actor)).get(0).get("id").asLong();}
     void decision(String actor,long id,String status,int expected) throws Exception {mvc.perform(put("/api/v1/task-reviews/"+id).header("Authorization",token(actor)).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("status",status)))).andExpect(status().is(expected));}
     @Test void downwardDispatchAndSelfApprovalRemainDistinctFromKeywordReviews() throws Exception {
-        mvc.perform(post("/api/v1/tasks").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body("越级工作","founder"))).andExpect(status().isForbidden());
-        var task=create("staff","自主工作","staff");long id=task.get("id").asLong();
+        mvc.perform(post("/api/v1/tasks").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body("跨层工作","founder"))).andExpect(status().isCreated()).andExpect(jsonPath("$.approvalStatus").value("pending"));
+        var task=rawCreate("staff","自主工作","staff");long id=task.get("id").asLong();
         assertThat(task.get("approvalStatus").asText()).isEqualTo("pending");
         assertThat(getList("task-reviews",token("staff")).isEmpty()).isTrue();
         mvc.perform(put("/api/v1/tasks/"+id+"/approval").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content("{\"decision\":\"approved\"}")).andExpect(status().isForbidden());
         mvc.perform(put("/api/v1/tasks/"+id+"/approval").header("Authorization",token("team_lead")).contentType(MediaType.APPLICATION_JSON).content("{\"decision\":\"approved\"}")).andExpect(status().isOk());
         assertThat(taskById("staff",id).get("approvalStatus").asText()).isEqualTo("approved");
     }
-    @Test void editAndCompletionUseLifecycleReviewAndProgressAppliesImmediately() throws Exception {
+    @Test void definitionUsesLifecycleReviewAndAllProgressUsesGenericReview() throws Exception {
         long id=create("team_lead","原事项","staff").get("id").asLong();
         mvc.perform(put("/api/v1/tasks/"+id).header("Authorization",token("team_lead")).contentType(MediaType.APPLICATION_JSON).content(body("编辑后的事项","staff"))).andExpect(status().isOk()).andExpect(jsonPath("$.title").value("原事项"));
         mvc.perform(post("/api/v1/tasks/"+id+"/reject").header("Authorization",token("leader")).contentType(MediaType.APPLICATION_JSON).content("{\"note\":\"保留原定义\"}")).andExpect(status().isOk());
         assertThat(taskById("staff",id).get("title").asText()).isEqualTo("原事项");
-        mvc.perform(put("/api/v1/tasks/"+id+"/progress").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"doing\",\"progressNote\":\"执行中\"}")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("doing")).andExpect(jsonPath("$.reviewStatus").value("none"));
-        mvc.perform(put("/api/v1/tasks/"+id+"/progress").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"done\",\"progressNote\":\"全部完成\"}")).andExpect(status().isOk()).andExpect(jsonPath("$.reviewStatus").value("pending_done"));
-        mvc.perform(post("/api/v1/tasks/"+id+"/approve").header("Authorization",token("team_lead"))).andExpect(status().isOk());
-        assertThat(taskById("staff",id).get("reviewStatus").asText()).isEqualTo("approved");
-        assertThat(getList("task-reviews",token("staff")).isEmpty()).isTrue();
+        for(String state:List.of("doing","done","todo")) {
+            var before=taskById("staff",id);
+            mvc.perform(put("/api/v1/tasks/"+id+"/progress").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("status",state,"progressNote","提交"+state)))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value(before.get("status").asText()));
+            decision("team_lead",latestReview("staff"),"approved",200);
+            assertThat(taskById("staff",id).get("status").asText()).isEqualTo(state);
+            assertThat(taskById("staff",id).get("reviewStatus").asText()).isEqualTo("none");
+        }
+        assertThat(getList("tasks/reviews",token("team_lead")).isEmpty()).isTrue();
     }
     @Test void keywordApplicantCanWithdrawAndResubmitButCannotApproveTheirOwnChange() throws Exception {
         long id=create("team_lead","关键词撤回","staff").get("id").asLong();keyword("team_lead",id,"原词",200);
@@ -126,7 +132,7 @@ class TaskWorkflowTests {
         keyword("staff",id," API ",200);keyword("staff",id,"api",409);
         for(int i=0;i<11;i++)keyword("staff",id,"tag"+i,200);
         keyword("staff",id,"overflow",400);
-        long foreign=create("staff","未获批","staff").get("id").asLong();keyword("staff",foreign,"draft",409);
+        long foreign=rawCreate("staff","未获批","staff").get("id").asLong();keyword("staff",foreign,"draft",409);
         long key=taskById("staff",id).get("keywords").get(0).get("id").asLong();
         mvc.perform(delete("/api/v1/tasks/"+foreign+"/keywords/"+key).header("Authorization",token("founder"))).andExpect(status().isConflict());
         keyword("founder",id,"creator",400);
@@ -140,23 +146,27 @@ class TaskWorkflowTests {
         assertThat(getList("task-reviews",token("staff")).get(0).get("status").asText()).isEqualTo("canceled");
         decision("team_lead",review,"approved",409);
     }
-    @Test void managerChangeInvalidatesPendingKeywordApprovalAndApplicantCanCancel() throws Exception {
+    @Test void pendingKeywordReviewFollowsCurrentManager() throws Exception {
         long id=create("team_lead","组织变更关键词","staff").get("id").asLong();keyword("team_lead",id,"原词",200);
         long key=taskById("staff",id).get("keywords").get(0).get("id").asLong();
         mvc.perform(delete("/api/v1/tasks/"+id+"/keywords/"+key).header("Authorization",token("staff"))).andExpect(status().isOk());
         long review=latestReview("staff");var staff=users.findByUsername("staff").orElseThrow();staff.setManagerId(users.findByUsername("leader").orElseThrow().getId());users.saveAndFlush(staff);
-        decision("team_lead",review,"approved",409);decision("leader",review,"approved",403);decision("staff",review,"canceled",200);
-        assertThat(taskById("staff",id).get("keywords").size()).isEqualTo(1);
+        decision("team_lead",review,"approved",403);
+        assertThat(getList("task-reviews",token("leader")).get(0).get("reviewerId").asLong()).isEqualTo(users.findByUsername("leader").orElseThrow().getId());
+        decision("leader",review,"approved",200);
+        assertThat(taskById("staff",id).get("keywords").isEmpty()).isTrue();
     }
 
-    @Test void unrelatedProgressDoesNotStrandKeywordApprovalOrRejection() throws Exception {
+    @Test void pendingKeywordBlocksProgressUntilApprovalOrRejection() throws Exception {
         long id=create("team_lead","并行进度与关键词审核","staff").get("id").asLong();keyword("team_lead",id,"原词",200);
         long key=taskById("staff",id).get("keywords").get(0).get("id").asLong();
         for(String outcome:List.of("rejected","approved")) {
             mvc.perform(delete("/api/v1/tasks/"+id+"/keywords/"+key).header("Authorization",token("staff"))).andExpect(status().isOk());
             long review=latestReview("staff");
-            mvc.perform(put("/api/v1/tasks/"+id+"/progress").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"doing\",\"progressNote\":\"继续执行\"}")).andExpect(status().isOk());
+            mvc.perform(put("/api/v1/tasks/"+id+"/progress").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"doing\",\"progressNote\":\"继续执行\"}")).andExpect(status().isConflict());
             decision("team_lead",review,outcome,200);
+            mvc.perform(put("/api/v1/tasks/"+id+"/progress").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"doing\",\"progressNote\":\"继续执行\"}")).andExpect(status().isOk());
+            decision("team_lead",latestReview("staff"),"approved",200);
         }
         assertThat(taskById("staff",id).get("keywords").isEmpty()).isTrue();
     }

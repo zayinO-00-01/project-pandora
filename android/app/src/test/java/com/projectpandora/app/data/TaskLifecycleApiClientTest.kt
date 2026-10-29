@@ -27,12 +27,12 @@ class TaskLifecycleApiClientTest {
             val reject=server.takeRequest();assertEquals("POST",reject.method);assertEquals("/api/v1/tasks/31/reject",reject.path)
         }
     }
-    @Test fun definitionReviewAllowsProgressAndCompletionCanBeRecalledBeforeAcceptance() {
+    @Test fun pendingLifecycleFreezesProgressButCompletedTaskCanReopen() {
         val pending=com.google.gson.Gson().fromJson(task,DispatchTask::class.java)
-        assertTrue(taskCanReportProgress(pending))
-        assertTrue(taskCanReportProgress(pending.copy(reviewStatus="pending_change")))
+        assertFalse(taskCanReportProgress(pending))
+        assertFalse(taskCanReportProgress(pending.copy(reviewStatus="pending_change")))
         assertFalse(taskCanReportProgress(pending.copy(reviewStatus="pending_delete")))
-        assertFalse(taskCanReportProgress(pending.copy(reviewStatus="approved",status="done")))
+        assertTrue(taskCanReportProgress(pending.copy(reviewStatus="approved",status="done")))
         assertFalse(taskCanReportProgress(pending.copy(approvalStatus="pending")))
     }
     @Test fun rejectionRequiresAReasonBeforeSendingRequest() {

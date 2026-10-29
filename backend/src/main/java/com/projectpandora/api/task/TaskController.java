@@ -26,6 +26,8 @@ public class TaskController {
     public TaskResponse review(@PathVariable Long id, @Valid @RequestBody TaskApprovalRequest request) {
         return tasks.review(id, request);
     }
+    @PostMapping("/{id}/withdraw")
+    public TaskResponse withdraw(@PathVariable Long id) {return tasks.withdraw(id);}
     @GetMapping("/reviews")
     public List<TaskResponse> reviews() { return tasks.reviews(); }
     @PostMapping

@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.update
 
 /** Owns server-backed UI state. Every request captures its session and generation. */
 data class AppState(
-    val labelError: String? = null, val labels: List<WorkLabel> = emptyList(),val keywordReviews: List<TaskReview> = emptyList(),val workspaceError: String? = null,
+    val labelError: String? = null, val labels: List<WorkLabel> = emptyList(),val taskReviewRecords: List<TaskReview> = emptyList(),val taskReviewRecordsReady: Boolean = false,val workspaceError: String? = null,
     val myProfile: MyProfile? = null,
     val session: Session? = null, val server: String = "", val username: String = "staff",
     val developmentPreview: Boolean = false,
@@ -308,9 +308,10 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             } catch(e:CancellationException) {throw e}
               catch(e:Exception) {if(gen==generation)mutable.update {it.copy(labelError=if(e is ApiException && e.status==404)"当前服务未提供标签接口，请将本地后端升级到 0.6.0 或更新版本。" else "标签读取失败：${message(e)}")}}
             val failures=mutableListOf<String>()
+            if(gen==generation)mutable.update {it.copy(taskReviewRecordsReady=false)}
             try {
                 val reviews=withContext(Dispatchers.IO) {api(me).reviews(me)}
-                if(gen==generation)mutable.update {it.copy(keywordReviews=reviews)}
+                if(gen==generation)mutable.update {it.copy(taskReviewRecords=reviews,taskReviewRecordsReady=true)}
             } catch(e:CancellationException) {throw e}
               catch(e:Exception) {failures.add("审核：${message(e)}")}
             try {
@@ -333,6 +334,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             catch(e:Exception) {if(gen==generation) {if(e is ApiException && e.status==401)failure(e,false) else mutable.update {it.copy(saving=false,workspaceError=message(e))}}}
         }
     }
+    fun withdrawTask(id: Long)=workspaceAction({api(it).withdrawTask(it,id);Unit},"申请已撤回，可修改后重新提交")
     fun decideTask(id: Long,status: String)=workspaceAction({api(it).decideTask(it,id,status);Unit},"审核结果已保存")
     fun deleteTask(id: Long)=workspaceAction({api(it).deleteTask(it,id);Unit},"任务已删除") {closeTask()}
     fun saveTaskKeyword(taskId: Long,id: Long?,text: String) {
@@ -348,7 +350,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     fun readNotification(message: AppNotification) = workspaceAction({api(it).readNotification(it,message.id)},"通知已读")
     fun editTaskDetails(task: DispatchTask) {
         val me=state.value.session ?: return
-        if(state.value.saving || task.createdBy!=me.userId || isPendingReview(task.reviewStatus) || task.deleted)return
+        if(state.value.saving || (task.createdBy!=me.userId && me.role!="FOUNDER") || taskHasPendingReview(task,state.value.taskReviewRecords) || task.approvalStatus=="pending" || task.deleted)return
         val due=task.dueAt?.let {runCatching {java.time.Instant.parse(it).atZone(java.time.ZoneId.of("Asia/Shanghai")).format(java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm"))}.getOrNull()}.orEmpty()
         val draft=TaskDispatchBuffer(me.server,me.userId,task.title,task.detail,task.priority,task.assigneeId,due,task.id,task.label?.id ?: 0)
         store.saveDispatchBuffer(draft)
@@ -465,7 +467,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         if(state.value.saving)return
         val draft=state.value.dispatchEditor ?: return
         val updated=draft.copy(title=title ?: draft.title,detail=detail ?: draft.detail,priority=priority ?: draft.priority,
-            assigneeId=assigneeId ?: draft.assigneeId,dueDate=dueDate ?: draft.dueDate,labelId=labelId ?: draft.labelId)
+            assigneeId=if(draft.taskId==null)assigneeId ?: draft.assigneeId else draft.assigneeId,dueDate=dueDate ?: draft.dueDate,labelId=labelId ?: draft.labelId)
         store.saveDispatchBuffer(updated)
         mutable.update {it.copy(dispatchEditor=updated,dispatchError=null)}
     }
@@ -515,7 +517,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     }
     fun editTask(task: DispatchTask) {
         val me=state.value.session ?: return
-        if(state.value.saving || task.assigneeId!=me.userId || !taskCanReportProgress(task))return
+        if(state.value.saving || task.assigneeId!=me.userId || !taskCanReportProgress(task,state.value.taskReviewRecords) || state.value.taskLoading || !state.value.taskReviewRecordsReady)return
         val pending=state.value.taskEditor
         if(pending!=null && pending.taskId!=task.id)return
         val buffer=pending ?: TaskEditBuffer(me.server,me.userId,task.id,"",task.progressNote,task.status)
@@ -540,10 +542,9 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         val buffer=current.taskEditor ?: return
         if(current.saving || current.selectedTaskId!=buffer.taskId)return
         val task=current.tasks.firstOrNull {it.id==buffer.taskId}
-        if(task==null || task.assigneeId!=me.userId || !taskCanReportProgress(task)) {
+        if(task==null || task.assigneeId!=me.userId || !taskCanReportProgress(task,current.taskReviewRecords) || current.taskLoading || !current.taskReviewRecordsReady) {
             mutable.update {it.copy(taskEditorError="请刷新任务并确认你是当前责任人后再提交。")};return
         }
-        if(task.reviewStatus=="pending_change" && buffer.status=="done") {mutable.update {it.copy(taskEditorError="任务变更审核中，可记录进展，暂不能提交完成验收。")};return}
         val validation=TaskValidation.error("",buffer.note,buffer.status)
         if(validation!=null) {mutable.update {it.copy(taskEditorError=validation)};return}
         val gen=generation
@@ -555,10 +556,13 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
                     api(me).saveProgress(me,buffer.taskId,TaskProgressInput(null,buffer.note.trim(),buffer.status))
                 }
                 if(gen!=generation || state.value.session!=me)return@launch
+                val records=withContext(Dispatchers.IO) {runCatching {api(me).reviews(me)}.getOrNull()}
+                if(gen!=generation || state.value.session!=me)return@launch
                 store.clearTaskBuffer(me)
                 mutable.update {it.copy(saving=false,taskEditor=null,taskEditorError=null,
+                    taskReviewRecords=records ?: it.taskReviewRecords,taskReviewRecordsReady=records!=null,
                     tasks=it.tasks.map {old->if(old.id==result.id)result else old},
-                    notice=if(result.reviewStatus=="pending_done")"完成申请已提交，等待验收。" else "进度已保存，领导刷新即可看到最新反馈。")}
+                    notice=if(me.role!="FOUNDER")"进度已提交当前直属上级审核，批准后生效。" else "进度已生效。")}
                 refresh()
             } catch(e: CancellationException) {throw e}
               catch(e: Exception) {if(gen==generation && state.value.session==me)failure(e,false,true)}
@@ -566,7 +570,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     }
     fun reviewTask(id: Long,decision: String,note: String) {
         val me=state.value.session ?: return
-        if(state.value.saving || !AppRoles.canDispatch(me.role))return
+        if(state.value.saving || !AppRoles.canViewDown(me.role))return
         val gen=generation
         refreshJob?.cancel()
         mutable.update {it.copy(saving=true,loading=false,taskLoading=false,taskReviewError=null)}
@@ -704,7 +708,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         state.value.editor?.let {if(logEditorReadOnly(it,state.value.logs))return}
         if(state.value.saving)return
         val current=state.value.editor ?: return
-        val buffer=current.copy(date=date ?: current.date,content=content ?: current.content,endDate=if(date!=null)endDate else current.endDate,labelId=labelId ?: current.labelId)
+        val buffer=current.copy(date=if(current.logId==null)date ?: current.date else current.date,content=content ?: current.content,endDate=if(current.logId==null && date!=null)endDate else current.endDate,labelId=labelId ?: current.labelId)
         if(!state.value.developmentPreview)store.saveBuffer(buffer)
         mutable.update {it.copy(editor=buffer,editorError=null)}
     }
@@ -716,9 +720,13 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     fun save(status: String) {
         val current=state.value
         if(current.saving)return
-        current.editor?.let {if(logEditorReadOnly(it,current.logs)) {mutable.update {s->s.copy(editorError="该日志已超出可修改日期，仅供查看")};return}}
+        current.editor?.let {if(logEditorReadOnly(it,current.logs)) {mutable.update {s->s.copy(editorError="该日志已超出创建后 24 小时，仅供查看")};return}}
         val me=current.session ?: return
         val buffer=current.editor ?: return
+        val original=current.logs.firstOrNull {it.id==buffer.logId}
+        if(original!=null && (buffer.date!=original.logDate || (buffer.endDate ?: buffer.date)!=original.lastDate)) {
+            mutable.update {it.copy(editorError="已保存日志的日期范围不可修改，请重新打开日志。")};return
+        }
         val validation=LogValidation.error(buffer.date,buffer.content,status,buffer.endDate,creating=buffer.logId==null)
         if(validation!=null) {mutable.update {it.copy(editorError=validation)};return}
         if((buffer.status=="submitted" || current.logs.any {it.id==buffer.logId && it.status=="submitted"}) && status=="draft") {mutable.update {it.copy(editorError="已提交日志不能改为草稿，请保存已提交修改。")};return}
@@ -741,7 +749,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     }
     fun submit(log: WorkLog) {
         if(state.value.saving)return
-        if(!canModifyLog(log)) {mutable.update {it.copy(notice="仅当天日期的日志可修改或提交，历史记录仅供查看")};return}
+        if(!canModifyLog(log)) {mutable.update {it.copy(notice="日志仅在创建后 24 小时内可修改或提交，当前记录仅供查看")};return}
         val me=state.value.session ?: return
         val gen=generation
         mutable.update {it.copy(saving=true,notice=null)}

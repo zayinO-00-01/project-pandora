@@ -67,3 +67,11 @@ White-panel follow-up: unify light-theme black outlines for cards, surfaces, cal
 - [x] 13.4 Preserve original migrations V1–V10, append compatible migrations, and verify old data fields via upgrade regression.
 - [x] 13.5 Complete final build, contract review and isolated HTTP checks; record evidence in docs/MVP验收.md.
 - [ ] 13.6 Perform actual phone touch/navigation checks with the user after delivery; do not claim these from builds alone.
+
+## 14. Teacher-aligned integration after user decisions (2026-10-29)
+- [x] 14.1 Preserve baseline self-approval/year chooser/priorities, integrate company-wide assignees and all non-founder creation approval.
+- [x] 14.2 Submit all non-founder progress through current-manager PROGRESS approval; retain effective content until approval, support rejection/withdrawal and actor-based founder exemption.
+- [x] 14.3 Retain #22 conditional deletion; add founder editing and creation/definition withdrawal; protect pending visibility and audit.
+- [x] 14.4 Use createdAt-based 24-hour log edits including range drafts, immutable dates, and task-only calendar preserving direct year selection.
+- [x] 14.5 Final backend126 and Android72 tests, APK/JAR build and10 runtime HTTP groups pass; default H2 synchronous persistence checked through immediate process restart.
+- [ ] 14.6 Actual phone and browser manual checks, group review and subsequent unified GitHub/cloud publication.

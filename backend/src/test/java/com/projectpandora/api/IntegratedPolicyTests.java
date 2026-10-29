@@ -61,12 +61,12 @@ class IntegratedPolicyTests {
     }
     @Test void expiredDraftCannotBeSubmitted() throws Exception {
         var historic=new WorkLogEntity();historic.setUserId(user("staff").getId());historic.setLogDate(today().minusDays(4));
-        historic.setContent("过期草稿");historic.setStatus("draft");logs.saveAndFlush(historic);
+        historic.setContent("过期草稿");historic.setStatus("draft");historic.setCreatedAt(java.time.Instant.now().minus(java.time.Duration.ofHours(25)));logs.saveAndFlush(historic);
         mvc.perform(post("/api/v1/logs/"+historic.getId()+"/submit").header("Authorization",token("staff")))
             .andExpect(status().isForbidden());
         assertThat(logs.findById(historic.getId()).orElseThrow().getStatus()).isEqualTo("draft");
     }
-    @Test void organizationDistinguishesGlobalReadMembersFromActualDispatchAssignees() throws Exception {
+    @Test void organizationAllowsEveryActiveBusinessAssigneeIncludingSelf() throws Exception {
         var external=new UserEntity();external.setUsername("unlinked_assignee");external.setPasswordHash(user("staff").getPasswordHash());
         external.setRole(Role.STAFF);users.saveAndFlush(external);
         var peer=new UserEntity();peer.setUsername("peer_founder");peer.setPasswordHash(external.getPasswordHash());
@@ -77,13 +77,13 @@ class IntegratedPolicyTests {
             .andExpect(status().isOk()).andExpect(jsonPath("$.assignees").isArray()).andReturn().getResponse().getContentAsString());
         assertThat(organization.get("members").findValuesAsText("username"))
             .contains("unlinked_assignee","peer_founder","leader","team_lead","staff").doesNotContain("admin","disabled_assignee","founder");
-        assertThat(organization.get("assignees").findValuesAsText("username")).containsExactly("leader","team_lead","staff");
+        assertThat(organization.get("assignees").findValuesAsText("username")).containsExactlyInAnyOrder("founder","peer_founder","leader","team_lead","staff","unlinked_assignee");
         String lead=token("team_lead");var r=request(lead,user("leader").getId());decision(token("leader"),r.get("id").asLong(),"approved",200);
         mvc.perform(get("/api/v1/users/organization").header("Authorization",lead)).andExpect(status().isOk())
-            .andExpect(jsonPath("$.assignees.length()").value(1)).andExpect(jsonPath("$.assignees[0].username").value("staff"));
+            .andExpect(jsonPath("$.assignees.length()").value(6));
         String staff=token("staff");var staffRequest=request(staff,user("team_lead").getId());decision(lead,staffRequest.get("id").asLong(),"approved",200);
         mvc.perform(get("/api/v1/users/organization").header("Authorization",staff)).andExpect(status().isOk())
-            .andExpect(jsonPath("$.assignees.length()").value(0));
+            .andExpect(jsonPath("$.assignees.length()").value(6));
     }
     @Test void adminCannotUseAnyBusinessEntryPoint() throws Exception {
         String admin=token("admin");
@@ -92,14 +92,14 @@ class IntegratedPolicyTests {
         mvc.perform(post("/api/v1/logs").header("Authorization",admin).contentType(MediaType.APPLICATION_JSON).content(logBody(today(),"submitted")))
             .andExpect(status().isForbidden());
     }
-    @Test void writeWindowIncludesFourShanghaiDatesAndBlocksOldOriginalDate() throws Exception {
+    @Test void creationIncludesFourShanghaiDatesAndExpiredCreatedAtCannotBeBypassed() throws Exception {
         String staff=token("staff");
         for(LocalDate date: new LocalDate[]{today().minusDays(3),today()}) createLog(staff,date,"submitted");
         for(LocalDate date: new LocalDate[]{today().minusDays(4),today().plusDays(1)})
             mvc.perform(post("/api/v1/logs").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(logBody(date,"draft")))
                 .andExpect(status().isBadRequest());
         var historic=new WorkLogEntity(); historic.setUserId(user("staff").getId());historic.setLogDate(today().minusDays(4));
-        historic.setContent("历史记录");historic.setStatus("draft");logs.saveAndFlush(historic);
+        historic.setContent("历史记录");historic.setStatus("draft");historic.setCreatedAt(java.time.Instant.now().minus(java.time.Duration.ofDays(4)));logs.saveAndFlush(historic);
         mvc.perform(put("/api/v1/logs/"+historic.getId()).header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(logBody(today(),"submitted")))
             .andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/logs/"+historic.getId()+"/submit").header("Authorization",staff)).andExpect(status().isForbidden());

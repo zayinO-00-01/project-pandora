@@ -39,8 +39,6 @@ public class WorkLogController {
         var e=new WorkLogEntity();
         e.setUserId(access.assertBusiness().getId()); e.setLogDate(r.logDate()); e.setEndDate(end);
         e.setLabel(labels.resolve(r.labelId(),null)); e.setContent(r.content().trim()); e.setStatus(r.status()==null ? "submitted" : r.status());
-        var today=LocalDate.now(ZoneId.of("Asia/Shanghai"));
-        if(!r.logDate().equals(today) || !end.equals(today)) e.setStatus("submitted");
         return ResponseEntity.status(201).body(WorkLogResponse.from(logs.saveAndFlush(e)));
     }
     @PutMapping("/{id}")
@@ -76,8 +74,9 @@ public class WorkLogController {
             throw new ApiException(400,"可创建今天及往前 3 天的日报");
     }
     private void assertModifiable(WorkLogEntity log) {
-        var today=LocalDate.now(ZoneId.of("Asia/Shanghai"));
-        if(!log.getLogDate().equals(today) || !log.getEndDate().equals(today))
-            throw new ApiException(403,"仅能修改或提交今天的日报，历史日报及跨日期记录仅供查看");
+        var now=java.time.Instant.now();
+        var created=log.getCreatedAt();
+        if(created==null || now.isBefore(created) || !now.isBefore(created.plus(java.time.Duration.ofHours(24))))
+            throw new ApiException(403,"日志创建后24小时内可修改或提交，超过时限后仅可查看");
     }
 }

@@ -10,8 +10,8 @@ android {
         applicationId = "com.projectpandora.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 49
-        versionName = "0.8.0-team-integration"
+        versionCode = 50
+        versionName = "0.8.1-teacher-alignment"
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }

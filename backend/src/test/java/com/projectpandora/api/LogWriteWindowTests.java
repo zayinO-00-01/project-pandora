@@ -30,8 +30,8 @@ class LogWriteWindowTests {
         var e=new WorkLogEntity();e.setUserId(staff().getId());e.setLogDate(date);e.setContent("original history");e.setStatus(status);return logs.saveAndFlush(e);
     }
     String body(LocalDate date) throws Exception {return json.writeValueAsString(Map.of("logDate",date.toString(),"content","updated","status","submitted"));}
-    @Test void onlyTodayAllowsEdits() throws Exception {
-        for(var date:java.util.List.of(today())) {
+    @Test void recentSingleDayRecordsAllowEdits() throws Exception {
+        for(var date:java.util.List.of(today(),today().minusDays(1))) {
             var e=seed(date,"draft");
             mvc.perform(put("/api/v1/logs/"+e.getId()).header("Authorization",token(staff())).contentType(MediaType.APPLICATION_JSON).content(body(date)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.content").value("updated"));
@@ -39,7 +39,7 @@ class LogWriteWindowTests {
         }
     }
     @Test void oldHistoryCanBeReadButCannotBeMovedOrSubmitted() throws Exception {
-        var e=seed(today().minusDays(1),"draft");var path="/api/v1/logs/"+e.getId();
+        var e=seed(today().minusDays(1),"draft");e.setCreatedAt(java.time.Instant.now().minus(java.time.Duration.ofHours(25)));logs.saveAndFlush(e);var path="/api/v1/logs/"+e.getId();
         mvc.perform(get("/api/v1/logs").param("date",e.getLogDate().toString()).header("Authorization",token(staff())))
             .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(e.getId())).andExpect(jsonPath("$[0].content").value("original history"));
         mvc.perform(put(path).header("Authorization",token(staff())).contentType(MediaType.APPLICATION_JSON).content(body(today())))
@@ -58,7 +58,7 @@ class LogWriteWindowTests {
         }
         assertThat(e.getContent()).isEqualTo("original history");assertThat(e.getLogDate()).isEqualTo(today());
     }
-    @Test void creationIncludesThreeDaysAgoButBackfillIsImmediatelyReadOnly() throws Exception {
+    @Test void creationIncludesThreeDaysAgoAndBackfillRemainsEditableFor24Hours() throws Exception {
         for(int offset=0;offset<=3;offset++) {
             var date=today().minusDays(offset);
             var response=mvc.perform(post("/api/v1/logs").header("Authorization",token(staff())).contentType(MediaType.APPLICATION_JSON).content(body(date)))
@@ -66,10 +66,22 @@ class LogWriteWindowTests {
             long id=json.readTree(response.getResponse().getContentAsString()).get("id").asLong();
             if(offset>0) {
                 mvc.perform(put("/api/v1/logs/"+id).header("Authorization",token(staff())).contentType(MediaType.APPLICATION_JSON).content(body(today())))
-                    .andExpect(status().isForbidden());
-                mvc.perform(post("/api/v1/logs/"+id+"/submit").header("Authorization",token(staff()))).andExpect(status().isForbidden());
+                    .andExpect(status().isBadRequest());
+                mvc.perform(post("/api/v1/logs/"+id+"/submit").header("Authorization",token(staff()))).andExpect(status().isOk());
                 assertThat(logs.findById(id).orElseThrow().getLogDate()).isEqualTo(date);
             }
+        }
+    }
+    @Test void editWindowUsesOriginalCreatedAtNotLastUpdateAndRejectsExpiredOrFutureTimes() throws Exception {
+        var date=today().minusDays(1);var e=seed(date,"draft");
+        var created=java.time.Instant.now().minus(java.time.Duration.ofHours(23));e.setCreatedAt(created);logs.saveAndFlush(e);
+        var path="/api/v1/logs/"+e.getId();
+        mvc.perform(put(path).header("Authorization",token(staff())).contentType(MediaType.APPLICATION_JSON).content(body(date))).andExpect(status().isOk());
+        assertThat(logs.findById(e.getId()).orElseThrow().getCreatedAt()).isEqualTo(created);
+        for(var time:java.util.List.of(java.time.Instant.now().minus(java.time.Duration.ofHours(24)),java.time.Instant.now().plusSeconds(60))) {
+            e.setCreatedAt(time);logs.saveAndFlush(e);
+            mvc.perform(put(path).header("Authorization",token(staff())).contentType(MediaType.APPLICATION_JSON).content(body(date))).andExpect(status().isForbidden());
+            mvc.perform(post(path+"/submit").header("Authorization",token(staff()))).andExpect(status().isForbidden());
         }
     }
     @Test void todayCannotBeMovedToAnOtherwiseCreatablePastDate() throws Exception {

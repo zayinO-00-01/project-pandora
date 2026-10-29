@@ -8,7 +8,7 @@ import org.junit.Test
 
 class SelfTaskApprovalTest {
     private val pending="""{"id":31,"title":"自行安排","detail":"整理资料","priority":"normal","status":"todo","dueAt":null,"progress":null,"progressNote":"","createdBy":3,"assigneeId":3,"creatorName":"员工","assigneeName":"员工","createdAt":"","updatedAt":"","approvalStatus":"pending","approvalNote":"","reviewerId":null,"reviewedAt":null}"""
-    @Test fun employeeCanCreateOwnTaskButNotAssignAnotherPerson() {
+    @Test fun employeeCanCreateForSelfAndOtherCompanyMembers() {
         MockWebServer().use {server->
             server.enqueue(MockResponse().setResponseCode(201).setBody(pending));server.start()
             val api=ApiClient(server.url("/").toString());val me=Session(api.server,"s",3,"STAFF",null,"staff")
@@ -16,8 +16,9 @@ class SelfTaskApprovalTest {
             assertEquals("pending",result.approvalStatus)
             val sent=server.takeRequest();assertEquals("/api/v1/tasks",sent.path)
             assertEquals(3L,JsonParser.parseString(sent.body.readUtf8()).asJsonObject["assigneeId"].asLong)
-            try {api.createTask(me,TaskCreateInput("越权安排","","normal",9,null));fail("employee dispatched to other user")}catch(e:ApiException){assertEquals(403,e.status)}
-            assertEquals(1,server.requestCount)
+            server.enqueue(MockResponse().setBody(pending.replace("\"assigneeId\":3","\"assigneeId\":9")))
+            assertEquals("pending",api.createTask(me,TaskCreateInput("协作安排","","normal",9,null)).approvalStatus)
+            assertEquals(2,server.requestCount)
         }
     }
     @Test fun selfDraftDoesNotDependOnHavingSubordinates() {
@@ -26,13 +27,13 @@ class SelfTaskApprovalTest {
         assertNull(TaskDispatchValidation.inputError(TaskDispatchValidation.input(draft),3))
         assertNotNull(TaskDispatchValidation.error(draft.copy(assigneeId=9),emptyList()))
     }
-    @Test fun everyBusinessRoleKeepsSelfAndOnlyLeadersGetAuthorizedSubordinates() {
+    @Test fun everyBusinessRoleKeepsSelfAndCompanyMembers() {
         val staff=UserSummary(9,"report","下级","STAFF")
         for(role in AppRoles.business) {
             val me=Session("server","s",3,role,null,"me")
             val assignees=TaskDispatchValidation.assignees(me,Organization(assignees=listOf(staff)))
             assertEquals(3L,assignees.first().id)
-            assertEquals(if(role=="STAFF")listOf(3L) else listOf(3L,9L),assignees.map {it.id})
+            assertEquals(listOf(3L,9L),assignees.map {it.id})
         }
     }
     @Test fun pendingAndRejectedAreNotExecutableOrShownAsStarted() {

@@ -50,7 +50,9 @@ class TaskApprovalTests {
             .andExpect(jsonPath("$.reviewerId").value(manager.getId())));
         assertThat(approved.get("reviewedAt").asText()).isNotBlank();assertThat(approved.get("approvalNote").asText()).isEqualTo("可以执行");
         for(String field:new String[]{"status","progress","progressNote","createdBy","assigneeId","createdAt"})assertThat(approved.get(field)).as(field).isEqualTo(task.get(field));
-        feedback(staff,id).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("doing"));
+        feedback(staff,id).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("todo"));
+        var progressReview=read(mvc.perform(get("/api/v1/task-reviews").header("Authorization",token(manager))).andExpect(status().isOk())).get(0).get("id").asLong();
+        mvc.perform(put("/api/v1/task-reviews/"+progressReview).header("Authorization",token(manager)).contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"approved\"}")).andExpect(status().isOk());
         decide(manager,id,"rejected","").andExpect(status().isConflict());pending(manager).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
     }
     @Test void rejectedTaskRemainsVisibleButCannotExecute() throws Exception {
@@ -74,8 +76,10 @@ class TaskApprovalTests {
         var founder=user("founder",Role.FOUNDER,null);var department=user("department",Role.DEPT_HEAD,founder);var team=user("team",Role.TEAM_LEAD,department);var staff=user("staff",Role.STAFF,team);
         for(var author:new UserEntity[]{department,team,staff})create(author,author).andExpect(status().isCreated()).andExpect(jsonPath("$.approvalStatus").value("pending"));
         var task=read(create(founder,founder).andExpect(status().isCreated()).andExpect(jsonPath("$.approvalStatus").value("approved")));
-        feedback(founder,task.get("id").asLong()).andExpect(status().isOk());create(team,staff).andExpect(status().isCreated()).andExpect(jsonPath("$.approvalStatus").value("approved"));
-        var admin=user("admin",Role.ADMIN,null);create(admin,admin).andExpect(status().isForbidden());create(staff,team).andExpect(status().isForbidden());
+        feedback(founder,task.get("id").asLong()).andExpect(status().isOk());create(team,staff).andExpect(status().isCreated()).andExpect(jsonPath("$.approvalStatus").value("pending"));
+        var admin=user("admin",Role.ADMIN,null);create(admin,admin).andExpect(status().isForbidden());create(founder,admin).andExpect(status().isForbidden());
+        var disabled=user("disabled",Role.STAFF,team);disabled.setDisabled(true);users.saveAndFlush(disabled);create(founder,disabled).andExpect(status().isForbidden());
+        create(staff,team).andExpect(status().isCreated()).andExpect(jsonPath("$.approvalStatus").value("pending"));
     }
     @Test void missingDisabledOrInvalidManagerPreventsNonFounderSelfTasks() throws Exception {
         var author=user("staff",Role.STAFF,null);create(author,author).andExpect(status().isBadRequest());
@@ -90,8 +94,8 @@ class TaskApprovalTests {
         pending(manager).andExpect(status().isOk()).andExpect(jsonPath("$[0].approvalStatus").value("pending"));decide(manager,id,"rejected","x".repeat(500)).andExpect(status().isOk());
     }
     @Test void panelLimitIsAppliedAfterApprovalFilter() throws Exception {
-        var manager=user("manager",Role.TEAM_LEAD,null);var staff=user("staff",Role.STAFF,manager);
-        for(int i=0;i<10;i++)create(manager,staff).andExpect(status().isCreated());for(int i=0;i<12;i++)create(staff,staff).andExpect(status().isCreated());
+        var founder=user("founder",Role.FOUNDER,null);var manager=user("manager",Role.TEAM_LEAD,founder);var staff=user("staff",Role.STAFF,manager);
+        for(int i=0;i<10;i++)create(founder,staff).andExpect(status().isCreated());for(int i=0;i<12;i++)create(staff,staff).andExpect(status().isCreated());
         mvc.perform(get("/api/v1/panels/map").header("Authorization",token(staff))).andExpect(status().isOk()).andExpect(jsonPath("$.companyDispatch.length()").value(10));
         mvc.perform(get("/api/v1/tasks").header("Authorization",token(staff))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(22));
     }
@@ -104,16 +108,15 @@ class TaskApprovalTests {
         staff.setManagerId(next.getId());users.saveAndFlush(staff);
         mvc.perform(put("/api/v1/tasks/"+id+"/progress").header("Authorization",token(staff)).contentType(MediaType.APPLICATION_JSON)
             .content("{\"status\":\"done\",\"progressNote\":\"finished\"}"))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.reviewStatus").value("pending_done"));
-        mvc.perform(post("/api/v1/tasks/"+id+"/approve").header("Authorization",token(staff)))
-            .andExpect(status().isForbidden());
-        mvc.perform(post("/api/v1/tasks/"+id+"/approve").header("Authorization",token(manager)))
-            .andExpect(status().isForbidden());
-        mvc.perform(get("/api/v1/tasks/reviews").header("Authorization",token(next)))
-            .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(id));
-        var completed=read(mvc.perform(post("/api/v1/tasks/"+id+"/approve").header("Authorization",token(next)))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.reviewStatus").value("approved"))
-            .andExpect(jsonPath("$.reviewedBy").value(next.getId())));
+            .andExpect(status().isOk()).andExpect(jsonPath("$.reviewStatus").value("none")).andExpect(jsonPath("$.status").value("todo"));
+        var review=read(mvc.perform(get("/api/v1/task-reviews").header("Authorization",token(next))).andExpect(status().isOk())).get(0).get("id").asLong();
+        for(var forbidden:new UserEntity[]{staff,manager,founder})
+            mvc.perform(put("/api/v1/task-reviews/"+review).header("Authorization",token(forbidden)).contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"approved\"}")).andExpect(status().isForbidden());
+        mvc.perform(put("/api/v1/task-reviews/"+review).header("Authorization",token(next)).contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"approved\"}")).andExpect(status().isOk());
+        var completed=read(mvc.perform(get("/api/v1/tasks").header("Authorization",token(staff))).andExpect(status().isOk())).get(0);
+        assertThat(completed.get("status").asText()).isEqualTo("done");
+        assertThat(completed.get("reviewStatus").asText()).isEqualTo("none");
+        assertThat(completed.get("reviewedBy").asLong()).isEqualTo(next.getId());
         assertThat(completed.get("reviewedAt")).isEqualTo(approved.get("reviewedAt"));
         assertThat(completed.get("reviewerId")).isEqualTo(approved.get("reviewerId"));
         assertThat(completed.get("approvalNote")).isEqualTo(approved.get("approvalNote"));
