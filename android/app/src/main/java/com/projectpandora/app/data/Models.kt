@@ -32,12 +32,12 @@ data class DispatchTask(val id: Long, val title: String, val detail: String, val
     val reviewerId: Long? = null, val reviewedAt: String? = null,
     val reviewStatus: String? = "none", val reviewReason: String? = null, val reviewedBy: Long? = null,
     val lifecycleReviewedAt: String? = null, val deleted: Boolean = false, val pendingChange: String? = null,
-    val label: WorkLabel? = null, val keywords: List<TaskKeyword>? = null)
+    val label: WorkLabel? = null, val keywords: List<TaskKeyword>? = null, val startAt: String? = null)
 data class TaskProgressInput(val progress: Int?, val progressNote: String, val status: String? = null)
 data class TaskEditBuffer(val server: String, val userId: Long, val taskId: Long, val progress: String, val note: String, val status: String? = null)
 
-data class TaskCreateInput(val title: String, val detail: String, val priority: String, val assigneeId: Long, val dueAt: String?,val labelId: Long? = null)
-data class TaskDispatchBuffer(val server: String, val userId: Long, val title: String = "", val detail: String = "", val priority: String = "normal", val assigneeId: Long? = null, val dueDate: String = "",val taskId: Long? = null,val labelId: Long? = null)
+data class TaskCreateInput(val title: String, val detail: String, val priority: String, val assigneeId: Long, val dueAt: String?,val labelId: Long? = null,val startAt: String? = null)
+data class TaskDispatchBuffer(val server: String, val userId: Long, val title: String = "", val detail: String = "", val priority: String = "normal", val assigneeId: Long? = null, val dueDate: String = "",val taskId: Long? = null,val labelId: Long? = null,val startDate: String? = null)
 
 
 data class PersonalPriorityWrite(val id: Long?, val title: String, val detail: String, val sortOrder: Int)

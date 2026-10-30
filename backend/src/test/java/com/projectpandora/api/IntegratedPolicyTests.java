@@ -133,7 +133,7 @@ class IntegratedPolicyTests {
         String staff=token("staff"), lead=token("team_lead"), founder=token("founder");long manager=user("team_lead").getId();
         var submitted=createLog(lead,today(),"submitted");createLog(lead,today(),"draft");
         var task=json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization",founder).contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("title","上级任务","assigneeId",manager)))).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            .content(json.writeValueAsString(Map.of("dueAt","2026-11-01T10:00:00Z","title","上级任务","assigneeId",manager)))).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
         var r=request(staff,manager);long id=r.get("id").asLong();
         mvc.perform(get("/api/v1/logs").param("userId",""+manager).header("Authorization",staff)).andExpect(status().isForbidden());
         decision(staff,id,"approved",403);decision(lead,id,"approved",200);decision(lead,id,"denied",409);

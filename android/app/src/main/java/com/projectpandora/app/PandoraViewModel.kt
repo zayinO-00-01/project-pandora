@@ -352,7 +352,8 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         val me=state.value.session ?: return
         if(state.value.saving || (task.createdBy!=me.userId && me.role!="FOUNDER") || taskHasPendingReview(task,state.value.taskReviewRecords) || task.approvalStatus=="pending" || task.deleted)return
         val due=task.dueAt?.let {runCatching {java.time.Instant.parse(it).atZone(java.time.ZoneId.of("Asia/Shanghai")).format(java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm"))}.getOrNull()}.orEmpty()
-        val draft=TaskDispatchBuffer(me.server,me.userId,task.title,task.detail,task.priority,task.assigneeId,due,task.id,task.label?.id ?: 0)
+        val start=task.startAt?.let {runCatching {java.time.Instant.parse(it).atZone(java.time.ZoneId.of("Asia/Shanghai")).format(java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm"))}.getOrNull()}
+        val draft=TaskDispatchBuffer(me.server,me.userId,task.title,task.detail,task.priority,task.assigneeId,due,task.id,task.label?.id ?: 0,start)
         store.saveDispatchBuffer(draft)
         mutable.update {it.copy(dispatchEditor=draft,dispatchOpen=true,screen="tasks",dispatchError=null)}
         loadDispatchMembers()
@@ -463,11 +464,11 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         }
     }
     fun closeDispatch() {if(!state.value.saving)mutable.update {it.copy(dispatchOpen=false)}}
-    fun changeDispatch(title: String? = null,detail: String? = null,priority: String? = null,assigneeId: Long? = null,dueDate: String? = null,labelId: Long? = null) {
+    fun changeDispatch(title: String? = null,detail: String? = null,priority: String? = null,assigneeId: Long? = null,dueDate: String? = null,labelId: Long? = null,startDate: String? = null) {
         if(state.value.saving)return
         val draft=state.value.dispatchEditor ?: return
         val updated=draft.copy(title=title ?: draft.title,detail=detail ?: draft.detail,priority=priority ?: draft.priority,
-            assigneeId=if(draft.taskId==null)assigneeId ?: draft.assigneeId else draft.assigneeId,dueDate=dueDate ?: draft.dueDate,labelId=labelId ?: draft.labelId)
+            assigneeId=if(draft.taskId==null)assigneeId ?: draft.assigneeId else draft.assigneeId,dueDate=dueDate ?: draft.dueDate,labelId=labelId ?: draft.labelId,startDate=startDate ?: draft.startDate)
         store.saveDispatchBuffer(updated)
         mutable.update {it.copy(dispatchEditor=updated,dispatchError=null)}
     }
@@ -649,7 +650,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     fun changeTask(task: DispatchTask,title: String,detail: String,priority: String,dueAt: String?) {
         val me=state.value.session ?: return
         if(state.value.saving || state.value.developmentPreview)return
-        val input=TaskCreateInput(title.trim(),detail.trim(),priority,task.assigneeId,dueAt)
+        val input=TaskCreateInput(title.trim(),detail.trim(),priority,task.assigneeId,dueAt,startAt=task.startAt)
         TaskDispatchValidation.inputError(input,me.userId)?.let {mutable.update {s->s.copy(notice=it)};return}
         val gen=generation
         mutable.update {it.copy(saving=true,notice=null)}

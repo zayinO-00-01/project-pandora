@@ -18,7 +18,7 @@ class DispatchContractTest {
             assertEquals(listOf(3L,8L),organization.members.map {it.id})
             val members=organization.assignees
             assertEquals(listOf(3L),members.map {it.id})
-            val result=api.createTask(me,TaskCreateInput("核对合同","核对条款","high",members.single().id,"2026-10-16T02:30:00Z"))
+            val result=api.createTask(me,TaskCreateInput("核对合同","核对条款","high",members.single().id,"2026-10-16T02:30:00Z",startAt="2026-10-15T01:00:00Z"))
             assertEquals(19L,result.id)
             assertEquals(3L,result.assigneeId)
             assertEquals("todo",result.status)
@@ -30,11 +30,12 @@ class DispatchContractTest {
             assertEquals("/api/v1/tasks",request.path)
             assertEquals("Bearer leader-token",request.getHeader("Authorization"))
             val body=JsonParser.parseString(request.body.readUtf8()).asJsonObject
-            assertEquals(setOf("title","detail","priority","assigneeId","dueAt","labelId"),body.keySet())
+            assertEquals(setOf("title","detail","priority","assigneeId","dueAt","labelId","startAt"),body.keySet())
             assertEquals("核对合同",body["title"].asString)
             assertEquals("high",body["priority"].asString)
             assertEquals(3L,body["assigneeId"].asLong)
             assertEquals("2026-10-16T02:30:00Z",body["dueAt"].asString)
+            assertEquals("2026-10-15T01:00:00Z",body["startAt"].asString)
         }
     }
     @Test fun readableMembersNeverFallbackToDispatchAssignees() {
@@ -58,19 +59,19 @@ class DispatchContractTest {
         MockWebServer().use {server ->
             server.start()
             val api=ApiClient(server.url("/").toString())
-            val input=TaskCreateInput("任务","","normal",3,null)
+            val input=TaskCreateInput("任务","","normal",3,"2026-11-01T10:00:00Z")
             for(role in listOf("ADMIN","LEADER")) {
                 try {api.createTask(Session(api.server,"t",2,role,null,"u"),input);fail("accepted $role")}
                 catch(e:ApiException) {assertEquals(403,e.status)}
             }
             val me=Session(api.server,"t",2,"FOUNDER",null,"f")
-            for(bad in listOf(input.copy(title=" "),input.copy(title="x".repeat(129)),input.copy(detail="x".repeat(5001)),input.copy(priority="urgent"),input.copy(assigneeId=0),input.copy(dueAt="tomorrow"))) {
+            for(bad in listOf(input.copy(title=" "),input.copy(title="x".repeat(129)),input.copy(detail="x".repeat(5001)),input.copy(priority="urgent"),input.copy(assigneeId=0),input.copy(dueAt="tomorrow"),input.copy(dueAt=null),input.copy(startAt="bad"),input.copy(startAt="2026-11-02T10:00:00Z"))) {
                 try {api.createTask(me,bad);fail("invalid accepted")} catch(_:IllegalArgumentException) {}
             }
             assertEquals(0,server.requestCount)
         }
     }
-    @Test fun nullableDeadlineAndServerFailureDoNotInventSuccess() {
+    @Test fun optionalStartAndServerFailureDoNotInventSuccess() {
         MockWebServer().use {server ->
             server.enqueue(MockResponse().setBody(task))
             server.enqueue(MockResponse().setResponseCode(403).setBody("""{"message":"组织关系已变更"}"""))
@@ -78,10 +79,10 @@ class DispatchContractTest {
             server.start()
             val api=ApiClient(server.url("/").toString())
             val me=Session(api.server,"t",2,"DEPT_HEAD",null,"d")
-            val input=TaskCreateInput("任务","","normal",3,null)
+            val input=TaskCreateInput("任务","","normal",3,"2026-11-01T10:00:00Z")
             assertEquals(19L,api.createTask(me,input).id)
             val body=JsonParser.parseString(server.takeRequest().body.readUtf8()).asJsonObject
-            assertTrue(body.has("dueAt"));assertTrue(body["dueAt"].isJsonNull)
+            assertEquals("2026-11-01T10:00:00Z",body["dueAt"].asString);assertTrue(body["startAt"].isJsonNull)
             try {api.createTask(me,input);fail("permission failure accepted")} catch(e:ApiException) {assertEquals(403,e.status)}
             try {api.createTask(me,input);fail("wrong assignee accepted")} catch(e:ApiException) {assertEquals(502,e.status)}
         }
@@ -91,7 +92,14 @@ class DispatchContractTest {
         val draft=TaskDispatchBuffer("server",2,"任务","详情","normal",3,"2026-10-16 10:30")
         assertNull(TaskDispatchValidation.error(draft,listOf(member)))
         assertEquals("2026-10-16T02:30:00Z",TaskDispatchValidation.input(draft).dueAt)
-        assertNull(TaskDispatchValidation.input(draft.copy(dueDate="")).dueAt)
+        assertNotNull(TaskDispatchValidation.error(draft.copy(dueDate=""),listOf(member)))
+        val withStart=draft.copy(startDate="2026-10-15 09:00")
+        assertEquals("2026-10-15T01:00:00Z",TaskDispatchValidation.input(withStart).startAt)
+        assertNull(TaskDispatchValidation.error(withStart,listOf(member)))
+        assertNull(TaskDispatchValidation.error(draft.copy(startDate=draft.dueDate),listOf(member)))
+        assertNull(TaskDispatchValidation.error(draft.copy(startDate=""),listOf(member)))
+        assertNotNull(TaskDispatchValidation.error(draft.copy(startDate="2026-10-17 09:00"),listOf(member)))
+        assertNotNull(TaskDispatchValidation.error(draft.copy(startDate="2026-02-30 09:00"),listOf(member)))
         assertNotNull(TaskDispatchValidation.error(draft,emptyList()))
         assertNotNull(TaskDispatchValidation.error(draft,listOf(member.copy(role="ADMIN"))))
         assertNotNull(TaskDispatchValidation.error(draft.copy(dueDate="2026-02-30 10:00"),listOf(member)))

@@ -68,7 +68,7 @@ import com.projectpandora.app.data.*
 }
 internal fun reviewDetails(payload: String): String=runCatching {
     val data=com.google.gson.JsonParser.parseString(payload).asJsonObject
-    listOf("title" to "事项","detail" to "说明","priority" to "优先级","assigneeName" to "责任人","dueAt" to "截止时间","status" to "进度状态","progressNote" to "进度说明","progress" to "百分比","labelId" to "品牌标签编号","labelName" to "品牌标签","labelColor" to "背景颜色","keywordBefore" to "原关键词","keywordText" to "新关键词").mapNotNull {(key,title)->
-        data[key]?.takeUnless {it.isJsonNull}?.asString?.takeIf {it.isNotBlank()}?.let {value->"$title：${when(key){"priority"->taskPriorityLabel(value);"status"->taskStatusLabel(value);"dueAt"->timestamp(value);else->value}}"}
+    listOf("title" to "事项","detail" to "说明","priority" to "优先级","assigneeName" to "责任人","startAt" to "开始时间","dueAt" to "截止时间","status" to "进度状态","progressNote" to "进度说明","progress" to "百分比","labelId" to "品牌标签编号","labelName" to "品牌标签","labelColor" to "背景颜色","keywordBefore" to "原关键词","keywordText" to "新关键词").mapNotNull {(key,title)->
+        data[key]?.takeUnless {it.isJsonNull}?.asString?.takeIf {it.isNotBlank()}?.let {value->"$title：${when(key){"priority"->taskPriorityLabel(value);"status"->taskStatusLabel(value);"dueAt","startAt"->timestamp(value);else->value}}"}
     }.joinToString("\n")
 }.getOrDefault("无法读取变更说明，请刷新后重试。")

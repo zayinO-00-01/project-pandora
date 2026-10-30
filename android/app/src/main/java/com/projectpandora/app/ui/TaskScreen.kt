@@ -126,7 +126,7 @@ import java.time.format.DateTimeFormatter
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {TaskPriorityText(task.priority,onLabel=task.label!=null);Text(taskFeedbackLabel(task),style=MaterialTheme.typography.labelMedium,color=if(task.label!=null)labelTextColor(task.label) else MaterialTheme.colorScheme.onSurfaceVariant)}
                 Text(task.detail.ifBlank {"暂无任务说明"},style=MaterialTheme.typography.bodyLarge)
                 HorizontalDivider()
-                Text("创建人：${task.creatorName}\n责任人：${task.assigneeName}\n截止时间：${dueLabel(task.dueAt)}",style=MaterialTheme.typography.bodyMedium)
+                Text("创建人：${task.creatorName}\n责任人：${task.assigneeName}\n开始时间：${task.startAt?.let {dueLabel(it)} ?: "未指定"}\n截止时间：${dueLabel(task.dueAt)}",style=MaterialTheme.typography.bodyMedium)
             }}}
             item {TaskKeywords(task,state,model)}
             if(!taskIsApproved(task))item {Hint(if(task.approvalStatus=="pending")"等待创建人当前直属上级审核，批准后才能开始反馈进度。" else "此任务未获批准，请根据审核意见重新安排。")}
@@ -248,6 +248,7 @@ private fun dueLabel(value: String?): String = if(value==null)"未设置" else r
         }}}
         state.labelError?.let {item {Hint(it,true,onRetry=model::loadWorkspaceExtras)}}
         item {LabelPicker(state.labels,draft.labelId,enabled) {model.changeDispatch(labelId=it)}}
+        item {DeadlinePicker(draft.startDate.orEmpty(),enabled,label="开始时间",required=false) {model.changeDispatch(startDate=it)}}
         item {DeadlinePicker(draft.dueDate,enabled) {model.changeDispatch(dueDate=it)}}
         item {OutlinedTextField(value=draft.detail,onValueChange={model.changeDispatch(detail=it.take(5000))},enabled=enabled,label={Text("详细说明")},minLines=5,supportingText={Text("${draft.detail.length} / 5000")},modifier=Modifier.fillMaxWidth())}
         state.dispatchError?.let {item {Hint(it,true)}}

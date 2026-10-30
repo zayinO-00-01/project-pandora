@@ -29,7 +29,7 @@ class TaskApprovalTests {
     JsonNode read(ResultActions result) throws Exception {return json.readTree(result.andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));}
     ResultActions create(UserEntity creator,UserEntity assignee) throws Exception {
         return mvc.perform(post("/api/v1/tasks").header("Authorization",token(creator)).contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("title","计划任务","assigneeId",assignee.getId()))));
+            .content(json.writeValueAsString(Map.of("dueAt","2026-11-01T10:00:00Z","title","计划任务","assigneeId",assignee.getId()))));
     }
     ResultActions decide(UserEntity reviewer,long id,String decision,String note) throws Exception {
         return mvc.perform(put("/api/v1/tasks/"+id+"/approval").header("Authorization",token(reviewer)).contentType(MediaType.APPLICATION_JSON)

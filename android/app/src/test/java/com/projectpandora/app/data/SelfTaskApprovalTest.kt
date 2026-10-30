@@ -12,17 +12,17 @@ class SelfTaskApprovalTest {
         MockWebServer().use {server->
             server.enqueue(MockResponse().setResponseCode(201).setBody(pending));server.start()
             val api=ApiClient(server.url("/").toString());val me=Session(api.server,"s",3,"STAFF",null,"staff")
-            val result=api.createTask(me,TaskCreateInput("自行安排","整理资料","normal",3,null))
+            val result=api.createTask(me,TaskCreateInput("自行安排","整理资料","normal",3,"2026-11-01T10:00:00Z"))
             assertEquals("pending",result.approvalStatus)
             val sent=server.takeRequest();assertEquals("/api/v1/tasks",sent.path)
             assertEquals(3L,JsonParser.parseString(sent.body.readUtf8()).asJsonObject["assigneeId"].asLong)
             server.enqueue(MockResponse().setBody(pending.replace("\"assigneeId\":3","\"assigneeId\":9")))
-            assertEquals("pending",api.createTask(me,TaskCreateInput("协作安排","","normal",9,null)).approvalStatus)
+            assertEquals("pending",api.createTask(me,TaskCreateInput("协作安排","","normal",9,"2026-11-01T10:00:00Z")).approvalStatus)
             assertEquals(2,server.requestCount)
         }
     }
     @Test fun selfDraftDoesNotDependOnHavingSubordinates() {
-        val draft=TaskDispatchBuffer("server",3,"自行安排",assigneeId=3)
+        val draft=TaskDispatchBuffer("server",3,"自行安排",assigneeId=3,dueDate="2026-11-01 18:00")
         assertNull(TaskDispatchValidation.error(draft,emptyList()))
         assertNull(TaskDispatchValidation.inputError(TaskDispatchValidation.input(draft),3))
         assertNotNull(TaskDispatchValidation.error(draft.copy(assigneeId=9),emptyList()))

@@ -24,7 +24,7 @@ class TaskWorkflowTests {
         return "Bearer "+json.readTree(r.getResponse().getContentAsString()).get("token").asText();
     }
     JsonNode getList(String path,String token) throws Exception {var result=json.readTree(mvc.perform(get("/api/v1/"+path).header("Authorization",token)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));return path.equals("notifications")?result.get("items"):result;}
-    String body(String name,String assignee) throws Exception {return json.writeValueAsString(Map.of("title",name,"detail","工作说明","assigneeId",users.findByUsername(assignee).orElseThrow().getId(),"priority","high"));}
+    String body(String name,String assignee) throws Exception {return json.writeValueAsString(Map.of("dueAt","2026-11-01T10:00:00Z","title",name,"detail","工作说明","assigneeId",users.findByUsername(assignee).orElseThrow().getId(),"priority","high"));}
     JsonNode rawCreate(String actor,String title,String assignee) throws Exception {return json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization",token(actor)).contentType(MediaType.APPLICATION_JSON).content(body(title,assignee))).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));}
     JsonNode create(String actor,String title,String assignee) throws Exception {
         return TaskPolicyTestSupport.approveInitial(mvc,json,rawCreate(actor,title,assignee),actor.equals("staff")?"team_lead":"leader");

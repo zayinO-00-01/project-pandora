@@ -27,6 +27,8 @@ public class TaskEntity {
     private String priority;
     @Column(name = "due_at")
     private Instant dueAt;
+    @Column(name = "start_at")
+    private Instant startAt;
     @Column(nullable = false, length = 16)
     private String status = "todo";
     private Integer progress;
@@ -82,7 +84,7 @@ public class TaskEntity {
 
     TaskEntity(CreateTaskRequest request, UserEntity creator, UserEntity assignee) {
         title = request.title(); detail = request.detail(); priority = request.priority();
-        dueAt = request.dueAt(); this.creator = creator; this.assignee = assignee;
+        dueAt = request.dueAt(); startAt = request.startAt(); this.creator = creator; this.assignee = assignee;
     }
 
     @PrePersist
@@ -90,8 +92,8 @@ public class TaskEntity {
     @PreUpdate
     void onUpdate() { updatedAt = Instant.now(); }
     void updateProgress(String state, Integer value, String note) { status = state; progress = value; progressNote = note; }
-    void applyDefinition(String title, String detail, String priority, Instant dueAt) {
-        this.title = title; this.detail = detail; this.priority = priority; this.dueAt = dueAt;
+    void applyDefinition(String title, String detail, String priority, Instant dueAt, Instant startAt) {
+        this.title = title; this.detail = detail; this.priority = priority; this.dueAt = dueAt; this.startAt = startAt;
     }
     void softDelete(Long actor) { this.deletedAt = Instant.now(); this.deletedBy = actor; }
     boolean isDeleted() { return deletedAt != null; }
@@ -110,6 +112,7 @@ public class TaskEntity {
     public String getTitle() { return title; }
     public String getDetail() { return detail; }
     public String getPriority() { return priority; }
+    public Instant getStartAt() { return startAt; }
     public Instant getDueAt() { return dueAt; }
     public String getStatus() { return status; }
     public Integer getProgress() { return progress; }

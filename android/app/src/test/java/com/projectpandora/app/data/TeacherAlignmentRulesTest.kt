@@ -29,7 +29,7 @@ class TeacherAlignmentRulesTest {
         MockWebServer().use {server->
             server.enqueue(MockResponse().setBody("""{"id":31,"title":"协作","detail":"","priority":"normal","status":"todo","createdBy":3,"assigneeId":9,"creatorName":"员工","assigneeName":"同事","createdAt":"","updatedAt":"","approvalStatus":"pending"}"""))
             server.start();val api=ApiClient(server.url("/").toString());val me=Session(api.server,"staff",3,"STAFF",null,"staff")
-            assertEquals("pending",api.createTask(me,TaskCreateInput("协作","","normal",9,null)).approvalStatus)
+            assertEquals("pending",api.createTask(me,TaskCreateInput("协作","","normal",9,"2026-11-01T10:00:00Z")).approvalStatus)
             assertEquals("/api/v1/tasks",server.takeRequest().path)
         }
     }

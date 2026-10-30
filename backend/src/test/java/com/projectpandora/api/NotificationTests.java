@@ -35,7 +35,7 @@ class NotificationTests {
 
     JsonNode create(JsonNode creator, long assigneeId, String title) throws Exception {
         var body = new HashMap<String, Object>();
-        body.put("title", title); body.put("assigneeId", assigneeId);
+        body.put("dueAt", "2026-11-01T10:00:00Z"); body.put("title", title); body.put("assigneeId", assigneeId);
         var created=json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization", token(creator))
             .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body)))
             .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
@@ -110,7 +110,7 @@ class NotificationTests {
         var team = login("team_lead"); var staff = login("staff"); var leader = login("leader");
         long id = create(team, staff.get("userId").asLong(), "变更通知任务").get("id").asLong();
         var change = new HashMap<String, Object>();
-        change.put("title", "改标题"); change.put("assigneeId", staff.get("userId").asLong());
+        change.put("dueAt", "2026-11-01T10:00:00Z"); change.put("title", "改标题"); change.put("assigneeId", staff.get("userId").asLong());
         mvc.perform(put("/api/v1/tasks/" + id).header("Authorization", token(team))
             .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(change))).andExpect(status().isOk());
         assertThat(hasType(notifications(leader), "change_pending")).isTrue();

@@ -22,7 +22,7 @@ class TeacherTaskPolicyTests {
     String token(String name) throws Exception {return "Bearer "+read(mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("username",name,"password","demo1234")))).andExpect(status().isOk())).get("token").asText();}
     long uid(String name) {return users.findByUsername(name).orElseThrow().getId();}
     JsonNode read(ResultActions r) throws Exception {return json.readTree(r.andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));}
-    String body(String title,String assignee) throws Exception {return json.writeValueAsString(Map.of("title",title,"assigneeId",uid(assignee)));}
+    String body(String title,String assignee) throws Exception {return json.writeValueAsString(Map.of("dueAt","2026-11-01T10:00:00Z","title",title,"assigneeId",uid(assignee)));}
     JsonNode create(String creator,String assignee) throws Exception {return read(mvc.perform(post("/api/v1/tasks").header("Authorization",token(creator)).contentType(MediaType.APPLICATION_JSON).content(body("policy task",assignee))).andExpect(status().isCreated()));}
     JsonNode list(String actor,String path) throws Exception {return read(mvc.perform(get("/api/v1/"+path).header("Authorization",token(actor))).andExpect(status().isOk()));}
     JsonNode initial(String actor,long id) throws Exception {return read(mvc.perform(put("/api/v1/tasks/"+id+"/approval").header("Authorization",token(actor)).contentType(MediaType.APPLICATION_JSON).content("{\"decision\":\"approved\",\"note\":\"initial audit\"}")).andExpect(status().isOk()));}

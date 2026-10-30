@@ -14,12 +14,12 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 /** Draft values remain Shanghai local time; TaskDispatchValidation converts to an instant. */
-@Composable fun DeadlinePicker(value: String, enabled: Boolean, onChange: (String)->Unit) {
+@Composable fun DeadlinePicker(value: String, enabled: Boolean, label: String = "截止时间", required: Boolean = true, onChange: (String)->Unit) {
     val context=LocalContext.current
     val format=DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm")
     val selected=runCatching {LocalDateTime.parse(value,format)}.getOrNull()
     Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
-        Text("截止时间（选填）",style=MaterialTheme.typography.labelLarge)
+        Text("$label（${if(required)"必选" else "选填"}）",style=MaterialTheme.typography.labelLarge)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             ControlOutlinedButton(onClick={
                 val initial=selected ?: LocalDateTime.of(today(),LocalTime.of(18,0))
@@ -29,10 +29,10 @@ import java.time.format.DateTimeFormatter
                     },initial.hour,initial.minute,true).show()
                 },initial.year,initial.monthValue-1,initial.dayOfMonth).show()
             },enabled=enabled,modifier=Modifier.weight(1f).heightIn(min=48.dp)) {
-                Text(selected?.format(DateTimeFormatter.ofPattern("M月d日 HH:mm")) ?: if(value.isNotBlank())"重新选择截止时间" else "选择日期和时间")
+                Text(selected?.format(DateTimeFormatter.ofPattern("M月d日 HH:mm")) ?: if(value.isNotBlank())"重新选择$label" else "选择日期和时间")
             }
-            if(value.isNotBlank())ControlTextButton(onClick={onChange("")},enabled=enabled,modifier=Modifier.heightIn(min=48.dp)) {Text("清除")}
+            if(!required && value.isNotBlank())ControlTextButton(onClick={onChange("")},enabled=enabled,modifier=Modifier.heightIn(min=48.dp)) {Text("清除")}
         }
-        Text("按北京时间安排；不选择则不限制截止时间。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(if(required)"按北京时间安排，提交前必须选择。" else "按北京时间安排，可留空，不指定开始时间。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

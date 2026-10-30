@@ -1824,10 +1824,15 @@ components:
         assigneeId:
           type: integer
           format: int64
-        dueAt:
+        startAt:
           type: string
           format: date-time
           nullable: true
+          description: 可选；不能晚于截止时间
+        dueAt:
+          type: string
+          format: date-time
+          description: 必选截止时间
         labelId:
           type: integer
           format: int64
@@ -1836,6 +1841,7 @@ components:
       required:
       - title
       - assigneeId
+      - dueAt
     Task:
       type: object
       properties:
@@ -1860,6 +1866,10 @@ components:
         assigneeId:
           type: integer
           format: int64
+        startAt:
+          type: string
+          format: date-time
+          nullable: true
         dueAt:
           type: string
           format: date-time

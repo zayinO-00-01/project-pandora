@@ -143,12 +143,12 @@ public class TaskService {
         noPending(task);labels.resolve(request.labelId(),task.getLabel());
         if(!"approved".equals(task.getApprovalStatus())) {
             if(me.getRole()!=Role.FOUNDER && managerFor(task.getCreator())==null) throw new ApiException(400,"创建任务需要有效直属上级审批");
-            task.applyDefinition(request.title(),request.detail(),request.priority(),request.dueAt());task.setLabel(labels.resolve(request.labelId(),task.getLabel()));
+            task.applyDefinition(request.title(),request.detail(),request.priority(),request.dueAt(),request.startAt());task.setLabel(labels.resolve(request.labelId(),task.getLabel()));
             if(me.getRole()==Role.FOUNDER) task.review("approved","创始人重新提交",me.getId());
             else {task.requireApproval();notifyUser(task.getCreator().getManagerId(),me.getId(),"task_approval_pending","任务创建待你审批",task.getTitle(),id);}
             logEvent(id,"approval_resubmitted",me.getId(),"编辑后重新提交创建申请");
         } else if(me.getRole()==Role.FOUNDER) {
-            task.applyDefinition(request.title(),request.detail(),request.priority(),request.dueAt());task.setLabel(labels.resolve(request.labelId(),task.getLabel()));
+            task.applyDefinition(request.title(),request.detail(),request.priority(),request.dueAt(),request.startAt());task.setLabel(labels.resolve(request.labelId(),task.getLabel()));
             task.setReviewStatus("none");task.setReviewReason(null);task.setReviewedBy(me.getId());task.setLifecycleReviewedAt(Instant.now());
             logEvent(id,"approved",me.getId(),"创始人直接修改任务");
         } else {
@@ -304,13 +304,13 @@ public class TaskService {
         if(pending==null) return;
         try {
             var p=json.readValue(pending,TaskChangePayload.class);
-            task.applyDefinition(p.title(),p.detail(),p.priority(),p.dueAt());
+            task.applyDefinition(p.title(),p.detail(),p.priority(),p.dueAt(),p.startAt());
             task.setLabel(labels.resolve(p.labelId(),task.getLabel()));
         } catch(Exception e) { throw new ApiException(500,"待审变更数据损坏"); }
         task.setPendingChange(null);
     }
     private String payloadJson(CreateTaskRequest r) {
-        try { return json.writeValueAsString(new TaskChangePayload(r.title(),r.detail(),r.priority(),r.dueAt(),r.labelId())); }
+        try { return json.writeValueAsString(new TaskChangePayload(r.title(),r.detail(),r.priority(),r.dueAt(),r.labelId(),r.startAt())); }
         catch(Exception e) { throw new ApiException(500,"无法保存变更"); }
     }
     private void logEvent(Long taskId,String type,Long actorId,String note) {
