@@ -2,12 +2,14 @@ package com.projectpandora.api.user;
 
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Initializes the legacy demo hierarchy once, preserving subsequent administrator edits. */
 @Component
+@Order(1)
 public class DemoOrgBootstrap implements ApplicationRunner {
     private final UserRepository users;
     private final PasswordEncoder passwords;
