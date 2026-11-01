@@ -8,7 +8,7 @@ Android版本0.8.2-workflow-notes / versionCode51。以用户上一版增量和�
 - 新APK：http://39.107.204.229/downloads/Pandora-MVP-debug.apk ；本地deliverables/Pandora-MVP-debug.apk。
 - Web账号admin；Android为founder、leader、team_lead、staff，密码均为demo1234，原账号未改密。
 - APK SHA256：D6894A95553D684E192FFC932730B7AF6844E902818254AAF4950B8637B9B32E。
-- 本地工作区E:/新建文件夹 (6)/pandora-integration。原project-pandora保留，不要从旧目录取安装包。
+- 本地新版工作区E:/新建文件夹 (6)/project-pandora；旧版保留于E:/新建文件夹 (6)/project-pandora-旧版，不要从旧版目录取安装包。
 
 ## 当前业务规则
 
