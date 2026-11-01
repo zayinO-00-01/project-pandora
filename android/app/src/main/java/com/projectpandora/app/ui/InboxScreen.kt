@@ -53,13 +53,13 @@ import com.projectpandora.app.data.*
             }}}
             item {ControlOutlinedButton(onClick={model.screen("organization")}) {Text("查看工作信息的授权申请 →")}}
         } else {
-            item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text("任务分配、变更及审批通知",style=MaterialTheme.typography.titleMedium);ControlTextButton(onClick=model::markAllNotificationsRead,enabled=!state.saving && state.unreadCount>0) {Text("全部已读")}}}
+            item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text("任务分配、变更及审批通知",style=MaterialTheme.typography.titleMedium);ControlTextButton(onClick=model::markAllNotificationsRead,enabled=!state.saving && !state.notificationReadBusy && state.unreadCount>0) {Text("全部已读")}}}
             if(state.notifications.isEmpty())item {Text("暂无通知")}
             items(state.notifications,key={"notice-${it.id}"}) {message->OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 Text("${if(!message.read)"● " else ""}${message.title}",style=MaterialTheme.typography.titleMedium)
                 Text(message.body);Text(timestamp(message.createdAt),style=MaterialTheme.typography.labelSmall)
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                    if(!message.read)ControlTextButton(onClick={model.readNotification(message)},enabled=!state.saving) {Text("标为已读")}
+                    if(!message.read)ControlTextButton(onClick={model.readNotification(message)},enabled=!state.saving && !state.notificationReadBusy) {Text("标为已读")}
                     ControlTextButton(onClick={model.openNotification(message)},enabled=!state.saving) {Text("查看详情")}
                 }
             }}}

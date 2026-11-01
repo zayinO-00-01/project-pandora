@@ -25,6 +25,11 @@ data class AppState(
     val reviews: List<DispatchTask> = emptyList(), val reviewsLoading: Boolean = false,
     val notifications: List<AppNotification> = emptyList(), val unreadCount: Long = 0, val notificationsLoading: Boolean = false,
     val taskError: String? = null, val selectedTaskId: Long? = null,
+    val selectedTaskDetail: DispatchTask? = null,val taskDetailLoading: Boolean = false,val taskDetailError: String? = null,
+    val taskNote: TaskNoteState = TaskNoteState(),
+    val notificationReadBusy: Boolean = false,val notificationReadError: String? = null,
+    val notificationReadRetryIds: Set<Long> = emptySet(),val notificationReadRetryAll: Boolean = false,
+    val selectedViewRequestId: Long? = null,val viewRequestsOpen: Boolean = false,
     val pendingTaskApprovals: List<DispatchTask> = emptyList(), val taskReviewError: String? = null,
     val organization: Organization? = null,val viewRequests: List<ViewRequest> = emptyList(),val organizationLoading: Boolean = false,
     val organizationError: String? = null,val member: UserSummary? = null,val memberLogs: List<WorkLog> = emptyList(),val memberTasks: List<DispatchTask> = emptyList(),
@@ -44,6 +49,10 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     val state = mutable.asStateFlow()
     private var refreshJob: Job? = null
     private var generation = 0
+    private var taskSelectionGeneration = 0
+    private var taskDetailJob: Job? = null
+    private var taskNoteJob: Job? = null
+    private var notificationReadVersion = 0
     private var organizationJob: Job? = null
     private var dispatchJob: Job? = null
     private var reviewsJob: Job? = null
@@ -315,8 +324,9 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             } catch(e:CancellationException) {throw e}
               catch(e:Exception) {failures.add("审核：${message(e)}")}
             try {
+                val notificationVersion=notificationReadVersion
                 val notifications=withContext(Dispatchers.IO) {api(me).notifications(me)}
-                if(gen==generation)mutable.update {it.copy(notifications=notifications.items,unreadCount=notifications.unreadCount)}
+                if(gen==generation && notificationVersion==notificationReadVersion)mutable.update {it.copy(notifications=notifications.items,unreadCount=notifications.unreadCount)}
             } catch(e:CancellationException) {throw e}
               catch(e:Exception) {failures.add("通知：${message(e)}")}
             if(gen==generation)mutable.update {it.copy(workspaceError=failures.takeIf {it.isNotEmpty()}?.joinToString("\n"))}
@@ -347,7 +357,8 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     }
     fun saveLabel(id: Long?,name: String,color: String)=workspaceAction({api(it).saveLabel(it,id,name,color);Unit},"标签已保存")
     fun archiveLabel(id: Long)=workspaceAction({api(it).archiveLabel(it,id);Unit},"标签已停用，历史记录保留原标签")
-    fun readNotification(message: AppNotification) = workspaceAction({api(it).readNotification(it,message.id)},"通知已读")
+    fun readNotification(message: AppNotification)=confirmNotificationsRead(setOf(message.id),false)
+
     fun editTaskDetails(task: DispatchTask) {
         val me=state.value.session ?: return
         if(state.value.saving || (task.createdBy!=me.userId && me.role!="FOUNDER") || taskHasPendingReview(task,state.value.taskReviewRecords) || task.approvalStatus=="pending" || task.deleted)return
@@ -406,7 +417,8 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     fun screen(destination: String) {
         val name=when(destination) {"functions"->"day";"notifications"->"inbox";else->destination}
         if(state.value.saving || state.value.editor!=null)return
-        mutable.update {it.copy(screen=name,selectedTaskId=null,dispatchOpen=false,notice=null)}
+        taskSelectionGeneration++;taskDetailJob?.cancel();taskNoteJob?.cancel()
+        mutable.update {it.copy(screen=name,selectedTaskId=null,selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=null,taskNote=TaskNoteState(),dispatchOpen=false,notice=null,viewRequestsOpen=false,selectedViewRequestId=null)}
         if(name=="organization")loadOrganization()
         if(name=="profile")loadProfile()
         if(name=="labels")loadWorkspaceExtras()
@@ -438,7 +450,8 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         if(current.developmentPreview) {mutable.update {it.copy(notice="请登录真实业务账号后派发任务。")};return}
         val draft=current.dispatchEditor ?: TaskDispatchBuffer(me.server,me.userId,assigneeId=me.userId)
         store.saveDispatchBuffer(draft)
-        mutable.update {it.copy(dispatchEditor=draft,dispatchOpen=true,dispatchError=null,selectedTaskId=null,screen="tasks",notice=null)}
+        taskSelectionGeneration++;taskDetailJob?.cancel();taskNoteJob?.cancel()
+        mutable.update {it.copy(dispatchEditor=draft,dispatchOpen=true,dispatchError=null,selectedTaskId=null,selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=null,taskNote=TaskNoteState(),screen="tasks",notice=null)}
         loadDispatchMembers()
     }
     fun loadDispatchMembers() {
@@ -507,13 +520,87 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     }
     fun openTask(id: Long) {
         if(state.value.saving || state.value.editor!=null)return
-        mutable.update {it.copy(screen="tasks",selectedTaskId=id,taskReviewError=null,notice=null)}
+        taskSelectionGeneration++;taskDetailJob?.cancel();taskNoteJob?.cancel()
+        mutable.update {it.copy(screen="tasks",selectedTaskId=id,selectedTaskDetail=null,taskDetailError=null,taskNote=TaskNoteState(),taskReviewError=null,notice=null)}
         refresh()
     }
     fun closeTask() {
         if(state.value.saving)return
-        // The task buffer stays available when navigating or signing out.
-        mutable.update {it.copy(selectedTaskId=null,taskEditorError=null)}
+        taskSelectionGeneration++;taskDetailJob?.cancel();taskNoteJob?.cancel()
+        mutable.update {it.copy(selectedTaskId=null,selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=null,taskNote=TaskNoteState(),taskEditorError=null)}
+    }
+    fun loadSelectedTaskDetail() {
+        val me=state.value.session ?: return
+        val id=state.value.selectedTaskId ?: return
+        if(state.value.developmentPreview || state.value.taskNote.saving)return
+        val gen=generation;val selection=++taskSelectionGeneration
+        taskDetailJob?.cancel();taskNoteJob?.cancel()
+        mutable.update {it.copy(taskDetailLoading=true,taskDetailError=null)}
+        taskDetailJob=viewModelScope.launch {
+            try {
+                val task=withContext(Dispatchers.IO) {api(me).task(me,id)}
+                if(gen!=generation || selection!=taskSelectionGeneration || state.value.session!=me || state.value.selectedTaskId!=id)return@launch
+                mutable.update {it.copy(selectedTaskDetail=task,taskDetailLoading=false)}
+                if(taskIsApproved(task) && !task.deleted)loadTaskNote() else mutable.update {it.copy(taskNote=TaskNoteState())}
+            } catch(e:CancellationException) {throw e}
+            catch(e:Exception) {if(gen==generation && selection==taskSelectionGeneration && state.value.session==me) {
+                if(e is ApiException && e.status==401)failure(e,false)
+                else mutable.update {it.copy(selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=message(e),taskNote=TaskNoteState())}
+            }}
+        }
+    }
+    fun loadTaskNote() {
+        val me=state.value.session ?: return
+        val id=state.value.selectedTaskId ?: return
+        val task=state.value.selectedTaskDetail ?: return
+        if(state.value.developmentPreview || !taskIsApproved(task) || task.deleted || state.value.taskNote.saving)return
+        val gen=generation;val selection=taskSelectionGeneration
+        taskNoteJob?.cancel()
+        val previous=state.value.taskNote.takeIf {it.taskId==id}
+        val draft=store.taskNoteDraft(me,id)
+        mutable.update {it.copy(taskNote=(previous ?: TaskNoteState(taskId=id,content=draft.orEmpty(),dirty=draft!=null)).copy(loading=true,error=null))}
+        taskNoteJob=viewModelScope.launch {
+            try {
+                val note=withContext(Dispatchers.IO) {api(me).taskNote(me,id)}
+                if(gen!=generation || selection!=taskSelectionGeneration || state.value.session!=me || state.value.selectedTaskId!=id)return@launch
+                mutable.update {it.copy(taskNote=it.taskNote.receive(note))}
+            } catch(e:CancellationException) {throw e}
+            catch(e:Exception) {if(gen==generation && selection==taskSelectionGeneration && state.value.session==me) {
+                if(e is ApiException && e.status==401)failure(e,false)
+                else if(e is ApiException && e.status in setOf(403,404))mutable.update {it.copy(taskNote=TaskNoteState())}
+                else mutable.update {it.copy(taskNote=it.taskNote.copy(loading=false,error="备注读取失败：${message(e)}"))}
+            }}
+        }
+    }
+    fun changeTaskNote(content: String) {
+        val me=state.value.session ?: return
+        val note=state.value.taskNote;val id=note.taskId ?: return
+        if(content.length>2000 || !note.loaded || note.loading || state.value.selectedTaskId!=id)return
+        store.saveTaskNoteDraft(me,id,content)
+        mutable.update {it.copy(taskNote=it.taskNote.edit(content))}
+    }
+    fun saveTaskNote() {
+        val me=state.value.session ?: return
+        val note=state.value.taskNote;val id=note.taskId ?: return
+        if(!note.loaded || note.loading || note.saving || state.value.selectedTaskId!=id || !note.dirty)return
+        val gen=generation;val selection=taskSelectionGeneration;val submitted=note.content
+        mutable.update {it.copy(taskNote=it.taskNote.copy(saving=true,error=null,savedMessage=null))}
+        viewModelScope.launch {
+            try {
+                val result=withContext(Dispatchers.IO) {api(me).saveTaskNote(me,id,submitted)}
+                if(gen!=generation || state.value.session!=me)return@launch
+                // Clear only the acknowledged value; a newer draft or another task remains intact.
+                if(store.taskNoteDraft(me,id)==submitted)store.clearTaskNoteDraft(me,id)
+                if(selection==taskSelectionGeneration && state.value.selectedTaskId==id)mutable.update {it.copy(taskNote=it.taskNote.saved(result,submitted))}
+            } catch(e:CancellationException) {throw e}
+            catch(e:Exception) {if(gen==generation && state.value.session==me) {
+                if(e is ApiException && e.status==401)failure(e,false)
+                else if(selection==taskSelectionGeneration && state.value.selectedTaskId==id) {
+                    if(e is ApiException && e.status in setOf(403,404))mutable.update {it.copy(taskNote=TaskNoteState(),notice="任务备注权限已变化，输入仍保留在本机。")}
+                    else mutable.update {it.copy(taskNote=it.taskNote.copy(saving=false,error="保存失败，输入已保留：${message(e)}"))}
+                }
+            }}
+        }
     }
     fun editTask(task: DispatchTask) {
         val me=state.value.session ?: return
@@ -673,27 +760,50 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         mutable.update {it.copy(notificationsLoading=true)}
         viewModelScope.launch {
             try {
+                val notificationVersion=notificationReadVersion
                 val result=withContext(Dispatchers.IO) {api(me).notifications(me)}
-                if(gen==generation)mutable.update {it.copy(notifications=result.items,unreadCount=result.unreadCount,notificationsLoading=false)}
+                if(gen==generation && state.value.session==me)mutable.update {
+                    if(notificationVersion==notificationReadVersion)it.copy(notifications=result.items,unreadCount=result.unreadCount,notificationsLoading=false)
+                    else it.copy(notificationsLoading=false)
+                }
             } catch(e:CancellationException) {throw e}
-            catch(e:Exception) {if(gen==generation)mutable.update {it.copy(notificationsLoading=false)}}
+            catch(e:Exception) {if(gen==generation && state.value.session==me) {
+                if(e is ApiException && e.status==401)failure(e,false)
+                else mutable.update {it.copy(notificationsLoading=false)}
+            }}
         }
     }
     fun openNotification(n: AppNotification) {
-        val me=state.value.session ?: return
-        if(!n.read) {
-            mutable.update {s->s.copy(notifications=s.notifications.map {if(it.id==n.id)it.copy(read=true) else it},unreadCount=(s.unreadCount-1).coerceAtLeast(0))}
-            if(!state.value.developmentPreview) viewModelScope.launch {
-                runCatching {withContext(Dispatchers.IO) {api(me).readNotification(me,n.id)}}
-            }
-        }
-        if(n.taskId!=null)openTask(n.taskId) else screen("notifications")
+        if(state.value.session==null)return
+        val destination=notificationDestination(n)
+        if(destination.taskId!=null)openTask(destination.taskId)
+        else if(destination.screen=="organization") {
+            screen("organization")
+            mutable.update {it.copy(viewRequestsOpen=true,selectedViewRequestId=destination.referenceId)}
+        } else screen("notifications")
+        if(!n.read)confirmNotificationsRead(setOf(n.id),false)
     }
-    fun markAllNotificationsRead() {
+    fun markAllNotificationsRead()=confirmNotificationsRead(state.value.notifications.filterNot {it.read}.map {it.id}.toSet(),true)
+    fun retryNotificationRead()=confirmNotificationsRead(state.value.notificationReadRetryIds,state.value.notificationReadRetryAll)
+    private fun confirmNotificationsRead(ids: Set<Long>,all: Boolean) {
         val me=state.value.session ?: return
-        mutable.update {s->s.copy(notifications=s.notifications.map {it.copy(read=true)},unreadCount=0)}
-        if(state.value.developmentPreview)return
-        viewModelScope.launch {runCatching {withContext(Dispatchers.IO) {api(me).readAllNotifications(me)}}}
+        if(state.value.developmentPreview || state.value.notificationReadBusy)return
+        val gen=generation
+        mutable.update {it.copy(notificationReadBusy=true,notificationReadError=null,notificationReadRetryIds=ids,notificationReadRetryAll=all)}
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {if(all)api(me).readAllNotifications(me) else ids.forEach {api(me).readNotification(me,it)}}
+                if(gen!=generation || state.value.session!=me)return@launch
+                notificationReadVersion++
+                mutable.update {s->val confirmed=NotificationList(s.notifications,s.unreadCount).confirmRead(ids)
+                    s.copy(notifications=confirmed.items,unreadCount=confirmed.unreadCount,notificationReadBusy=false,notificationReadError=null,notificationReadRetryIds=emptySet(),notificationReadRetryAll=false)}
+                loadNotifications()
+            } catch(e:CancellationException) {throw e}
+            catch(e:Exception) {if(gen==generation && state.value.session==me) {
+                if(e is ApiException && e.status==401)failure(e,false)
+                else mutable.update {it.copy(notificationReadBusy=false,notificationReadError="标记已读失败：${message(e)}。请重试。")}
+            }}
+        }
     }
     fun selectDate(date: String) {mutable.update {it.copy(selectedDate=date)}}
     fun calendarMode(mode: String) {if(mode in setOf("month","week","day"))mutable.update {it.copy(calendarMode=mode)}}
@@ -763,6 +873,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         }
     }
     fun refresh() {
+        loadSelectedTaskDetail()
         loadWorkspaceExtras()
         if(state.value.developmentPreview)return
         if(state.value.saving)return
@@ -819,10 +930,11 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             ensureActive()
             if(gen!=generation)return@launch
             reviewResult.onSuccess {list->mutable.update {it.copy(reviews=list)}}
+            val notificationVersion=notificationReadVersion
             val notifResult=withContext(Dispatchers.IO) {runCatching {api(me).notifications(me)}}
             ensureActive()
             if(gen!=generation)return@launch
-            notifResult.onSuccess {list->mutable.update {it.copy(notifications=list.items,unreadCount=list.unreadCount)}}
+            notifResult.onSuccess {list->if(notificationVersion==notificationReadVersion)mutable.update {it.copy(notifications=list.items,unreadCount=list.unreadCount)}}
             mutable.update {it.copy(loading=false,taskLoading=false)}
         }
     }

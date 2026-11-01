@@ -14,7 +14,8 @@ import com.projectpandora.app.data.*
 
 @Composable fun OrganizationScreen(state: AppState,model: PandoraViewModel) {
     val me=state.session ?: return
-    var section by rememberSaveable {mutableStateOf(if(AppRoles.canViewDown(me.role))"members" else "manager")}
+    var section by rememberSaveable(me.server,me.userId) {mutableStateOf(if(AppRoles.canViewDown(me.role))"members" else "manager")}
+    LaunchedEffect(state.viewRequestsOpen,state.selectedViewRequestId) {if(state.viewRequestsOpen)section="requests"}
     var memberQuery by rememberSaveable(me.userId) {mutableStateOf("")}
     var reason by rememberSaveable {mutableStateOf("")}
     val enabled=!state.saving && !state.organizationLoading
@@ -72,9 +73,11 @@ import com.projectpandora.app.data.*
             if(section=="requests") {
                 item {ScreenHeading("查看申请","只处理申请查看你工作信息的直属下级；授权仅允许查看。")}
                 if(state.viewRequests.isEmpty() && !state.organizationLoading && state.organizationError==null)item {Text("暂无查看申请",color=MaterialTheme.colorScheme.onSurfaceVariant)}
-                state.viewRequests.forEach {request->item(key="request-${request.id}") {
+                if(state.selectedViewRequestId!=null && !state.organizationLoading && state.organizationError==null && state.viewRequests.none {it.id==state.selectedViewRequestId})item {Hint("该申请当前不可见，请查看申请列表。")}
+                state.viewRequests.sortedBy {it.id!=state.selectedViewRequestId}.forEach {request->item(key="request-${request.id}") {
                     val incoming=request.target.id==me.userId
                     Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                        if(request.id==state.selectedViewRequestId)Hint("此通知对应的申请 · #${request.id}")
                         Text(if(incoming)"${request.requester.displayName ?: request.requester.username} 申请查看你的工作" else "我申请查看 ${request.target.displayName ?: request.target.username}",style=MaterialTheme.typography.titleMedium)
                         Text(when(request.status) {"pending"->"待审批";"approved"->"已批准";"denied"->"已拒绝";else->"已撤销"},color=MaterialTheme.colorScheme.secondary,style=MaterialTheme.typography.labelMedium)
                         Text(request.reason,style=MaterialTheme.typography.bodyMedium)

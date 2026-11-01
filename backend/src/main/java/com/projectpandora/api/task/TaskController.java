@@ -18,6 +18,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class TaskController {
     private final TaskService tasks;
     public TaskController(TaskService tasks) { this.tasks = tasks; }
+    @GetMapping("/{id}")
+    public TaskResponse detail(@PathVariable Long id) { return tasks.detail(id); }
+    @GetMapping("/{id}/note")
+    public TaskNoteResponse note(@PathVariable Long id) { return tasks.note(id); }
+    public record NoteInput(@jakarta.validation.constraints.NotNull @jakarta.validation.constraints.Size(max=2000) String content) {}
+    @PutMapping("/{id}/note")
+    public TaskNoteResponse saveNote(@PathVariable Long id,@Valid @RequestBody NoteInput input) { return tasks.saveNote(id,input.content()); }
     @GetMapping
     public List<TaskResponse> list(@org.springframework.web.bind.annotation.RequestParam(required=false) Long userId) { return tasks.list(userId); }
     @GetMapping("/pending-approvals")

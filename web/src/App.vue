@@ -23,21 +23,54 @@ const noteEditor = createNoticeNoteEditor({ request: api, getSession: () => sess
 const noteState = noteEditor.state;
 const noteDirty = computed(() => noteState.content !== noteState.baseline);
 const enabledNoticeCount = computed(() => notices.value.filter(notice => notice.enabled).length);
+let noticeSessionVersion = 0, noticeLoadVersion = 0, noticeMutationVersion = 0, noticeSelectionVersion = 0;
+let noticeLoadController;
+function noticeContext() {
+  const version = noticeSessionVersion, token = session.value?.token, userId = session.value?.userId;
+  return { token, current: () => version === noticeSessionVersion && token === session.value?.token
+    && userId === session.value?.userId && isAdmin.value };
+}
+function invalidateNoticeLoad() {
+  noticeLoadVersion++; noticeLoadController?.abort(); noticeLoading.value = false;
+}
+function resetNotices() {
+  noticeSessionVersion++; noticeMutationVersion++; noticeSelectionVersion++;
+  invalidateNoticeLoad(); noteEditor.reset(); notices.value = [];
+  Object.assign(noticeForm, emptyNotice());
+  noticeSaving.value = false; noticeError.value = ''; noticeSuccess.value = '';
+}
+function beginNoticeMutation() {
+  invalidateNoticeLoad();
+  const context = noticeContext(), version = ++noticeMutationVersion;
+  noticeSaving.value = true;
+  return { token: context.token, current: () => context.current() && version === noticeMutationVersion };
+}
+function noticeFailure(error) {
+  if ([401, 403].includes(error.status)) expire(error);
+  else if (error.name !== 'AbortError') noticeError.value = error.message;
+}
 function sortNotices() { notices.value = [...notices.value].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id); }
 function chooseNotice(notice = null) {
-  if (noticeSaving.value) return;
+  if (noticeSaving.value || noteState.saving || (notice && notice.id === noticeForm.id)) return;
   if ((notice?.id ?? null) !== noticeForm.id && !discardNote()) return;
+  noticeSelectionVersion++;
   Object.assign(noticeForm, emptyNotice(), notice ? { id: notice.id, title: notice.title, content: notice.content, sortOrder: notice.sortOrder, enabled: notice.enabled } : {});
   noticeError.value = ''; noticeSuccess.value = '';
   noteEditor.select(noticeForm.id);
 }
-function discardNote() { return !noteDirty.value || window.confirm('我的备注有未保存的修改，是否放弃？'); }
+function discardNote() { return !noteState.saving && (!noteDirty.value || window.confirm('我的备注有未保存的修改，是否放弃？')); }
 async function loadNotices() {
-  if (!isAdmin.value) return;
+  if (!isAdmin.value || noticeSaving.value) return;
+  invalidateNoticeLoad(); noticeLoadController = new AbortController();
+  const context = noticeContext(), version = noticeLoadVersion;
+  const current = () => context.current() && version === noticeLoadVersion;
   noticeLoading.value = true; noticeError.value = '';
-  try { notices.value = await api('/admin/company-notices', { token: session.value.token }); sortNotices(); }
-  catch (error) { if ([401, 403].includes(error.status)) expire(error); else noticeError.value = error.message; }
-  finally { noticeLoading.value = false; }
+  try {
+    const result = await api('/admin/company-notices', { token: context.token, signal: noticeLoadController.signal });
+    if (!current()) return;
+    notices.value = result; sortNotices();
+  } catch (error) { if (current()) noticeFailure(error); }
+  finally { if (current()) noticeLoading.value = false; }
 }
 function switchTab(tab) { activeTab.value = tab; if (tab === 'notices' && !notices.value.length) loadNotices(); }
 async function saveNotice() {
@@ -45,26 +78,35 @@ async function saveNotice() {
   noticeError.value = ''; noticeSuccess.value = '';
   if (!noticeForm.title.trim()) { noticeError.value = '标题不能为空。'; return; }
   if (!noticeForm.content.trim()) { noticeError.value = '内容不能为空。'; return; }
-  const editing = noticeForm.id !== null;
+  const id = noticeForm.id, editing = id !== null, selection = noticeSelectionVersion, submitted = JSON.stringify(noticeForm);
   const payload = { title: noticeForm.title.trim(), content: noticeForm.content.trim(), sortOrder: Number(noticeForm.sortOrder) || 0, enabled: noticeForm.enabled };
-  noticeSaving.value = true;
+  const { token, current } = beginNoticeMutation();
   try {
-    const result = await api(editing ? `/admin/company-notices/${noticeForm.id}` : '/admin/company-notices', { token: session.value.token, method: editing ? 'PATCH' : 'POST', body: payload });
+    const result = await api(editing ? '/admin/company-notices/' + id : '/admin/company-notices', { token, method: editing ? 'PATCH' : 'POST', body: payload });
+    if (!current()) return;
     notices.value = editing ? notices.value.map(notice => notice.id === result.id ? result : notice) : [...notices.value, result];
     sortNotices();
-    Object.assign(noticeForm, result);
-    noteEditor.select(result.id);
-    noticeSuccess.value = `${result.title} 已${editing ? '更新' : '发布'}。`;
-  } catch (error) { if ([401, 403].includes(error.status)) expire(error); else noticeError.value = error.message; }
-  finally { noticeSaving.value = false; }
+    if (selection === noticeSelectionVersion && id === noticeForm.id && submitted === JSON.stringify(noticeForm)) {
+      Object.assign(noticeForm, result);
+      noteEditor.select(result.id);
+    }
+    noticeSuccess.value = result.title + ' 已' + (editing ? '更新' : '发布') + '。';
+  } catch (error) { if (current()) noticeFailure(error); }
+  finally { if (current()) noticeSaving.value = false; }
 }
 async function toggleNotice(notice) {
+  if (noticeSaving.value || !isAdmin.value) return;
+  const id = notice.id, enabled = notice.enabled, selection = noticeSelectionVersion;
   noticeError.value = ''; noticeSuccess.value = '';
+  const { token, current } = beginNoticeMutation();
   try {
-    const result = await api(`/admin/company-notices/${notice.id}`, { token: session.value.token, method: 'PATCH', body: { enabled: !notice.enabled } });
+    const result = await api('/admin/company-notices/' + id, { token, method: 'PATCH', body: { enabled: !enabled } });
+    if (!current()) return;
     notices.value = notices.value.map(item => item.id === result.id ? result : item); sortNotices();
-    noticeSuccess.value = `${result.title} 已${result.enabled ? '启用' : '停用'}。`;
-  } catch (error) { if ([401, 403].includes(error.status)) expire(error); else noticeError.value = error.message; }
+    if (selection === noticeSelectionVersion && noticeForm.id === id && noticeForm.enabled === enabled) noticeForm.enabled = result.enabled;
+    noticeSuccess.value = result.title + ' 已' + (result.enabled ? '启用' : '停用') + '。';
+  } catch (error) { if (current()) noticeFailure(error); }
+  finally { if (current()) noticeSaving.value = false; }
 }
 const managers = computed(() => eligibleManagers(users.value, form.role, form.id));
 const canHaveManager = computed(() => ['DEPT_HEAD', 'TEAM_LEAD', 'STAFF'].includes(form.role));
@@ -108,7 +150,7 @@ function endSession(message = '', preserve = false) {
   loadController?.abort(); loadVersion++;
   removeCache('pandora-admin-session'); removeCache('pandora-session');
   session.value = null; users.value = []; loading.value = false;
-  noteEditor.reset(); notices.value = []; Object.assign(noticeForm, emptyNotice());
+  resetNotices();
   resetForm(); success.value = ''; loadError.value = ''; loginError.value = message;
 }
 function logout() { if (discardNote()) endSession(); }
@@ -144,7 +186,7 @@ async function loadUsers() {
 }
 async function establish(user) {
   session.value = user; resetForm(); search.value = ''; roleFilter.value = ''; statusFilter.value = '';
-  activeTab.value = 'accounts'; notices.value = []; noteEditor.reset(); Object.assign(noticeForm, emptyNotice());
+  activeTab.value = 'accounts'; resetNotices();
   writeCache('pandora-admin-session', user);
   if (user.role !== 'ADMIN') return;
   const recovered = restoreDraft(readCache(draftKey(user)), scope(user));
@@ -211,7 +253,7 @@ onMounted(async () => {
   booting.value = false;
   window.addEventListener('beforeunload', beforeUnload);
 });
-onBeforeUnmount(() => { loadController?.abort(); noteEditor.reset(); window.removeEventListener('beforeunload', beforeUnload); });
+onBeforeUnmount(() => { loadController?.abort(); resetNotices(); window.removeEventListener('beforeunload', beforeUnload); });
 </script>
 
 <template>
@@ -229,7 +271,7 @@ onBeforeUnmount(() => { loadController?.abort(); noteEditor.reset(); window.remo
   </main>
   <main v-else-if="!isAdmin" class="app-guidance"><section class="panel guidance-card"><div class="brand"><span class="brand-mark">P</span><span>潘多拉<span class="brand-en">PANDORA</span></span></div><span class="eyebrow">YOUR WORK, IN THE APP</span><h1>请前往 Android App</h1><p>{{ session.displayName || username }}，你当前的角色是「{{ roleName(session.role) }}」。</p><p class="muted">使用同一账号登录 Android App，记录工作日志、处理任务及查看组织。Web 入口供管理员维护账号及发布公司事项。</p><button class="button primary" @click="logout">返回登录</button><a class="credit" href="https://deerflow.tech" target="_blank" rel="noopener noreferrer">Created By Deerflow</a></section></main>
   <div v-else class="workspace">
-    <aside class="sidebar"><div class="brand"><span class="brand-mark">P</span><span>潘多拉<span class="brand-en">PANDORA</span></span></div><div class="workspace-label">管理空间</div><nav aria-label="管理导航"><button type="button" class="nav-item" :class="{ 'active-nav': activeTab === 'accounts' }" @click="switchTab('accounts')">▦ <strong>账号管理</strong></button><button type="button" class="nav-item" :class="{ 'active-nav': activeTab === 'notices' }" @click="switchTab('notices')">★ <strong>公司十大事项</strong></button></nav><div class="sidebar-note"><span class="note-dot"></span>清楚的关系，顺畅的协作。<p>业务角色使用 App。<br>管理员在这里维护账号。</p></div><div class="profile"><div class="avatar">{{ (session.displayName || '管').slice(0, 1) }}</div><div><strong>{{ session.displayName || '管理员' }}</strong><small>管理员</small></div><button @click="logout" :disabled="saving" title="退出登录" aria-label="退出登录">↪</button></div><a class="credit sidebar-credit" href="https://deerflow.tech" target="_blank" rel="noopener noreferrer">Created By Deerflow</a></aside>
+    <aside class="sidebar"><div class="brand"><span class="brand-mark">P</span><span>潘多拉<span class="brand-en">PANDORA</span></span></div><div class="workspace-label">管理空间</div><nav aria-label="管理导航"><button type="button" class="nav-item" :class="{ 'active-nav': activeTab === 'accounts' }" @click="switchTab('accounts')">▦ <strong>账号管理</strong></button><button type="button" class="nav-item" :class="{ 'active-nav': activeTab === 'notices' }" @click="switchTab('notices')">★ <strong>公司十大事项</strong></button></nav><div class="sidebar-note"><span class="note-dot"></span>清楚的关系，顺畅的协作。<p>业务角色使用 App。<br>管理员在这里维护账号。</p></div><div class="profile"><div class="avatar">{{ (session.displayName || '管').slice(0, 1) }}</div><div><strong>{{ session.displayName || '管理员' }}</strong><small>管理员</small></div><button @click="logout" :disabled="saving || noticeSaving || noteState.saving" title="退出登录" aria-label="退出登录">↪</button></div><a class="credit sidebar-credit" href="https://deerflow.tech" target="_blank" rel="noopener noreferrer">Created By Deerflow</a></aside>
     <main class="main-content"><template v-if="activeTab === 'accounts'">
       <header class="page-header"><div><span class="eyebrow">ACCOUNT DIRECTORY</span><h1>账号管理<span class="heading-dot">.</span></h1><p>维护角色、直属上级、档案与账号状态。</p></div><div class="account-total"><strong>{{ users.length }}</strong><span>个账号 · {{ enabledCount }} 个启用</span></div></header>
       <section class="toolbar panel" aria-label="筛选账号"><div class="filter-fields"><div class="search-field"><label for="search">搜索账号</label><input id="search" v-model="search" placeholder="账号或姓名" type="search"></div><div><label for="role-filter">角色</label><select id="role-filter" v-model="roleFilter"><option value="">全部角色</option><option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option></select></div><div><label for="status-filter">状态</label><select id="status-filter" v-model="statusFilter"><option value="">全部状态</option><option value="enabled">启用</option><option value="disabled">停用</option></select></div></div><button class="button secondary" @click="loadUsers" :disabled="loading || saving">{{ loading ? '刷新中…' : '↻ 刷新' }}</button></section>
@@ -241,7 +283,7 @@ onBeforeUnmount(() => { loadController?.abort(); noteEditor.reset(); window.remo
       <header class="page-header"><div><span class="eyebrow">COMPANY TOP 10</span><h1>公司十大重要事项<span class="heading-dot">.</span></h1><p>集中发布、排序与维护，最多 10 条启用事项，全体员工只读查看。</p></div><div class="account-total"><strong>{{ enabledNoticeCount }}</strong><span>条启用 · 上限 10</span></div></header>
       <p v-if="noticeSuccess" class="success" role="status">✓ {{ noticeSuccess }}</p><p v-if="noticeError" class="error" role="alert">{{ noticeError }}</p>
       <div class="account-grid"><section class="panel directory"><div class="section-heading"><h2>全部事项 <span>{{ notices.length }}</span></h2><button class="button secondary small" @click="loadNotices" :disabled="noticeLoading || noticeSaving">{{ noticeLoading ? '刷新中…' : '↻ 刷新' }}</button></div><p v-if="noticeLoading && !notices.length" class="empty-state" role="status">正在读取事项…</p><p v-else-if="!notices.length" class="empty-state">暂无公司事项，右侧可发布第一条。</p><ul v-else class="notice-list"><li v-for="notice in notices" :key="notice.id" class="notice-row" :class="{ selected: noticeForm.id === notice.id }" @click="chooseNotice(notice)"><div class="notice-main"><strong>{{ notice.sortOrder }}. {{ notice.title }}</strong><span class="notice-state" :class="{ disabled: !notice.enabled }">{{ notice.enabled ? '已在列' : '已停用' }}</span></div><button class="text-button" :disabled="noticeSaving" @click.stop="toggleNotice(notice)">{{ notice.enabled ? '停用' : '启用' }}</button></li></ul></section>
-        <section class="panel account-editor"><div class="editor-heading"><div><span class="eyebrow">{{ noticeForm.id ? `NOTICE / ${noticeForm.id}` : 'NEW NOTICE' }}</span><h2>{{ noticeForm.id ? '编辑事项' : '发布事项' }}</h2></div><button v-if="noticeForm.id" class="button secondary small" @click="chooseNotice()" :disabled="noticeSaving">＋ 新建</button></div><p class="muted">{{ noticeForm.id ? '修改事项内容、排序或状态。' : '标题与内容将展示给全体员工。' }}</p>
+        <section class="panel account-editor"><div class="editor-heading"><div><span class="eyebrow">{{ noticeForm.id ? `NOTICE / ${noticeForm.id}` : 'NEW NOTICE' }}</span><h2>{{ noticeForm.id ? '编辑事项' : '发布事项' }}</h2></div><button v-if="noticeForm.id" class="button secondary small" @click="chooseNotice()" :disabled="noticeSaving || noteState.saving">＋ 新建</button></div><p class="muted">{{ noticeForm.id ? '修改事项内容、排序或状态。' : '标题与内容将展示给全体员工。' }}</p>
           <form @submit.prevent="saveNotice"><fieldset :disabled="noticeSaving"><label for="notice-title">标题</label><input id="notice-title" v-model="noticeForm.title" maxlength="128" required placeholder="例如：本月安全巡查"><label for="notice-content">内容</label><textarea id="notice-content" v-model="noticeForm.content" rows="6" required placeholder="填写事项说明"></textarea><div class="form-pair"><div><label for="notice-order">排序 <span>数字越小越靠前</span></label><input id="notice-order" v-model.number="noticeForm.sortOrder" type="number" min="0" max="999"></div><div><label for="notice-enabled">状态</label><select id="notice-enabled" v-model="noticeForm.enabled"><option :value="true">启用</option><option :value="false">停用</option></select></div></div><div class="editor-actions"><button class="button primary" :disabled="noticeSaving || noticeLoading">{{ noticeSaving ? '正在保存…' : noticeForm.id ? '保存事项' : '发布事项' }}</button></div></fieldset></form>
           <div class="note-editor"><h3>我的备注 <span>仅本人可见</span></h3><p v-if="!noticeForm.id" class="muted">先选择左侧一条事项，再写自己的备注。</p><template v-else><p v-if="noteState.loading" class="muted" role="status">正在读取备注…</p><label for="notice-note">备注内容 <span>最多 2000 字，清空后保存可删除备注</span></label><textarea id="notice-note" v-model="noteState.content" maxlength="2000" rows="4" :disabled="noteState.saving || noteState.loading || !noteState.loaded" placeholder="写下你对这条事项的理解或待办"></textarea><p v-if="noteState.error" class="error" role="alert">{{ noteState.error }} <button v-if="!noteState.loaded" type="button" class="text-button" :disabled="noteState.loading" @click="noteEditor.load">重新读取</button></p><p v-if="noteState.success" class="success" role="status">✓ {{ noteState.success }}</p><div class="editor-actions"><button type="button" class="button secondary" :disabled="noteState.saving || noteState.loading || !noteState.loaded || !noteDirty" @click="noteEditor.save">{{ noteState.saving ? '正在保存…' : noteDirty ? '保存我的备注' : '备注已保存' }}</button></div></template></div>
         </section></div></template><footer class="page-footer"><span>PANDORA / 管理空间</span><span>账号与公司事项集中维护。</span></footer>

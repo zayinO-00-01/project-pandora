@@ -110,6 +110,7 @@ import java.time.format.DateTimeFormatter
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
     }) {padding->Box(Modifier.fillMaxSize(),contentAlignment=Alignment.TopCenter) {Column(Modifier.fillMaxHeight().widthIn(max=600.dp).fillMaxWidth().padding(padding)) {
+        state.notificationReadError?.let {Box(Modifier.padding(horizontal=20.dp,vertical=8.dp)) {Hint(it,true,onRetry=model::retryNotificationRead,retryEnabled=!state.notificationReadBusy)}}
         state.notice?.takeUnless {state.developmentPreview && it.startsWith("开发预览：")}?.let {Box(Modifier.padding(horizontal=20.dp,vertical=8.dp)) {Hint(it)}}
         AnimatedContent(targetState=state,modifier=Modifier.fillMaxSize(),contentKey={"${it.screen}:${it.editor!=null}:${it.selectedTaskId}:${it.dispatchOpen}"},transitionSpec={
             val origin=when {

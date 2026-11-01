@@ -24,6 +24,8 @@ public class NotificationEntity {
     private String body;
     @Column(name = "task_id")
     private Long taskId;
+    @Column(name = "reference_id")
+    private Long referenceId;
     @Column(name = "read_at")
     private Instant readAt;
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -32,7 +34,10 @@ public class NotificationEntity {
     protected NotificationEntity() {}
 
     NotificationEntity(Long userId,String type,String title,String body,Long taskId) {
-        this.userId=userId;this.type=type;this.title=title;this.body=body;this.taskId=taskId;
+        this(userId,type,title,body,taskId,null);
+    }
+    NotificationEntity(Long userId,String type,String title,String body,Long taskId,Long referenceId) {
+        this.userId=userId;this.type=type;this.title=title;this.body=body;this.taskId=taskId;this.referenceId=referenceId;
     }
 
     @PrePersist void onCreate() {createdAt=Instant.now();}
@@ -43,6 +48,7 @@ public class NotificationEntity {
     public String getTitle() {return title;}
     public String getBody() {return body;}
     public Long getTaskId() {return taskId;}
+    public Long getReferenceId() {return referenceId;}
     public Instant getReadAt() {return readAt;}
     public void setReadAt(Instant readAt) {this.readAt=readAt;}
     public Instant getCreatedAt() {return createdAt;}
