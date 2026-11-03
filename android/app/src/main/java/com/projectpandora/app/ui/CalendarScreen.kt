@@ -85,7 +85,8 @@ import androidx.compose.ui.text.font.FontWeight
     val calendarRowHeight=maxOf(72f,animatedHeight/weekCount).dp
     val collapse=((normalHeight-animatedHeight)/(normalHeight-72f)).coerceIn(0f,1f)
     val monthDates=periodDates(selected,"month")
-    val padded=List(monthDates.first().dayOfWeek.value%7) {monthDates.first().minusDays((monthDates.first().dayOfWeek.value%7-it).toLong())}+monthDates
+    val gridStart=monthDates.first().minusDays((monthDates.first().dayOfWeek.value%7).toLong())
+    val padded=List(weekCount*7) {gridStart.plusDays(it.toLong())}
     val selectedRow=padded.indexOf(selected)/7
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),state=listState,verticalArrangement=Arrangement.spacedBy(4.dp),contentPadding=PaddingValues(bottom=32.dp)) {
         item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -106,7 +107,8 @@ import androidx.compose.ui.text.font.FontWeight
         if(mode!="day")item {Column(Modifier.fillMaxWidth().draggable(state=gesture,orientation=Orientation.Vertical,startDragImmediately=dragging,onDragStarted={heightTarget=animatedHeight;dragDistance=0f;dragging=true},onDragStopped={settle(it)})) {
             Row {weekdays.forEach {Text(it,modifier=Modifier.weight(1f).padding(vertical=8.dp),textAlign=androidx.compose.ui.text.style.TextAlign.Center,style=MaterialTheme.typography.labelMedium.copy(fontWeight=FontWeight.Medium),color=MaterialTheme.colorScheme.onSurfaceVariant)}}
             Box(Modifier.fillMaxWidth().height(animatedHeight.dp).clipToBounds()) {
-            Column(Modifier.offset {IntOffset(0,(-selectedRow*72f*collapse*density.density).roundToInt())}) {
+            // Measure every month row before clipping to the selected week.
+            Column(Modifier.offset {IntOffset(0,(-selectedRow*72f*collapse*density.density).roundToInt())}.wrapContentHeight(androidx.compose.ui.Alignment.Top,unbounded=true)) {
             padded.chunked(7).forEach {week->Box(Modifier.fillMaxWidth()) {Row {
                 repeat(7) {index->
                     val date=week.getOrNull(index)
