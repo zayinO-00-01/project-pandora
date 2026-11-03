@@ -30,6 +30,9 @@ public class TaskController {
     public TaskResponse withdraw(@PathVariable Long id) {return tasks.withdraw(id);}
     @GetMapping("/reviews")
     public List<TaskResponse> reviews() { return tasks.reviews(); }
+    public record BatchInput(@jakarta.validation.constraints.NotEmpty @jakarta.validation.constraints.Size(max=100) List<@Valid CreateTaskRequest> tasks) {}
+    @PostMapping("/batch")
+    public ResponseEntity<List<TaskResponse>> createBatch(@Valid @RequestBody BatchInput input) {return ResponseEntity.status(201).body(tasks.createBatch(input.tasks()));}
     @PostMapping
     public ResponseEntity<TaskResponse> create(@Valid @RequestBody CreateTaskRequest request) {
         return ResponseEntity.status(201).body(tasks.create(request));

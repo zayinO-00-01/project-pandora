@@ -40,7 +40,7 @@ class TaskDemoTests {
     String token(JsonNode user) { return "Bearer " + user.get("token").asText(); }
     String payload(JsonNode assignee, String title) throws Exception {
         return json.writeValueAsString(Map.of("title", title, "detail", "任务详情", "priority", "high",
-            "assigneeId", assignee.get("userId").asLong(), "dueAt", "2026-10-01T15:59:59Z"));
+            "assigneeId", assignee.get("userId").asLong(), "dueAt", "2090-10-01T15:59:59Z"));
     }
     JsonNode create(JsonNode creator, JsonNode assignee, String title) throws Exception {
         var created=json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization", token(creator))

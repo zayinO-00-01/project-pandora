@@ -10,8 +10,8 @@ android {
         applicationId = "com.projectpandora.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 51
-        versionName = "0.8.2-task-start-time"
+        versionCode = 61
+        versionName = "0.9.9-task-form-clean"
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }

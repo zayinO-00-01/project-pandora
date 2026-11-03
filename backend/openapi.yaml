@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Pandora API
-  version: 0.8.1
+  version: 0.9.3
   description: 老师方案整合版：保留用户自建审批、年月直选和清单同步；全公司业务成员选人，非创始人创建与进度提交由当前直属上级审批；创始人本人操作免审。删除暂按创建人条件直删/上级审核。日志按创建后24小时修改，任务日历与日志分离。
 servers:
 - url: /api/v1
@@ -248,7 +248,7 @@ paths:
           $ref: '#/components/responses/Error409'
       security:
       - bearer: []
-      description: 上海今天及前三天可创建单日/连续多日日志，起止日期均须在范围内；draft保持私密，submitted可供授权上级查看。创建后24小时内允许作者编辑或提交。
+      description: 上海日期仅今天、昨天、前天可创建单日日志，每位用户每天一篇（含草稿）；重复创建返回409，不支持新建连续多日。历史记录保留，创建后24小时内允许作者编辑或提交。
       requestBody:
         required: true
         content:
@@ -1329,6 +1329,59 @@ paths:
           $ref: '#/components/responses/Error403'
         '409':
           $ref: '#/components/responses/Error409'
+  /directory:
+    get:
+      summary: 公司通讯录（仅业务成员）
+      description: 列出有效业务账号的姓名、职位、直属上级、电话和头像。不包含身份证、住址、生日及紧急联系人，不授予任务或日志访问权限。
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: 有效组织联系人列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DirectoryContact'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+  /tasks/batch:
+    post:
+      summary: 为多位责任人分别创建独立任务（原子提交）
+      security:
+      - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tasks]
+              properties:
+                tasks:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items:
+                    $ref: '#/components/schemas/TaskInput'
+      responses:
+        '201':
+          description: 全部创建成功，顺序与输入一致
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          description: 责任人不存在，整批回滚
 components:
   securitySchemes:
     bearer:
@@ -1336,6 +1389,35 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    DirectoryContact:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        displayName:
+          type: string
+          nullable: true
+        role:
+          type: string
+        managerId:
+          type: integer
+          format: int64
+          nullable: true
+        managerName:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        avatar:
+          type: string
+          nullable: true
+        avatarData:
+          type: string
+          nullable: true
     UserSummary:
       type: object
       properties:
@@ -1680,10 +1762,19 @@ components:
     LogInput:
       type: object
       properties:
+        labelIds:
+          type: array
+          nullable: true
+          maxItems: 12
+          uniqueItems: true
+          description: 多标签集合；null保留旧集合，空数组清空。任务编辑审核批准后生效。
+          items:
+            type: integer
+            format: int64
         logDate:
           type: string
           format: date
-          description: 上海日期今天及前三天可新建；修改和提交仅限今天。历史日期只读。
+          description: 上海日期今天、昨天、前天可新建单日日志，每人每天一篇（含草稿）；创建后24小时内可编辑和提交。
         content:
           type: string
           minLength: 1
@@ -1702,7 +1793,7 @@ components:
         endDate:
           type: string
           format: date
-          description: Inclusive end; defaults to logDate; both endpoints within today-3..today.
+          description: 新建时只能为空或等于 logDate；历史多日日志更新时须保留原结束日期。
       required:
       - logDate
       - content
@@ -1718,7 +1809,7 @@ components:
         logDate:
           type: string
           format: date
-          description: 上海日期今天及前三天可新建；修改和提交仅限今天。历史日期只读。
+          description: 上海日期今天、昨天、前天可新建单日日志，每人每天一篇（含草稿）；创建后24小时内可编辑和提交。
         content:
           type: string
           minLength: 1
@@ -1741,7 +1832,7 @@ components:
         endDate:
           type: string
           format: date
-          description: Inclusive end; defaults to logDate; both endpoints within today-3..today.
+          description: 新建时只能为空或等于 logDate；历史多日日志更新时须保留原结束日期。
     Organization:
       type: object
       properties:
@@ -1806,6 +1897,15 @@ components:
     TaskInput:
       type: object
       properties:
+        labelIds:
+          type: array
+          nullable: true
+          maxItems: 12
+          uniqueItems: true
+          description: 多标签集合；null保留旧集合，空数组清空。任务编辑审核批准后生效。
+          items:
+            type: integer
+            format: int64
         title:
           type: string
           minLength: 1
@@ -2108,7 +2208,7 @@ components:
           type: string
         supportsDateRanges:
           type: boolean
-          description: True when the server supports inclusive endDate on work logs.
+          description: 固定 false：不再支持新建连续多日日志；历史 endDate 仍保留。
     TaskKeywordInput:
       type: object
       required:

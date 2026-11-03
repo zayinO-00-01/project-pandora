@@ -29,7 +29,7 @@ class TeacherAlignmentRulesTest {
         MockWebServer().use {server->
             server.enqueue(MockResponse().setBody("""{"id":31,"title":"协作","detail":"","priority":"normal","status":"todo","createdBy":3,"assigneeId":9,"creatorName":"员工","assigneeName":"同事","createdAt":"","updatedAt":"","approvalStatus":"pending"}"""))
             server.start();val api=ApiClient(server.url("/").toString());val me=Session(api.server,"staff",3,"STAFF",null,"staff")
-            assertEquals("pending",api.createTask(me,TaskCreateInput("协作","","normal",9,"2026-11-01T10:00:00Z")).approvalStatus)
+            assertEquals("pending",api.createTask(me,TaskCreateInput("协作","","normal",9,"2090-11-01T10:00:00Z")).approvalStatus)
             assertEquals("/api/v1/tasks",server.takeRequest().path)
         }
     }
@@ -42,7 +42,7 @@ class TeacherAlignmentRulesTest {
     @Test fun progressReviewKeepsEffectiveTaskUntilManagerDecisionAndCanBeWithdrawn() {
         MockWebServer().use {server->
             val effective="""{"id":31,"title":"创始人安排","detail":"","priority":"normal","status":"todo","progress":null,"progressNote":"旧说明","createdBy":1,"assigneeId":3,"creatorName":"创始人","assigneeName":"员工","approvalStatus":"approved"}"""
-            val review="""{"id":41,"taskId":31,"taskTitle":"创始人安排","applicantId":3,"applicantName":"员工","reviewerId":2,"reviewerName":"当前上级","operation":"PROGRESS","payload":"{\"status\":\"doing\",\"progress\":null,\"progressNote\":\"新说明\"}","status":"pending","createdAt":"2026-10-29T01:00:00Z"}"""
+            val review="""{"id":41,"taskId":31,"taskTitle":"创始人安排","applicantId":3,"applicantName":"员工","reviewerId":2,"reviewerName":"当前上级","operation":"PROGRESS","payload":"{\"status\":\"doing\",\"progress\":null,\"progressNote\":\"新说明\"}","status":"pending","createdAt":"2090-10-29T01:00:00Z"}"""
             server.enqueue(MockResponse().setBody(effective))
             server.enqueue(MockResponse().setBody("[$review]"))
             server.enqueue(MockResponse().setBody(review.replace("\"status\":\"pending\"","\"status\":\"canceled\"")))

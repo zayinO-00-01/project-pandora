@@ -92,9 +92,9 @@ class IntegratedPolicyTests {
         mvc.perform(post("/api/v1/logs").header("Authorization",admin).contentType(MediaType.APPLICATION_JSON).content(logBody(today(),"submitted")))
             .andExpect(status().isForbidden());
     }
-    @Test void creationIncludesFourShanghaiDatesAndExpiredCreatedAtCannotBeBypassed() throws Exception {
+    @Test void creationIncludesThreeShanghaiDatesAndExpiredCreatedAtCannotBeBypassed() throws Exception {
         String staff=token("staff");
-        for(LocalDate date: new LocalDate[]{today().minusDays(3),today()}) createLog(staff,date,"submitted");
+        for(LocalDate date: new LocalDate[]{today().minusDays(2),today()}) createLog(staff,date,"submitted");
         for(LocalDate date: new LocalDate[]{today().minusDays(4),today().plusDays(1)})
             mvc.perform(post("/api/v1/logs").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(logBody(date,"draft")))
                 .andExpect(status().isBadRequest());
@@ -131,7 +131,7 @@ class IntegratedPolicyTests {
     }
     @Test void approvedDirectManagerGrantReadsSubmittedLogsAndTasksOnlyAndRevokesImmediately() throws Exception {
         String staff=token("staff"), lead=token("team_lead"), founder=token("founder");long manager=user("team_lead").getId();
-        var submitted=createLog(lead,today(),"submitted");createLog(lead,today(),"draft");
+        var submitted=createLog(lead,today(),"submitted");createLog(lead,today().minusDays(1),"draft");
         var task=json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization",founder).contentType(MediaType.APPLICATION_JSON)
             .content(json.writeValueAsString(Map.of("dueAt","2026-11-01T10:00:00Z","title","上级任务","assigneeId",manager)))).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
         var r=request(staff,manager);long id=r.get("id").asLong();

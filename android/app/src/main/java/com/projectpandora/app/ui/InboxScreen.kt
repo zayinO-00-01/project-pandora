@@ -12,15 +12,16 @@ import com.projectpandora.app.data.*
 
 @Composable fun InboxScreen(state: AppState,model: PandoraViewModel) {
     val me=state.session ?: return
-    var tab by remember {mutableStateOf("reviews")}
+    val canReview=AppRoles.canReview(me.role)
+    var tab by remember(me.userId,me.role) {mutableStateOf(if(canReview)"reviews" else "messages")}
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=28.dp)) {
-        item {ControlTextButton(onClick={model.screen("day")}) {Text("← 返回视图")}}
+        item {BackdropTextButton(onClick={model.screen("day")}) {Text("← 返回视图")}}
         item {Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-            FilterChip(selected=tab=="reviews",onClick={tab="reviews"},label={Text("任务审核")})
+            if(canReview)FilterChip(selected=tab=="reviews",onClick={tab="reviews"},label={Text("任务审核")})
             FilterChip(selected=tab=="messages",onClick={tab="messages"},label={Text("通知 · ${state.unreadCount}")})
         }}
         state.workspaceError?.let {item {Hint(it,true,onRetry=model::loadWorkspaceExtras)}}
-        if(tab=="reviews") {
+        if(canReview && tab=="reviews") {
             item {Text("待处理审核与我提交的变更",style=MaterialTheme.typography.titleMedium)}
             state.taskReviewError?.let {item {Hint(it,true,onRetry=model::refresh)}}
             if(state.pendingTaskApprovals.isNotEmpty()) {
@@ -53,7 +54,7 @@ import com.projectpandora.app.data.*
             }}}
             item {ControlOutlinedButton(onClick={model.screen("organization")}) {Text("查看工作信息的授权申请 →")}}
         } else {
-            item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text("任务分配、变更及审批通知",style=MaterialTheme.typography.titleMedium);ControlTextButton(onClick=model::markAllNotificationsRead,enabled=!state.saving && state.unreadCount>0) {Text("全部已读")}}}
+            item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {Text("任务分配、变更及审批通知",modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);ControlTextButton(onClick=model::markAllNotificationsRead,enabled=!state.saving && state.unreadCount>0) {Text("全部已读")}}}
             if(state.notifications.isEmpty())item {Text("暂无通知")}
             items(state.notifications,key={"notice-${it.id}"}) {message->OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 Text("${if(!message.read)"● " else ""}${message.title}",style=MaterialTheme.typography.titleMedium)
