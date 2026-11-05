@@ -2,6 +2,8 @@
  * pre-emit critique: P4 H4 E4 S5 R5 V4 */
 package com.projectpandora.app.ui
 
+import androidx.compose.foundation.background
+
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.SoundPool
@@ -62,7 +64,8 @@ val LocalControlFeedback=staticCompositionLocalOf<()->Unit> {{}}
 enum class Appearance { LIGHT, DARK }
 class AppearanceSettings(val mode: Appearance,val select: (Appearance)->Unit)
 val LocalAppearance=staticCompositionLocalOf {AppearanceSettings(Appearance.LIGHT,{})}
-val ConsoleDisplay=FontFamily(Font(R.font.console_display,FontWeight.SemiBold))
+@OptIn(ExperimentalTextApi::class)
+val ConsoleDisplay=FontFamily(Font(R.font.noto_sans_sc,FontWeight.SemiBold,variationSettings=FontVariation.Settings(FontVariation.weight(600))))
 
 @OptIn(ExperimentalTextApi::class)
 @Composable fun ControlTheme(forceLight: Boolean=false,onAppearanceChange: (Boolean)->Unit={},content: @Composable ()->Unit) {
@@ -147,7 +150,6 @@ val ConsoleDisplay=FontFamily(Font(R.font.console_display,FontWeight.SemiBold))
 @Composable fun ScreenHeading(title: String, description: String) {
     Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
         Text(title,style=MaterialTheme.typography.headlineSmall,fontFamily=ConsoleDisplay,fontWeight=FontWeight.SemiBold)
-        Text(description,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -155,7 +157,7 @@ val ConsoleDisplay=FontFamily(Font(R.font.console_display,FontWeight.SemiBold))
     contentPadding: PaddingValues=ButtonDefaults.ContentPadding,content: @Composable RowScope.()->Unit) {
     val feedback=LocalControlFeedback.current
     OutlinedButton(onClick={feedback();onClick()},modifier=modifier.heightIn(min=48.dp),enabled=enabled,
-        shape=MaterialTheme.shapes.small,contentPadding=contentPadding,content=content)
+        shape=MaterialTheme.shapes.small,colors=ButtonDefaults.outlinedButtonColors(containerColor=MaterialTheme.colorScheme.surface.copy(alpha=0.92f),contentColor=MaterialTheme.colorScheme.onSurface),border=BorderStroke(1.dp,MaterialTheme.colorScheme.onSurface.copy(alpha=0.6f)),contentPadding=contentPadding,content=content)
 }
 
 
@@ -164,9 +166,16 @@ val ConsoleDisplay=FontFamily(Font(R.font.console_display,FontWeight.SemiBold))
     colors: ButtonColors=ButtonDefaults.textButtonColors(),contentPadding: PaddingValues=ButtonDefaults.TextButtonContentPadding,
     content: @Composable RowScope.()->Unit) {
     val feedback=LocalControlFeedback.current
-    TextButton(onClick={feedback();onClick()},modifier=modifier,enabled=enabled,shape=shape,colors=colors,contentPadding=contentPadding,content=content)
+    TextButton(onClick={feedback();onClick()},modifier=modifier.heightIn(min=48.dp),enabled=enabled,shape=shape,colors=colors,contentPadding=contentPadding,content=content)
 }
 
 
 @Composable fun Modifier.panelOutline(shape: androidx.compose.ui.graphics.Shape=MaterialTheme.shapes.medium): Modifier =
     if(LocalAppearance.current.mode==Appearance.LIGHT)border(1.dp,Color.Black,shape) else this
+
+/** Surface-backed navigation actions stay readable above the ink artwork. */
+@Composable fun BackdropTextButton(onClick: ()->Unit,modifier: Modifier=Modifier,enabled: Boolean=true,
+    contentPadding: PaddingValues=PaddingValues(horizontal=10.dp,vertical=6.dp),content: @Composable RowScope.()->Unit) {
+    val shape=MaterialTheme.shapes.small
+    ControlTextButton(onClick=onClick,enabled=enabled,modifier=modifier.heightIn(min=48.dp).background(MaterialTheme.colorScheme.surface.copy(alpha=0.92f),shape).border(1.dp,MaterialTheme.colorScheme.onSurface.copy(alpha=0.6f),shape),shape=shape,contentPadding=contentPadding,content=content)
+}

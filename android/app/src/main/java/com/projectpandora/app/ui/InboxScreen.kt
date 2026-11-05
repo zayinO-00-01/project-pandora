@@ -12,15 +12,16 @@ import com.projectpandora.app.data.*
 
 @Composable fun InboxScreen(state: AppState,model: PandoraViewModel) {
     val me=state.session ?: return
-    var tab by remember {mutableStateOf("reviews")}
+    val canReview=AppRoles.canReview(me.role)
+    var tab by remember(me.userId,me.role) {mutableStateOf(if(canReview)"reviews" else "messages")}
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=28.dp)) {
-        item {ControlTextButton(onClick={model.screen("day")}) {Text("← 返回视图")}}
+        item {BackdropTextButton(onClick={model.screen("day")}) {Text("← 返回视图")}}
         item {Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-            FilterChip(selected=tab=="reviews",onClick={tab="reviews"},label={Text("任务审核")})
+            if(canReview)FilterChip(selected=tab=="reviews",onClick={tab="reviews"},label={Text("任务审核")})
             FilterChip(selected=tab=="messages",onClick={tab="messages"},label={Text("通知 · ${state.unreadCount}")})
         }}
         state.workspaceError?.let {item {Hint(it,true,onRetry=model::loadWorkspaceExtras)}}
-        if(tab=="reviews") {
+        if(canReview && tab=="reviews") {
             item {Text("待处理审核与我提交的变更",style=MaterialTheme.typography.titleMedium)}
             state.taskReviewError?.let {item {Hint(it,true,onRetry=model::refresh)}}
             if(state.pendingTaskApprovals.isNotEmpty()) {
@@ -68,7 +69,7 @@ import com.projectpandora.app.data.*
 }
 internal fun reviewDetails(payload: String): String=runCatching {
     val data=com.google.gson.JsonParser.parseString(payload).asJsonObject
-    listOf("title" to "事项","detail" to "说明","priority" to "优先级","assigneeName" to "责任人","dueAt" to "截止时间","status" to "进度状态","progressNote" to "进度说明","progress" to "百分比","labelId" to "品牌标签编号","labelName" to "品牌标签","labelColor" to "背景颜色","keywordBefore" to "原关键词","keywordText" to "新关键词").mapNotNull {(key,title)->
-        data[key]?.takeUnless {it.isJsonNull}?.asString?.takeIf {it.isNotBlank()}?.let {value->"$title：${when(key){"priority"->taskPriorityLabel(value);"status"->taskStatusLabel(value);"dueAt"->timestamp(value);else->value}}"}
+    listOf("title" to "事项","detail" to "说明","priority" to "优先级","assigneeName" to "责任人","startAt" to "开始时间","dueAt" to "截止时间","status" to "进度状态","progressNote" to "进度说明","progress" to "百分比","labelId" to "品牌标签编号","labelName" to "品牌标签","labelColor" to "背景颜色","keywordBefore" to "原关键词","keywordText" to "新关键词").mapNotNull {(key,title)->
+        data[key]?.takeUnless {it.isJsonNull}?.asString?.takeIf {it.isNotBlank()}?.let {value->"$title：${when(key){"priority"->taskPriorityLabel(value);"status"->taskStatusLabel(value);"dueAt","startAt"->timestamp(value);else->value}}"}
     }.joinToString("\n")
 }.getOrDefault("无法读取变更说明，请刷新后重试。")

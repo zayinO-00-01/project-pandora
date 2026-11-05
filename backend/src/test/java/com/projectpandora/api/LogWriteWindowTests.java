@@ -50,7 +50,7 @@ class LogWriteWindowTests {
     }
     @Test void invalidTargetAndCreateDatesAreRejectedWithoutMutation() throws Exception {
         var e=seed(today(),"submitted");
-        for(var date:java.util.List.of(today().minusDays(4),today().plusDays(1))) {
+        for(var date:java.util.List.of(today().minusDays(3),today().plusDays(1))) {
             mvc.perform(put("/api/v1/logs/"+e.getId()).header("Authorization",token(staff())).contentType(MediaType.APPLICATION_JSON).content(body(date)))
                 .andExpect(status().isBadRequest());
             mvc.perform(post("/api/v1/logs").header("Authorization",token(staff())).contentType(MediaType.APPLICATION_JSON).content(body(date)))
@@ -58,8 +58,8 @@ class LogWriteWindowTests {
         }
         assertThat(e.getContent()).isEqualTo("original history");assertThat(e.getLogDate()).isEqualTo(today());
     }
-    @Test void creationIncludesThreeDaysAgoAndBackfillRemainsEditableFor24Hours() throws Exception {
-        for(int offset=0;offset<=3;offset++) {
+    @Test void creationIncludesTwoDaysAgoAndBackfillRemainsEditableFor24Hours() throws Exception {
+        for(int offset=0;offset<=2;offset++) {
             var date=today().minusDays(offset);
             var response=mvc.perform(post("/api/v1/logs").header("Authorization",token(staff())).contentType(MediaType.APPLICATION_JSON).content(body(date)))
                 .andExpect(status().isCreated()).andReturn();

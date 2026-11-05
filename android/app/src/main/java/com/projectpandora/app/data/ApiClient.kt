@@ -26,8 +26,8 @@ object LogValidation {
     fun error(date: String, content: String, status: String, endDate: String? = null,creating: Boolean = true): String? {
         val parsed=try {LocalDate.parse(date)} catch(_:Exception) {return "请选择有效的日志日期"}
         if(creating && parsed>today())return "日志日期不能晚于今天"
-        if(creating && !canWriteLog(date))return "可创建今天及往前 3 天的日报"
-        if(creating && !canWriteLogRange(date,endDate))return "起止日期须连续且在今天及往前 3 天内"
+        if(creating && !canWriteLog(date))return "仅可创建今天、昨天和前天的日报"
+        if(creating && !canWriteLogRange(date,endDate))return "日报只能选择一天，不支持连续多日记录"
         if(content.isBlank())return "工作记录不能为空"
         if(content.length>5000)return "工作记录不能超过5000字"
         if(status !in listOf("draft","submitted"))return "无效的日志状态"
@@ -59,6 +59,8 @@ class ApiClient(address: String) {
         if(result.token.isNullOrBlank() || result.userId<=0 || result.role !in AppRoles.business)throw ApiException(502,"登录响应不完整，请检查服务地址")
         return Session(server,result.token,result.userId,result.role,result.displayName,username)
     }
+    fun contentLabels(session: Session): List<ContentLabels> = request("/content-labels","GET",null,session,object:TypeToken<List<ContentLabels>>(){}.type)
+    fun saveContentLabels(session: Session,kind: String,id: Long,ids: List<Long>): ContentLabels = request("/content-labels/$kind/$id","PUT",mapOf("labelIds" to ids),session,ContentLabels::class.java)
     fun labels(session: Session): List<WorkLabel> = request("/labels","GET",null,session,object:TypeToken<List<WorkLabel>>(){}.type)
     fun reviews(session: Session): List<TaskReview> = request("/task-reviews","GET",null,session,object:TypeToken<List<TaskReview>>(){}.type)
     fun decideTask(session: Session,id: Long,status: String): TaskReview = request("/task-reviews/$id","PUT",mapOf("status" to status),session,TaskReview::class.java)
@@ -70,6 +72,7 @@ class ApiClient(address: String) {
     fun accountProfile(session: Session): MyProfile = request("/profile","GET",null,session,MyProfile::class.java)
     fun avatar(session: Session,data: String): MyProfile = request("/profile/avatar","PUT",mapOf("avatarData" to data),session,MyProfile::class.java)
     fun password(session: Session,current: String,new: String): ActionResult = request("/profile/password","PUT",mapOf("currentPassword" to current,"newPassword" to new),session,ActionResult::class.java)
+    fun directory(session: Session): List<DirectoryContact> = request("/directory","GET",null,session,object:TypeToken<List<DirectoryContact>>(){}.type)
     fun users(session: Session): List<UserSummary> = request("/users","GET",null,session,object:TypeToken<List<UserSummary>>(){}.type)
     fun profile(session: Session): Profile = request("/users/me","GET",null,session,Profile::class.java)
     fun changePassword(session: Session, currentPassword: String, newPassword: String) {
@@ -93,9 +96,17 @@ class ApiClient(address: String) {
         return request("/tasks/$id/note","PUT",mapOf("content" to content),session,TaskNote::class.java)
     }
     fun tasks(session: Session): List<DispatchTask> = request("/tasks","GET",null,session,object:TypeToken<List<DispatchTask>>(){}.type)
+    fun createTasks(session: Session,inputs: List<TaskCreateInput>): List<DispatchTask> {
+        if(!AppRoles.canCreateTask(session.role))throw ApiException(403,"仅业务成员可创建任务")
+        require(inputs.isNotEmpty() && inputs.size<=100 && inputs.map {it.assigneeId}.distinct().size==inputs.size)
+        inputs.forEach {(TaskDispatchValidation.inputError(it,session.userId) ?: TaskDispatchValidation.creationDateError(it))?.let {error->throw IllegalArgumentException(error)}}
+        val result: List<DispatchTask> = request("/tasks/batch","POST",mapOf("tasks" to inputs),session,object:TypeToken<List<DispatchTask>>(){}.type)
+        if(result.size!=inputs.size || result.map {it.assigneeId}.toSet()!=inputs.map {it.assigneeId}.toSet())throw ApiException(502,"批量任务响应不完整，请刷新确认")
+        return result
+    }
     fun createTask(session: Session,input: TaskCreateInput): DispatchTask {
         if(!AppRoles.canCreateTask(session.role))throw ApiException(403,"仅业务成员可创建任务")
-        TaskDispatchValidation.inputError(input,session.userId)?.let {throw IllegalArgumentException(it)}
+        (TaskDispatchValidation.inputError(input,session.userId) ?: TaskDispatchValidation.creationDateError(input))?.let {throw IllegalArgumentException(it)}
         val result: DispatchTask=request("/tasks","POST",input,session,DispatchTask::class.java)
         if(result.id<=0 || result.assigneeId!=input.assigneeId || result.createdBy!=session.userId)throw ApiException(502,"服务器返回的任务信息不一致，请刷新确认后重试")
         return result
@@ -165,7 +176,7 @@ class ApiClient(address: String) {
         if(id!=null) {
             require(id>0) {"无效的日志编号"}
         }
-        if(input.endDate!=null && input.endDate!=input.logDate && !integrity(session).supportsDateRanges)throw ApiException(409,"当前服务器尚未支持多日日志，请先更新后端；内容已保留")
+
         return request(if(id==null)"/logs" else "/logs/$id",if(id==null)"POST" else "PUT",input,session,WorkLog::class.java)
     }
     fun submit(session: Session, id: Long): WorkLog {

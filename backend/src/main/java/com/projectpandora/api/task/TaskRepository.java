@@ -22,6 +22,10 @@ public interface TaskRepository extends JpaRepository<TaskEntity,Long> {
     @EntityGraph(attributePaths={"creator","assignee"})
     @Query("select t from TaskEntity t where t.deletedAt is null and (t.assignee.id in :assigneeIds or t.creator.id = :creatorId or t.creator.managerId = :creatorId) order by t.createdAt desc, t.id desc")
     List<TaskEntity> findByScope(@Param("assigneeIds") List<Long> assigneeIds,@Param("creatorId") Long creatorId,Pageable pageable);
+    /** The all-tasks view is limited to tasks the viewer created or is responsible for. */
+    @EntityGraph(attributePaths={"creator","assignee"})
+    @Query("select t from TaskEntity t where t.deletedAt is null and (t.assignee.id = :userId or t.creator.id = :userId) order by t.createdAt desc, t.id desc")
+    List<TaskEntity> findOwnedOrCreated(@Param("userId") Long userId,Pageable pageable);
     @EntityGraph(attributePaths={"creator","assignee"})
     @Query("select t from TaskEntity t where t.deletedAt is null and t.approvalStatus = 'approved' and (t.assignee.id in :assigneeIds or t.creator.id = :creatorId) order by t.createdAt desc, t.id desc")
     List<TaskEntity> findApprovedByScope(@Param("assigneeIds") List<Long> assigneeIds,@Param("creatorId") Long creatorId,Pageable pageable);
