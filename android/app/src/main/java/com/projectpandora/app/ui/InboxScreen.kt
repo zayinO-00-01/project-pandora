@@ -15,7 +15,7 @@ import com.projectpandora.app.data.*
     val canReview=AppRoles.canReview(me.role)
     var tab by remember(me.userId,me.role) {mutableStateOf(if(canReview)"reviews" else "messages")}
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=28.dp)) {
-        item {BackdropTextButton(onClick={model.screen("day")}) {Text("← 返回视图")}}
+        item {BackdropTextButton(onClick={model.screen("day")}) {Text("← 返回公司")}}
         item {Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
             if(canReview)FilterChip(selected=tab=="reviews",onClick={tab="reviews"},label={Text("任务审核")})
             FilterChip(selected=tab=="messages",onClick={tab="messages"},label={Text("通知 · ${state.unreadCount}")})

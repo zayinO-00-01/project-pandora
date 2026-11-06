@@ -33,7 +33,7 @@ import com.projectpandora.app.data.*
     BackHandler(onBack=::back)
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=24.dp)) {
         item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
-            BackdropTextButton(onClick=::back) {Text(if(selectedId!=null)"← 返回联系人" else if(section!="home")"← 返回通讯录" else "← 返回视图")}
+            BackdropTextButton(onClick=::back) {Text(if(selectedId!=null)"← 返回联系人" else if(section!="home")"← 返回通讯录" else "← 返回公司")}
             BackdropTextButton(onClick=model::loadDirectory,enabled=!state.directoryLoading) {Text("刷新通讯录")}
         }}
         if(state.directoryLoading)item {LinearProgressIndicator(Modifier.fillMaxWidth())}

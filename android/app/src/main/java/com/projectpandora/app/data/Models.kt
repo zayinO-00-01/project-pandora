@@ -60,3 +60,5 @@ data class TaskKeyword(val id: Long,val text: String,val createdBy: Long)
 data class DirectoryContact(val id: Long,val username: String,val displayName: String?,val role: String,val managerId: Long?,val managerName: String?,val phone: String?,val avatar: String?,val avatarData: String?)
 
 data class ContentLabels(val kind: String,val contentId: Long,val labels: List<WorkLabel>)
+
+data class DailyTodo(val id: String,val title: String,val date: String,val completed: Boolean=false)

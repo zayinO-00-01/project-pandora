@@ -53,6 +53,9 @@ object TaskValidation {
 class ApiClient(address: String) {
     val server=ServerAddress.normalize(address)
     private val json=GsonBuilder().serializeNulls().create()
+    fun todos(session: Session): List<DailyTodo> = request("/personal-todos","GET",null,session,object:TypeToken<List<DailyTodo>>(){}.type)
+    fun saveTodo(session: Session,todo: DailyTodo,creating: Boolean): DailyTodo = request("/personal-todos"+if(creating)"" else "/${todo.id}",if(creating)"POST" else "PUT",todo,session,DailyTodo::class.java)
+    fun deleteTodo(session: Session,id: String): DailyTodo = request("/personal-todos/$id","DELETE",null,session,DailyTodo::class.java)
     fun login(username: String, password: String): Session {
         val result: LoginResponse=request("/auth/login","POST",mapOf("username" to username,"password" to password),null,LoginResponse::class.java)
         if(result.role=="ADMIN")throw ApiException(403,"系统管理员请使用 Web 管理端，App 仅供业务账号使用")

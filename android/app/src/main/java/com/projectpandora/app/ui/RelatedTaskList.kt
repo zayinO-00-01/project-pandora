@@ -24,7 +24,7 @@ import com.projectpandora.app.data.*
     }
     Column(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
-            BackdropTextButton(onClick={model.screen("day")}) {Text("← 返回视图")}
+            BackdropTextButton(onClick={model.screen("day")}) {Text("← 返回公司")}
             ControlButton(onClick=model::openDispatch,enabled=!state.saving) {Text("创建任务")}
         }
         Text("与我相关的任务",style=MaterialTheme.typography.titleLarge)

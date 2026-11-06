@@ -69,14 +69,14 @@ import java.time.format.DateTimeFormatter
     BackHandler(enabled=state.editor==null && state.selectedTaskId==null && state.screen!="home" && !state.dispatchOpen) {if(!state.saving)model.screen(if(state.screen=="labels")"profile" else if(state.screen in listOf("tasks","organization","inbox","directory"))"day" else "home")}
     val pageTitle=when {
         state.editor!=null -> "潘多拉"
-        state.screen=="home" || state.screen=="ai" -> AppRoles.homeTitle(state.session.role)
+        state.screen=="home" || state.screen=="ai" -> "首页"
         state.dispatchOpen -> "新建任务"
         state.screen=="functions" -> "职能"
         state.screen=="tasks" -> if(state.selectedTaskId==null)"任务列表" else "任务详情"
         state.screen=="directory" -> "通讯录"
         state.screen=="organization" -> AppRoles.scopeLabel(state.session.role)
         state.screen=="logs" -> "工作日志"
-        state.screen=="day" -> "工作视图"
+        state.screen=="day" -> "公司"
         state.screen=="profile" -> "我的"
         state.screen=="notifications" -> "消息中心"
         state.screen=="inbox" -> if(AppRoles.canReview(state.session.role))"通知与审核" else "消息通知"
@@ -102,7 +102,7 @@ import java.time.format.DateTimeFormatter
         if(state.editor==null && state.selectedTaskId==null && !state.dispatchOpen)Column {
             HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
             Box(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {NavigationBar(containerColor=MaterialTheme.colorScheme.background,tonalElevation=0.dp,modifier=Modifier.widthIn(max=600.dp).fillMaxWidth().height(72.dp),windowInsets=WindowInsets(0,0,0,0)) {
-                val items=listOf(Triple("home","总览",R.drawable.console_home),Triple("logs","日志",R.drawable.console_log),Triple("day","视图",R.drawable.console_calendar),Triple("profile","我的",R.drawable.console_person))
+                val items=listOf(Triple("home","首页",R.drawable.console_home),Triple("logs","日志",R.drawable.console_log),Triple("day","公司",R.drawable.console_calendar),Triple("profile","我的",R.drawable.console_person))
                 items.forEach {(key,label,icon)->NavigationBarItem(selected=state.screen==key || (key=="day" && state.screen in listOf("tasks","organization","inbox","directory")) || (key=="profile" && state.screen=="labels") || (key=="home" && state.screen=="ai"),
                     onClick={feedback();model.screen(key)},enabled=!state.saving,
                     icon={Icon(painterResource(icon),contentDescription=null,modifier=Modifier.size(21.dp))},label={Text(label,maxLines=1,softWrap=false,style=MaterialTheme.typography.labelSmall)},
@@ -178,7 +178,7 @@ import java.time.format.DateTimeFormatter
         "LEADER"->"当前连接旧版演示服务，权限以该服务为准。"
         else->"员工：可给公司任一业务成员建任务，创建及本人进度经当前直属上级审批后生效；查看直属上级须申请并获批准。"
     }
-    details?.let {section->AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={details=null},title={Text(if(section=="access")"账号与权限" else "当前服务")},text={Text(if(section=="access")"$permissionText\n\n资料与组织关系由管理员在 Web 维护；组织查看与申请从视图下方进入。" else "${me.server}\n\n工作记录保存在此服务。无法连接时，请检查网络或联系管理员。")},confirmButton={ControlTextButton(onClick={details=null}) {Text("关闭")}})}
+    details?.let {section->AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={details=null},title={Text(if(section=="access")"账号与权限" else "当前服务")},text={Text(if(section=="access")"$permissionText\n\n资料与组织关系由管理员在 Web 维护；组织查看与申请从公司页下方进入。" else "${me.server}\n\n工作记录保存在此服务。无法连接时，请检查网络或联系管理员。")},confirmButton={ControlTextButton(onClick={details=null}) {Text("关闭")}})}
     if(avatarPicker)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={avatarPicker=false},title={Text("选择头像")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
         avatars.chunked(5).forEach {row-> Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
             row.forEach {emoji-> Surface(shape=androidx.compose.foundation.shape.CircleShape,color=if(state.profile?.avatar==emoji)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,modifier=Modifier.size(48.dp).clickable(enabled=!state.saving){model.changeAvatar(emoji);avatarPicker=false}) {Box(contentAlignment=Alignment.Center){Text(emoji,style=MaterialTheme.typography.titleLarge)}}}
