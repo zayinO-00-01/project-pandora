@@ -35,6 +35,22 @@ class WorkspaceRevisionTests {
         }
         mvc.perform(get("/api/v1/notifications").header("Authorization",token("staff"))).andExpect(status().isOk());
     }
+    @Test void allTasksOnlyContainsTasksCreatedByOrAssignedToViewer() throws Exception {
+        var staff=users.findByUsername("staff").orElseThrow();
+        var due=LocalDate.now(ZoneId.of("Asia/Shanghai")).plusDays(2).atTime(10,0)
+            .atZone(ZoneId.of("Asia/Shanghai")).toInstant().toString();
+        var body=json.writeValueAsString(Map.of("title","直属任务不进入全部任务","assigneeId",staff.getId(),"dueAt",due));
+        var created=json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization",token("founder"))
+            .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isCreated()).andReturn()
+            .getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+        long id=created.get("id").asLong();
+        var all=json.readTree(mvc.perform(get("/api/v1/tasks").header("Authorization",token("team_lead")))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+        assertThat(all.findValues("id").stream().mapToLong(JsonNode::asLong).boxed().toList()).doesNotContain(id);
+        var mine=json.readTree(mvc.perform(get("/api/v1/tasks").header("Authorization",token("staff")))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+        assertThat(mine.findValues("id").stream().mapToLong(JsonNode::asLong).boxed().toList()).contains(id);
+    }
     @Test void directoryIsCompanyWideButContainsNoPrivatePersonnelFields() throws Exception {
         var staff=users.findByUsername("staff").orElseThrow();staff.setPhone("13800001234");users.saveAndFlush(staff);
         var response=mvc.perform(get("/api/v1/directory").header("Authorization",token("staff"))).andExpect(status().isOk()).andReturn();

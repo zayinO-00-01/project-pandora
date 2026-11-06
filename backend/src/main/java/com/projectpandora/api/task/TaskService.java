@@ -27,12 +27,48 @@ public class TaskService {
     private final com.projectpandora.api.label.LabelService labels;
     private final TaskKeywordRepository keywords;
     private final TaskReviewRepository keywordReviews;
+    private final TaskNoteRepository notes;
     public TaskService(TaskRepository tasks,UserRepository users,AccessService access,OrganizationGuard organization,
             TaskEventRepository events,NotificationService notifications,ObjectMapper json,
-            com.projectpandora.api.label.LabelService labels,TaskKeywordRepository keywords,TaskReviewRepository keywordReviews,com.projectpandora.api.label.ContentLabelStore contentLabels) {
+            com.projectpandora.api.label.LabelService labels,TaskKeywordRepository keywords,TaskReviewRepository keywordReviews,TaskNoteRepository notes,com.projectpandora.api.label.ContentLabelStore contentLabels) {
         this.contentLabels=contentLabels;
         this.tasks=tasks;this.users=users;this.access=access;this.organization=organization;this.events=events;
         this.notifications=notifications;this.json=json;this.labels=labels;this.keywords=keywords;this.keywordReviews=keywordReviews;
+        this.notes=notes;
+    }
+    public TaskResponse detail(Long id) {
+        var me=access.assertBusiness();var task=activeTask(id);
+        if(normallyVisible(task) || ("pending".equals(task.getApprovalStatus()) && canReview(me.getId(),me.getRole(),task))
+                || (PENDING.contains(task.getReviewStatus()) && me.getId().equals(reviewerFor(task)))
+                || keywordReviews.findByTaskIdAndStatus(id,"pending").stream()
+                .anyMatch(review->me.getId().equals(currentReviewerId(review)))) return TaskResponse.from(task);
+        throw new ApiException(403,"无权查看该任务");
+    }
+    private boolean normallyVisible(TaskEntity task) {
+        if(authorizedTasks().stream().anyMatch(item->item.id().equals(task.getId()))) return true;
+        // Member-task views also include an approved request to view one's current direct manager.
+        var me=access.assertBusiness();
+        if(!initialVisible(task,me.getId(),me.getRole())) return false;
+        try {access.assertCanViewUserLogs(task.getAssignee().getId());return true;}
+        catch(ApiException e) {if(e.getStatus()==403) return false;throw e;}
+    }
+    private void assertNoteAccess(Long id) {
+        access.assertBusiness();var task=activeTask(id);
+        if(!"approved".equals(task.getApprovalStatus())) throw new ApiException(409,"任务审批通过后才能使用备注");
+        if(!normallyVisible(task)) throw new ApiException(403,"无权查看该任务备注");
+    }
+    public TaskNoteResponse note(Long id) {
+        var me=access.assertBusiness();assertNoteAccess(id);
+        return notes.findByTaskIdAndUserId(id,me.getId()).map(TaskNote::response).orElseGet(()->new TaskNoteResponse(id,"",null));
+    }
+    @Transactional
+    public TaskNoteResponse saveNote(Long id,String content) {
+        // Serialize first creation and permission checks with organization changes and task deletion.
+        organization.lock();var me=access.assertBusiness();assertNoteAccess(id);
+        if(content==null || content.length()>2000) throw new ApiException(400,"备注不能为空值且最多2000字");
+        var note=notes.findByTaskIdAndUserId(id,me.getId()).orElseGet(()->new TaskNote(id,me.getId()));
+        note.update(content.isBlank()?"":content);
+        return notes.saveAndFlush(note).response();
     }
     @Transactional
     public List<TaskResponse> createBatch(List<CreateTaskRequest> requests) {
@@ -57,11 +93,8 @@ public class TaskService {
     }
     private List<TaskResponse> authorizedTasks() {
         var me=access.assertBusiness();
-        var ids=access.downwardUsers().stream().map(UserEntity::getId).toList();
-        if(ids.isEmpty()) return List.of();
-        return tasks.findByScope(ids,me.getId(),Pageable.unpaged()).stream()
+        return tasks.findOwnedOrCreated(me.getId(),Pageable.unpaged()).stream()
             .filter(t->initialVisible(t,me.getId(),me.getRole()))
-            .filter(t->!"approved".equals(t.getApprovalStatus()) || ids.contains(t.getAssignee().getId()) || t.getCreator().getId().equals(me.getId()))
             .map(TaskResponse::from).toList();
     }
     public List<TaskResponse> pendingApprovals() {
@@ -80,9 +113,7 @@ public class TaskService {
     }
     @Transactional
     public TaskResponse create(CreateTaskRequest request) {
-        var earliest=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).minusDays(2).atStartOfDay(java.time.ZoneId.of("Asia/Shanghai")).toInstant();
-        if((request.startAt()!=null && request.startAt().isBefore(earliest)) || (request.dueAt()!=null && request.dueAt().isBefore(earliest)))
-            throw new ApiException(400,"新任务的开始和截止日期不能早于前天");
+        assertTaskTimes(request);
         organization.lock();var me=access.assertBusiness();
         var assignee=users.findById(request.assigneeId()).orElseThrow(()->new ApiException(404,"责任人不存在"));
         boolean self=me.getId().equals(assignee.getId());
@@ -101,6 +132,14 @@ public class TaskService {
         else notifyAssignment(task,me.getId());
         return TaskResponse.from(task);
     }
+    private void assertTaskTimes(CreateTaskRequest request) {
+        var today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        if(request.dueAt()==null || request.dueAt().atZone(java.time.ZoneId.of("Asia/Shanghai")).toLocalDate().isBefore(today))
+            throw new ApiException(400,"截止日期不能早于今天");
+        if(request.startAt()!=null && request.startAt().isAfter(request.dueAt()))
+            throw new ApiException(400,"开始时间不能晚于截止时间");
+    }
+
     private void notifyAssignment(TaskEntity task,Long actor) {
         notifyUser(task.getAssignee().getId(),actor,"task_assigned","收到新任务","「"+task.getTitle()+"」已分配给你，请查看。",task.getId());
     }
@@ -148,6 +187,7 @@ public class TaskService {
     }
     @Transactional
     public TaskResponse requestChange(Long id,CreateTaskRequest request) {
+        assertTaskTimes(request);
         organization.lock();var me=access.assertBusiness();var task=activeTask(id);
         boolean creator=task.getCreator().getId().equals(me.getId());
         if(!creator && me.getRole()!=Role.FOUNDER) throw new ApiException(403,"只有创建人或创始人可以修改任务");
