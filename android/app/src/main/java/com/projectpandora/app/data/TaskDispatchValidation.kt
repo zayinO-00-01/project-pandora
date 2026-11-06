@@ -23,12 +23,8 @@ object TaskDispatchValidation {
         listOf(UserSummary(session.userId,session.username,session.displayName,session.role)) +
             (if(AppRoles.canDispatch(session.role))organization.assignees.filter {it.id!=session.userId && it.role in AppRoles.business} else emptyList())
     fun creationDateError(input: TaskCreateInput, date: java.time.LocalDate=today()): String? {
-        val earliest=date.minusDays(2)
-        for(value in listOfNotNull(input.startAt,input.dueAt)) {
-            val day=runCatching {Instant.parse(value).atZone(ZoneId.of("Asia/Shanghai")).toLocalDate()}.getOrNull() ?: continue
-            if(day.isBefore(earliest))return "新任务的开始和截止日期不能早于前天"
-        }
-        return null
+        val due=input.dueAt?.let {runCatching {Instant.parse(it).atZone(ZoneId.of("Asia/Shanghai")).toLocalDate()}.getOrNull()}
+        return if(due!=null && due.isBefore(date))"截止日期不能早于今天" else null
     }
     fun inputError(input: TaskCreateInput,userId: Long): String? {
         if(input.title.isBlank())return "请填写任务标题"

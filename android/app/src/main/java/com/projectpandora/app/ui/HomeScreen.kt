@@ -36,6 +36,8 @@ import com.projectpandora.app.data.*
         state.contentLabelError?.let {Hint(it,true)}
         if(state.labels.isEmpty())Text("暂无标签，请先由创始人维护品牌标签。")
         state.labels.forEach {label->Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {Checkbox(checked=label.id in chosen,onCheckedChange={checked->chosen=if(checked)chosen+label.id else chosen-label.id});Box(Modifier.padding(end=8.dp).size(width=5.dp,height=20.dp).background(labelColor(label),MaterialTheme.shapes.small));Text(label.name)}}
+        val inactive=chosen.filter {id->state.labels.none {it.id==id}}
+        if(inactive.isNotEmpty())ControlTextButton(onClick={chosen=chosen-inactive.toSet()},enabled=!state.saving) {Text("移除已停用的标签（${inactive.size}）")}
     }},confirmButton={ControlTextButton(onClick={model.saveContentLabels(target.first,target.second,chosen);tagging=null},enabled=!state.saving && state.contentLabelError==null) {Text("保存")}},dismissButton={ControlTextButton(onClick={tagging=null}) {Text("取消")}})}
     val logs=state.logs.sortedByDescending {it.createdAt}
     AnimatedContent(targetState=selectedPanel,transitionSpec={overviewTransition(if((targetState ?: initialState)=="公司十大事")TransformOrigin(0f,0f) else TransformOrigin(0f,1f))},label="overview-tile-expand") {panel->
