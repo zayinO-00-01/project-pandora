@@ -26,7 +26,7 @@ class WorkflowNotesTests {
     JsonNode read(ResultActions result) throws Exception {return json.readTree(result.andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));}
     long create(String creator,String assignee) throws Exception {
         return read(mvc.perform(post("/api/v1/tasks").header("Authorization",token(creator)).contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("title","notes review task","assigneeId",uid(assignee))))).andExpect(status().isCreated())).get("id").asLong();
+            .content(json.writeValueAsString(Map.of("title","notes review task","assigneeId",uid(assignee),"dueAt","2090-11-01T10:00:00Z")))).andExpect(status().isCreated())).get("id").asLong();
     }
     ResultActions detail(String who,long id) throws Exception {return mvc.perform(get("/api/v1/tasks/"+id).header("Authorization",token(who)));}
     ResultActions note(String who,long id) throws Exception {return mvc.perform(get("/api/v1/tasks/"+id+"/note").header("Authorization",token(who)));}
@@ -57,7 +57,7 @@ class WorkflowNotesTests {
         long id=create("staff","founder");
         mvc.perform(put("/api/v1/tasks/"+id+"/approval").header("Authorization",token("team_lead")).contentType(MediaType.APPLICATION_JSON).content("{\"decision\":\"approved\"}")).andExpect(status().isOk());
         mvc.perform(put("/api/v1/tasks/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("title","proposed edit","assigneeId",uid("founder"))))).andExpect(status().isOk());
+            .content(json.writeValueAsString(Map.of("title","proposed edit","assigneeId",uid("founder"),"dueAt","2090-11-01T10:00:00Z")))).andExpect(status().isOk());
         detail("team_lead",id).andExpect(status().isOk());note("team_lead",id).andExpect(status().isForbidden());
         save("team_lead",id,"no temporary notes").andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/tasks/"+id+"/withdraw").header("Authorization",token("staff"))).andExpect(status().isOk());

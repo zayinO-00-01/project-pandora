@@ -102,8 +102,8 @@ import com.projectpandora.app.data.*
         )
     }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=24.dp).then(dragModifier),state=listState,userScrollEnabled=draggedId==null,verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=32.dp)) {
-        item {ControlTextButton(onClick={back()},contentPadding=PaddingValues(0.dp)) {Text(if(editing || selected!=null)"返回事项" else "返回总览")}}
-        item {ScreenHeading(if(editing)if(selected==null)"新增个人事项" else "编辑个人事项" else if(selected!=null)"事项详情" else if(company)"公司十大事" else "个人十大事",
+        item {ControlTextButton(onClick={back()},contentPadding=PaddingValues(0.dp)) {Text(if(editing || selected!=null)"返回事项" else "返回首页")}}
+        item {ScreenHeading(if(editing)if(selected==null)"新增个人事项" else "编辑个人事项" else if(selected!=null)"事项详情" else if(company)"事件纪" else "个人十大事",
             if(examples)"示例预览 · 非公司发布内容" else if(company)"公司重点由 Web 管理端维护，安卓只读。" else "按优先级安排十件重要的事。")}
         item {Text(if(examples)"仅用于查看卡面效果，不会提交到服务器。" else if(company)"公司原文只读；我的备注保存后可跨设备查看。" else "修改保留在本机，点击同步保存后可跨设备查看。",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.secondary)}
         if(!examples && !company) {

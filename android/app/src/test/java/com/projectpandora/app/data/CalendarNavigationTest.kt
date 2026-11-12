@@ -36,4 +36,20 @@ class CalendarNavigationTest {
         listOf(Int.MIN_VALUE,0,1899,2101,Int.MAX_VALUE).forEach {assertNull(jumpCalendarDate(selected,it,10))}
         listOf(Int.MIN_VALUE,0,13,Int.MAX_VALUE).forEach {assertNull(jumpCalendarDate(selected,2026,it))}
     }
+    @org.junit.Test fun verticalDragSwitchesOnlyAfterThreshold() {
+        org.junit.Assert.assertEquals("month",calendarDragMode(100f,40f))
+        org.junit.Assert.assertEquals("week",calendarDragMode(-100f,40f))
+        org.junit.Assert.assertNull(calendarDragMode(5f,40f))
+        org.junit.Assert.assertNull(calendarDragMode(0f,40f))
+    }
+    @Test fun dragPassesThroughNormalMonthInBothDirections() {
+        assertEquals("normal",calendarSizeAfterDrag("week",100f,40f))
+        assertEquals("expanded",calendarSizeAfterDrag("normal",100f,40f))
+        assertEquals("normal",calendarSizeAfterDrag("expanded",-100f,40f))
+        assertEquals("week",calendarSizeAfterDrag("normal",-100f,40f))
+        assertEquals("week",calendarSizeAfterDrag("week",-100f,40f))
+        assertEquals("expanded",calendarSizeAfterDrag("expanded",100f,40f))
+        assertEquals("normal",calendarSizeAfterDrag("normal",1f,40f))
+    }
+
 }

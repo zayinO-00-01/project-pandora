@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Pandora API
-  version: 0.8.2
+  version: 0.9.10
   description: 老师方案整合版：保留用户自建审批、年月直选和清单同步；全公司业务成员选人，非创始人创建与进度提交由当前直属上级审批；创始人本人操作免审。删除暂按创建人条件直删/上级审核。日志按创建后24小时修改，任务日历与日志分离。
 servers:
 - url: /api/v1
@@ -1404,6 +1404,60 @@ paths:
         '403': *id003
         '404': *id004
         '409': *id005
+  /directory:
+    get:
+      summary: 公司通讯录（仅业务成员）
+      description: 列出有效业务账号的姓名、职位、直属上级、电话和头像。不包含身份证、住址、生日及紧急联系人，不授予任务或日志访问权限。
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: 有效组织联系人列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DirectoryContact'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+  /tasks/batch:
+    post:
+      summary: 为多位责任人分别创建独立任务（原子提交）
+      security:
+      - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tasks]
+              properties:
+                tasks:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items:
+                    $ref: '#/components/schemas/TaskInput'
+      responses:
+        '201':
+          description: 全部创建成功，顺序与输入一致
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          description: 责任人不存在，整批回滚
+
 components:
   securitySchemes:
     bearer:
@@ -1411,6 +1465,35 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    DirectoryContact:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        displayName:
+          type: string
+          nullable: true
+        role:
+          type: string
+        managerId:
+          type: integer
+          format: int64
+          nullable: true
+        managerName:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        avatar:
+          type: string
+          nullable: true
+        avatarData:
+          type: string
+          nullable: true
     UserSummary:
       type: object
       properties:

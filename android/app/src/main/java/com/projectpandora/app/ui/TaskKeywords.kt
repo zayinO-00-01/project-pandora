@@ -33,11 +33,9 @@ import com.projectpandora.app.data.*
     LaunchedEffect(state.notice) {if(state.notice?.startsWith("关键词")==true){open=false;confirmDelete=false}}
     OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
         Text("任务关键词",style=MaterialTheme.typography.titleMedium)
-        Text("用简短的词语说明任务，例如需求、联调、验收。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         KeywordChips(task.keywords.orEmpty(),if(enabled)({keyword->editing=keyword;text=keyword.text;open=true}) else null)
         if(task.keywords.isNullOrEmpty())Text("还没有关键词",style=MaterialTheme.typography.bodySmall)
         if(participant)ControlTextButton(onClick={editing=null;text="";open=true},enabled=enabled && task.keywords.orEmpty().size<12) {Text("＋ 添加关键词")}
-        Text(if(state.developmentPreview)"本地示例；登录后可与任务执行人一起制定关键词。" else if(participant)"点击关键词可修改。修改自己的词直接生效，修改或删除他人添加的词需直属上级审核；创始人免审。" else "关键词由任务创建人和执行人共同制定。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }}
     if(open)AlertDialog(onDismissRequest={if(!state.saving)open=false},title={Text(if(editing==null)"添加关键词" else "修改关键词")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
         OutlinedTextField(value=text,onValueChange={text=it.take(24)},singleLine=true,label={Text("关键词")},supportingText={Text("${text.length} / 24")},enabled=!state.saving)

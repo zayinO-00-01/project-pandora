@@ -22,7 +22,7 @@ import com.projectpandora.app.data.*
     val member=state.member
     BackHandler(enabled=member!=null && !state.saving) {model.loadOrganization()}
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=32.dp)) {
-        item {ControlTextButton(onClick={if(member!=null)model.loadOrganization() else model.screen("day")},enabled=!state.saving,contentPadding=PaddingValues(0.dp)) {Text(if(member!=null)"返回组织" else "返回视图")}}
+        item {BackdropTextButton(onClick={if(member!=null)model.loadOrganization() else model.screen("day")},enabled=!state.saving) {Text(if(member!=null)"返回组织" else "返回公司")}}
         if(state.organizationLoading)item {LinearProgressIndicator(Modifier.fillMaxWidth())}
         state.organizationError?.let {item {Hint(it,true,onRetry={if(member!=null)model.openMember(member) else model.loadOrganization()},retryEnabled=enabled)}}
         if(member!=null) {
@@ -37,9 +37,9 @@ import com.projectpandora.app.data.*
             }
         } else {
             item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-                if(AppRoles.canViewDown(me.role))ControlTextButton(onClick={section="members"}) {Text("下级工作")}
-                if(me.role!="FOUNDER")ControlTextButton(onClick={section="manager"}) {Text("直属上级")}
-                ControlTextButton(onClick={section="requests"}) {Text("查看申请")}
+                if(AppRoles.canViewDown(me.role))BackdropTextButton(onClick={section="members"}) {Text("下级工作")}
+                if(me.role!="FOUNDER")BackdropTextButton(onClick={section="manager"}) {Text("直属上级")}
+                if(AppRoles.canReview(me.role))BackdropTextButton(onClick={section="requests"}) {Text("查看申请")}
             }}
             if(section=="members") {
                 item {ScreenHeading(AppRoles.scopeLabel(me.role),if(me.role=="FOUNDER")"查看全公司业务成员的已提交日志与任务，草稿不公开。" else "沿组织关系向下查看，其他部门与他人草稿不开放。")}
@@ -70,7 +70,7 @@ import com.projectpandora.app.data.*
                     }
                 }
             }
-            if(section=="requests") {
+            if(section=="requests" && AppRoles.canReview(me.role)) {
                 item {ScreenHeading("查看申请","只处理申请查看你工作信息的直属下级；授权仅允许查看。")}
                 if(state.viewRequests.isEmpty() && !state.organizationLoading && state.organizationError==null)item {Text("暂无查看申请",color=MaterialTheme.colorScheme.onSurfaceVariant)}
                 if(state.selectedViewRequestId!=null && !state.organizationLoading && state.organizationError==null && state.viewRequests.none {it.id==state.selectedViewRequestId})item {Hint("该申请当前不可见，请查看申请列表。")}

@@ -64,21 +64,22 @@ import java.time.format.DateTimeFormatter
     val readFailures=listOfNotNull(state.panelError?.let {"总览：$it"},state.taskError?.let {"任务：$it"},state.logError?.let {"日志：$it"})
     val retained=state.tasks.isNotEmpty() || state.logs.isNotEmpty() || state.panels!=null
     if(syncDetails)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={syncDetails=false},title={Text("同步失败")},text={Text(readFailures.joinToString("\n\n")+if(retained)"\n\n正在显示上次成功读取的内容。" else "\n\n暂时无法读取工作内容。")},confirmButton={ControlTextButton(onClick={syncDetails=false;model.refresh()},enabled=!state.loading) {Text("重试")}},dismissButton={ControlTextButton(onClick={syncDetails=false}) {Text("关闭")}})
-    val showFloating=state.editor==null && state.selectedTaskId==null && !state.dispatchOpen && state.screen!="profile" && state.screen!="labels"
+    val showFloating=state.editor==null && state.selectedTaskId==null && !state.dispatchOpen && state.screen in listOf("home","ai","logs")
     val headerHeight=(if(homeHeader && (readFailures.isNotEmpty() || state.developmentPreview))96.dp else if(homeHeader)72.dp else if(state.developmentPreview)64.dp else 48.dp) * maxOf(1f,LocalDensity.current.fontScale)
-    BackHandler(enabled=state.editor==null && state.selectedTaskId==null && state.screen!="home" && !state.dispatchOpen) {if(!state.saving)model.screen(if(state.screen=="labels")"profile" else if(state.screen in listOf("tasks","organization","inbox"))"day" else "home")}
+    BackHandler(enabled=state.editor==null && state.selectedTaskId==null && state.screen!="home" && !state.dispatchOpen) {if(!state.saving)model.screen(if(state.screen=="labels")"profile" else if(state.screen in listOf("tasks","organization","inbox","directory"))"day" else "home")}
     val pageTitle=when {
         state.editor!=null -> "潘多拉"
-        state.screen=="home" || state.screen=="ai" -> AppRoles.homeTitle(state.session.role)
+        state.screen=="home" || state.screen=="ai" -> "首页"
         state.dispatchOpen -> "新建任务"
         state.screen=="functions" -> "职能"
         state.screen=="tasks" -> if(state.selectedTaskId==null)"任务列表" else "任务详情"
+        state.screen=="directory" -> "通讯录"
         state.screen=="organization" -> AppRoles.scopeLabel(state.session.role)
         state.screen=="logs" -> "工作日志"
-        state.screen=="day" -> "工作视图"
+        state.screen=="day" -> "公司"
         state.screen=="profile" -> "我的"
         state.screen=="notifications" -> "消息中心"
-        state.screen=="inbox" -> "通知与审核"
+        state.screen=="inbox" -> if(AppRoles.canReview(state.session.role))"通知与审核" else "消息通知"
         state.screen=="labels" -> "品牌标签"
         else -> "潘多拉"
     }
@@ -91,6 +92,14 @@ import java.time.format.DateTimeFormatter
         if(homeHeader && readFailures.isNotEmpty())Text("同步失败 · ${if(retained)"上次内容" else "查看原因"} ›",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.error,maxLines=2)
         if(state.developmentPreview)Text("本地预览",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }},actions={
+        if(state.screen=="day")Row(Modifier.padding(end=12.dp),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+            listOf("tasks" to "全部任务","directory" to "通讯录").forEach {(destination,label)->
+                BackdropTextButton(onClick={model.screen(destination)},modifier=Modifier.size(width=76.dp,height=40.dp),
+                    enabled=!state.saving,contentPadding=PaddingValues(horizontal=4.dp,vertical=4.dp)) {
+                    Text(label,style=MaterialTheme.typography.labelMedium,maxLines=1)
+                }
+            }
+        }
     },colors=TopAppBarDefaults.topAppBarColors(containerColor=Color.Transparent))}},floatingActionButton={
         if(showFloating)Column(Modifier.padding(end=4.dp,bottom=80.dp),verticalArrangement=Arrangement.spacedBy(10.dp),horizontalAlignment=Alignment.CenterHorizontally) {
             FloatingWorkspaceButton("刷新",R.drawable.console_sync,!state.loading && !state.organizationLoading && !state.saving,state.loading || state.organizationLoading) {feedback();if(state.screen=="organization")model.loadOrganization() else model.refresh()}
@@ -100,8 +109,8 @@ import java.time.format.DateTimeFormatter
         if(state.editor==null && state.selectedTaskId==null && !state.dispatchOpen)Column {
             HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
             Box(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {NavigationBar(containerColor=MaterialTheme.colorScheme.background,tonalElevation=0.dp,modifier=Modifier.widthIn(max=600.dp).fillMaxWidth().height(72.dp),windowInsets=WindowInsets(0,0,0,0)) {
-                val items=listOf(Triple("home","总览",R.drawable.console_home),Triple("logs","日志",R.drawable.console_log),Triple("day","视图",R.drawable.console_calendar),Triple("profile","我的",R.drawable.console_person))
-                items.forEach {(key,label,icon)->NavigationBarItem(selected=state.screen==key || (key=="day" && state.screen in listOf("tasks","organization","inbox")) || (key=="profile" && state.screen=="labels") || (key=="home" && state.screen=="ai"),
+                val items=listOf(Triple("home","首页",R.drawable.console_home),Triple("logs","日志",R.drawable.console_log),Triple("day","公司",R.drawable.console_calendar),Triple("profile","我的",R.drawable.console_person))
+                items.forEach {(key,label,icon)->NavigationBarItem(selected=state.screen==key || (key=="day" && state.screen in listOf("tasks","organization","inbox","directory")) || (key=="profile" && state.screen=="labels") || (key=="home" && state.screen=="ai"),
                     onClick={feedback();model.screen(key)},enabled=!state.saving,
                     icon={Icon(painterResource(icon),contentDescription=null,modifier=Modifier.size(21.dp))},label={Text(label,maxLines=1,softWrap=false,style=MaterialTheme.typography.labelSmall)},
                     colors=NavigationBarItemDefaults.colors(indicatorColor=androidx.compose.ui.graphics.Color.Transparent,
@@ -131,6 +140,7 @@ import java.time.format.DateTimeFormatter
             "inbox" -> InboxScreen(page,model)
             "labels" -> LabelsScreen(page,model)
             "organization" -> OrganizationScreen(page,model)
+            "directory" -> DirectoryScreen(page,model)
         }
         }
     }}}
@@ -167,6 +177,8 @@ import java.time.format.DateTimeFormatter
     var details by remember {mutableStateOf<String?>(null)}
     var avatarPicker by remember {mutableStateOf(false)}
     var showProfileDetails by remember {mutableStateOf(false)}
+    var editingProfile by remember {mutableStateOf(false)}
+    if(editingProfile)state.profile?.let {profile->EditOwnProfile(profile,state,model) {editingProfile=false}}
     val avatars=listOf("🦊","🐼","🐯","🐻","🦉","🐳","🌿","⭐","🔥","🍀")
     val pickImage=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {uri-> if(uri!=null) {model.changeAvatar(uri);avatarPicker=false}}
     val permissionText=when(me.role) {
@@ -176,7 +188,7 @@ import java.time.format.DateTimeFormatter
         "LEADER"->"当前连接旧版演示服务，权限以该服务为准。"
         else->"员工：可给公司任一业务成员建任务，创建及本人进度经当前直属上级审批后生效；查看直属上级须申请并获批准。"
     }
-    details?.let {section->AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={details=null},title={Text(if(section=="access")"账号与权限" else "当前服务")},text={Text(if(section=="access")"$permissionText\n\n资料与组织关系由管理员在 Web 维护；组织查看与申请从视图下方进入。" else "${me.server}\n\n工作记录保存在此服务。无法连接时，请检查网络或联系管理员。")},confirmButton={ControlTextButton(onClick={details=null}) {Text("关闭")}})}
+    details?.let {section->AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={details=null},title={Text(if(section=="access")"账号与权限" else "当前服务")},text={Text(if(section=="access")"$permissionText\n\n组织关系由管理员在 Web 维护；组织查看与申请从公司页下方进入。" else "${me.server}\n\n工作记录保存在此服务。无法连接时，请检查网络或联系管理员。")},confirmButton={ControlTextButton(onClick={details=null}) {Text("关闭")}})}
     if(avatarPicker)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={avatarPicker=false},title={Text("选择头像")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
         avatars.chunked(5).forEach {row-> Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
             row.forEach {emoji-> Surface(shape=androidx.compose.foundation.shape.CircleShape,color=if(state.profile?.avatar==emoji)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,modifier=Modifier.size(48.dp).clickable(enabled=!state.saving){model.changeAvatar(emoji);avatarPicker=false}) {Box(contentAlignment=Alignment.Center){Text(emoji,style=MaterialTheme.typography.titleLarge)}}}
@@ -206,11 +218,20 @@ import java.time.format.DateTimeFormatter
             }
         }
         HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
-        Text("个人资料",style=MaterialTheme.typography.titleSmall,modifier=Modifier.padding(top=12.dp,bottom=8.dp))
+        Text("本人档案",style=MaterialTheme.typography.titleSmall,modifier=Modifier.padding(top=12.dp,bottom=8.dp))
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+            ControlOutlinedButton(onClick={showProfileDetails=!showProfileDetails},
+                modifier=Modifier.weight(1f).fillMaxHeight(),enabled=!state.saving) {
+                Text(if(showProfileDetails)"收起档案" else "查看档案")
+            }
+            ControlOutlinedButton(onClick={editingProfile=true},modifier=Modifier.weight(1f).fillMaxHeight(),
+                enabled=!state.saving && !state.developmentPreview && state.profile!=null) {
+                Text("编辑档案")
+            }
+        }
         if(state.profileLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
         state.profileError?.let {Hint(it,true,onRetry=model::refresh)}
         if(state.developmentPreview)Text("登录业务账号后可查看个人资料",style=MaterialTheme.typography.bodySmall)
-        ControlTextButton(onClick={showProfileDetails=!showProfileDetails},enabled=!state.saving) {Text(if(showProfileDetails)"收起本人档案" else "查看本人档案")}
         if(showProfileDetails)state.profile?.let {profile->
             listOf("姓名" to profile.displayName,"手机号" to profile.phone,"身份证号" to profile.idCard,
                 "出生日期" to profile.birthDate,"性别" to profile.gender,"入职日期" to profile.hireDate,
@@ -221,7 +242,7 @@ import java.time.format.DateTimeFormatter
                     Text(value?.takeIf {it.isNotBlank()} ?: "未填写",style=MaterialTheme.typography.bodyMedium,modifier=Modifier.weight(1f))
                 }
             }
-            Text("资料由管理员维护，如需更正请联系管理员。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.padding(vertical=8.dp))
+
         }
         AccountSettings(state,model)
         HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
