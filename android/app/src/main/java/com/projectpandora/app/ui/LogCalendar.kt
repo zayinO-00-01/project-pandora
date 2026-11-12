@@ -26,8 +26,6 @@ import java.time.LocalDate
     var jump by remember {mutableStateOf(false)}
     val first=selected.withDayOfMonth(1)
     val offset=first.dayOfWeek.value%7
-    val logsByDay=state.logs
-    val tasksByDay=state.tasks.filter {taskIsApproved(it) && !it.deleted && it.assigneeId==state.session?.userId}.groupBy {taskDate(it)}
     Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment=Alignment.CenterVertically) {
             ControlTextButton(onClick={jump=true},modifier=Modifier.weight(1f)) {Text("${selected.year} 年 ${selected.monthValue} 月 ▾")}
@@ -44,14 +42,15 @@ import java.time.LocalDate
                     if(day !in 1..selected.lengthOfMonth())Spacer(Modifier.weight(1f))
                     else {
                         val date=first.withDayOfMonth(day)
-                        val logCount=logsByDay.count {it.covers(date.toString())}
-                        val taskCount=tasksByDay[date].orEmpty().size
-                        ControlTextButton(onClick={model.selectDate(date.toString())},modifier=Modifier.weight(1f).height(64.dp),
+                        val content=logCalendarContent(date,state.session?.userId,state.logs,state.tasks,state.contentLabels)
+                        ControlTextButton(onClick={model.selectDate(date.toString())},modifier=Modifier.weight(1f).height(96.dp).semantics {contentDescription="${date}，${content.logs.size}篇日志，${content.tasks.size}项任务，${content.labels.joinToString {it.name}}"},
                             contentPadding=PaddingValues(0.dp),colors=ButtonDefaults.textButtonColors(containerColor=if(date==selected)MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)) {
                             Column(horizontalAlignment=Alignment.CenterHorizontally) {
                                 Row {Text(day.toString());HolidayBadge(date)}
-                                if(logCount>0)Text("日志",style=MaterialTheme.typography.labelSmall,maxLines=1)
-                                if(taskCount>0)Text("${taskCount}任务",style=MaterialTheme.typography.labelSmall,maxLines=1)
+                                festivalName(date)?.let {Text(it,style=MaterialTheme.typography.labelSmall,maxLines=1)}
+                                if(content.logs.isNotEmpty())Text("${content.logs.size}日志",style=MaterialTheme.typography.labelSmall,maxLines=1)
+                                if(content.tasks.isNotEmpty())Text("${content.tasks.size}任务",style=MaterialTheme.typography.labelSmall,maxLines=1)
+                                LabelLines(content.labels.take(4))
                             }
                         }
                     }

@@ -70,7 +70,7 @@ import androidx.compose.ui.semantics.contentDescription
         if(!dayOnly && !allDates) {
             item {LogCalendar(state,model)}
             val date=LocalDate.parse(state.selectedDate)
-            val tasks=orderedTasks(state.tasks.filter {taskDate(it)==date && it.assigneeId==state.session?.userId && taskIsApproved(it) && !it.deleted})
+            val tasks=logCalendarContent(date,state.session?.userId,state.logs,state.tasks,state.contentLabels).tasks
             item {
                 Column(Modifier.padding(vertical=12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                     holidayLabel(date)?.let {Text(it,color=MaterialTheme.colorScheme.secondary)}

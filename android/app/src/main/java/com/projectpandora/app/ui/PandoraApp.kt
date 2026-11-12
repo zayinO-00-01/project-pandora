@@ -206,7 +206,7 @@ import java.time.format.DateTimeFormatter
             Surface(shape=androidx.compose.foundation.shape.CircleShape,color=MaterialTheme.colorScheme.surfaceVariant,modifier=Modifier.size(56.dp).clickable(enabled=!state.saving && !state.developmentPreview){avatarPicker=true}) {
                 Box(contentAlignment=androidx.compose.ui.Alignment.Center,modifier=Modifier.fillMaxSize()) {
                     if(avatarImage!=null) Image(bitmap=avatarImage,contentDescription="头像",contentScale=ContentScale.Crop,modifier=Modifier.fillMaxSize().clip(androidx.compose.foundation.shape.CircleShape))
-                    else Text(profile?.avatar?.takeIf {it.isNotBlank()} ?: (me.displayName ?: me.username).take(1),style=MaterialTheme.typography.titleLarge)
+                    else Text(profile?.avatar?.takeIf {it.isNotBlank()} ?: (profile?.displayName ?: me.displayName ?: me.username).take(1),style=MaterialTheme.typography.titleLarge)
                 }
             }
             Column(verticalArrangement=Arrangement.spacedBy(4.dp),modifier=Modifier.weight(1f)) {
