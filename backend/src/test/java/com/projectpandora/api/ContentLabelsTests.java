@@ -17,7 +17,8 @@ class ContentLabelsTests {
 String token(String name)throws Exception{return TaskPolicyTestSupport.token(mvc,json,name);}
 @Test void archivedExistingLabelsDoNotBlockEditsButCannotBeNewlySelected()throws Exception {
  long owner=db.queryForObject("select id from users where username='staff'",Long.class);
- db.update("insert into work_logs(user_id,log_date,end_date,content,status,created_at,updated_at) values(?,CURRENT_DATE,CURRENT_DATE,'test','submitted',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",owner);
+ var today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+ db.update("insert into work_logs(user_id,log_date,end_date,content,status,created_at,updated_at) values(?,?,?,'test','submitted',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",owner,today,today);
  long id=db.queryForObject("select max(id) from work_logs",Long.class);
  db.update("insert into work_labels(name,color,active) values('Historical','#ABCDEF',true)");
  long label=db.queryForObject("select id from work_labels where name='Historical'",Long.class);
@@ -25,8 +26,7 @@ String token(String name)throws Exception{return TaskPolicyTestSupport.token(mvc
  mvc.perform(put("/api/v1/content-labels/log/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(selected)).andExpect(status().isOk());
  db.update("update work_labels set active=false where id=?",label);
  entities.clear();
- var today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).toString();
- String edit=json.writeValueAsString(java.util.Map.of("logDate",today,"content","edited","status","submitted","labelIds",java.util.List.of(label)));
+ String edit=json.writeValueAsString(java.util.Map.of("logDate",today.toString(),"content","edited","status","submitted","labelIds",java.util.List.of(label)));
  mvc.perform(put("/api/v1/logs/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(edit)).andExpect(status().isOk()).andExpect(jsonPath("$.content").value("edited"));
  mvc.perform(put("/api/v1/content-labels/log/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(selected)).andExpect(status().isOk());
  mvc.perform(put("/api/v1/content-labels/log/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content("{\"labelIds\":[]}")).andExpect(status().isOk());
@@ -50,7 +50,8 @@ String token(String name)throws Exception{return TaskPolicyTestSupport.token(mvc
 }
 @Test void multiLabelsPersistAndOtherAuthorsCannotChangeThem()throws Exception {
  long owner=db.queryForObject("select id from users where username='staff'",Long.class);
- db.update("insert into work_logs(user_id,log_date,end_date,content,status,created_at,updated_at) values(?,CURRENT_DATE,CURRENT_DATE,'test','submitted',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",owner);
+ var today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+ db.update("insert into work_logs(user_id,log_date,end_date,content,status,created_at,updated_at) values(?,?,?,'test','submitted',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",owner,today,today);
  long id=db.queryForObject("select max(id) from work_logs",Long.class);
  db.update("insert into work_labels(name,color,active) values('A','#ABCDEF',true),('B','#123456',true)");
  var ids=db.queryForList("select id from work_labels where name in ('A','B') order by id",Long.class);
