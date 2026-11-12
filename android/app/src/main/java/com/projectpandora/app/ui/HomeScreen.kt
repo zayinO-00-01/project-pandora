@@ -50,7 +50,7 @@ import com.projectpandora.app.data.*
     } else {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val fontScale=androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceAtLeast(1f)
-        val tileHeight=300.dp*fontScale
+        val tileHeight=360.dp*fontScale
         LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(top=4.dp,bottom=12.dp)) {
             state.workspaceError?.let {item {Hint(it,true)}}
             item {Row(Modifier.fillMaxWidth().height(tileHeight),horizontalArrangement=Arrangement.spacedBy(12.dp)) {

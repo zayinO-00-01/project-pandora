@@ -15,7 +15,7 @@ import com.projectpandora.app.data.*
 import java.time.LocalDate
 
 @Composable internal fun HolidayBadge(date: LocalDate) {
-    val label=holidayLabel(date) ?: return
+    val label=holidayScheduleLabel(date) ?: return
     val work=label=="调休上班"
     Text(if(work)"班" else "休",modifier=Modifier.semantics {contentDescription=label},
         style=MaterialTheme.typography.labelSmall,color=if(work)MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary)

@@ -48,33 +48,19 @@ import com.google.gson.reflect.TypeToken
  LaunchedEffect(key) {busy=true;try {load()} catch(e:Exception) {if(e is CancellationException)throw e;error=e.message ?: "读取失败"} finally {busy=false}}
  Surface(color=MaterialTheme.colorScheme.surface.copy(alpha=.97f),shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth().panelOutline()) {
  Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-  Row(verticalAlignment=Alignment.CenterVertically) {
-   Text("每日事项",style=MaterialTheme.typography.titleLarge,modifier=Modifier.weight(1f))
-   ControlTextButton(onClick={scope.launch {busy=true;try {load();error=null} catch(e:Exception) {if(e is CancellationException)throw e;error=e.message} finally {busy=false}}},enabled=!busy) {Text("刷新")}
-  }
-  Row(verticalAlignment=Alignment.CenterVertically) {
-   Text("${selected.year} 年 ${selected.monthValue} 月",style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f))
-   ControlTextButton(onClick={selectedText=selected.minusMonths(1).toString()}) {Text("‹")}
-   ControlTextButton(onClick={selectedText=today().toString()}) {Text("今天")}
-   ControlTextButton(onClick={selectedText=selected.plusMonths(1).toString()}) {Text("›")}
-  }
-  Row {listOf("日","一","二","三","四","五","六").forEach {Text(it,modifier=Modifier.weight(1f),textAlign=androidx.compose.ui.text.style.TextAlign.Center)}}
-  val first=selected.withDayOfMonth(1)
-  val offset=first.dayOfWeek.value%7
-  val count=(offset+selected.lengthOfMonth()+6)/7*7
-  (0 until count).chunked(7).forEach {week->Row {
-   week.forEach {index->val day=index-offset+1
-    if(day !in 1..selected.lengthOfMonth())Spacer(Modifier.weight(1f).height(64.dp)) else {
-     val date=first.withDayOfMonth(day).toString()
-     val todos=entries.filter {it.date==date}
-     ControlTextButton(onClick={selectedText=date},modifier=Modifier.weight(1f).height(64.dp),contentPadding=PaddingValues(1.dp),colors=ButtonDefaults.textButtonColors(containerColor=if(date==selectedText)MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)) {
-      Column(horizontalAlignment=Alignment.CenterHorizontally) {Row {Text("$day");HolidayBadge(first.withDayOfMonth(day))};todos.take(2).forEach {Text((if(it.completed)"✓ " else "")+it.title,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.labelSmall)}}
-     }
-    }
+  Text("每日事项",style=MaterialTheme.typography.titleLarge)
+  val todosByDate=remember(entries) {entries.groupBy {it.date}}
+  WorkspaceCalendar(selected,onDate={selectedText=it.toString()}) {date->
+   todosByDate[date.toString()].orEmpty().take(2).forEach {item->
+    Text((if(item.completed)"✓ " else "")+item.title,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.labelSmall)
    }
-  }}
+  }
   HorizontalDivider()
-  Row(verticalAlignment=Alignment.CenterVertically) {Text("${selected.monthValue}月${selected.dayOfMonth}日",modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
+  Row(verticalAlignment=Alignment.CenterVertically) {
+   Column(Modifier.weight(1f)) {
+    Text("${selected.monthValue}月${selected.dayOfMonth}日",style=MaterialTheme.typography.titleMedium)
+    holidayLabel(selected)?.let {Text(it,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.secondary)}
+   }
    ControlButton(onClick={creating=true;title="";editing=DailyTodo(UUID.randomUUID().toString(),"",selectedText)},enabled=!busy) {Text("添加事项")}}
   if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())
   error?.let {Hint(it,true)}

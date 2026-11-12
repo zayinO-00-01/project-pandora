@@ -92,8 +92,14 @@ import java.time.format.DateTimeFormatter
         if(homeHeader && readFailures.isNotEmpty())Text("同步失败 · ${if(retained)"上次内容" else "查看原因"} ›",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.error,maxLines=2)
         if(state.developmentPreview)Text("本地预览",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }},actions={
-        if(state.screen=="day")BackdropTextButton(onClick={model.screen("tasks")},enabled=!state.saving,contentPadding=PaddingValues(horizontal=8.dp,vertical=4.dp)) {Text("全部任务",style=MaterialTheme.typography.labelMedium)}
-        if(state.screen=="day")BackdropTextButton(onClick={model.screen("directory")},modifier=Modifier.padding(end=12.dp).height(40.dp),enabled=!state.saving,contentPadding=PaddingValues(horizontal=8.dp,vertical=4.dp)) {Icon(Icons.Outlined.Person,null,modifier=Modifier.size(16.dp));Spacer(Modifier.width(3.dp));Text("通讯录",style=MaterialTheme.typography.labelMedium)}
+        if(state.screen=="day")Row(Modifier.padding(end=12.dp),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+            listOf("tasks" to "全部任务","directory" to "通讯录").forEach {(destination,label)->
+                BackdropTextButton(onClick={model.screen(destination)},modifier=Modifier.size(width=76.dp,height=40.dp),
+                    enabled=!state.saving,contentPadding=PaddingValues(horizontal=4.dp,vertical=4.dp)) {
+                    Text(label,style=MaterialTheme.typography.labelMedium,maxLines=1)
+                }
+            }
+        }
     },colors=TopAppBarDefaults.topAppBarColors(containerColor=Color.Transparent))}},floatingActionButton={
         if(showFloating)Column(Modifier.padding(end=4.dp,bottom=80.dp),verticalArrangement=Arrangement.spacedBy(10.dp),horizontalAlignment=Alignment.CenterHorizontally) {
             FloatingWorkspaceButton("刷新",R.drawable.console_sync,!state.loading && !state.organizationLoading && !state.saving,state.loading || state.organizationLoading) {feedback();if(state.screen=="organization")model.loadOrganization() else model.refresh()}
@@ -212,14 +218,20 @@ import java.time.format.DateTimeFormatter
             }
         }
         HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-            Text("本人档案",style=MaterialTheme.typography.titleSmall,modifier=Modifier.weight(1f))
-            ControlOutlinedButton(onClick={editingProfile=true},enabled=!state.saving && !state.developmentPreview && state.profile!=null) {Text("编辑本人档案")}
+        Text("本人档案",style=MaterialTheme.typography.titleSmall,modifier=Modifier.padding(top=12.dp,bottom=8.dp))
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+            ControlOutlinedButton(onClick={showProfileDetails=!showProfileDetails},
+                modifier=Modifier.weight(1f).fillMaxHeight(),enabled=!state.saving) {
+                Text(if(showProfileDetails)"收起档案" else "查看档案")
+            }
+            ControlOutlinedButton(onClick={editingProfile=true},modifier=Modifier.weight(1f).fillMaxHeight(),
+                enabled=!state.saving && !state.developmentPreview && state.profile!=null) {
+                Text("编辑档案")
+            }
         }
         if(state.profileLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
         state.profileError?.let {Hint(it,true,onRetry=model::refresh)}
         if(state.developmentPreview)Text("登录业务账号后可查看个人资料",style=MaterialTheme.typography.bodySmall)
-        ControlTextButton(onClick={showProfileDetails=!showProfileDetails},enabled=!state.saving) {Text(if(showProfileDetails)"收起本人档案" else "查看本人档案")}
         if(showProfileDetails)state.profile?.let {profile->
             listOf("姓名" to profile.displayName,"手机号" to profile.phone,"身份证号" to profile.idCard,
                 "出生日期" to profile.birthDate,"性别" to profile.gender,"入职日期" to profile.hireDate,

@@ -41,9 +41,11 @@ import com.projectpandora.app.data.PanelItem
     val colors=MaterialTheme.colorScheme
     val shape=MaterialTheme.shapes.medium
     val feedback=LocalControlFeedback.current
+    val fontScale=androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceAtLeast(1f)
+    val cardHeight=(if(compact)104.dp else 244.dp)*fontScale
     Box(modifier.padding(end=3.dp,bottom=4.dp)) {
         Box(Modifier.matchParentSize().offset(x=3.dp,y=4.dp).background(colors.secondaryContainer,shape).border(1.dp,colors.outline,shape))
-        Column(Modifier.fillMaxWidth().heightIn(min=if(compact)62.dp else 206.dp)
+        Column(Modifier.fillMaxWidth().height(cardHeight)
             .graphicsLayer {
                 rotationX=tiltX;rotationY=tiltY;cameraDistance=16*density
                 translationY=-lift*2.dp.toPx();shadowElevation=(2+lift*4).dp.toPx()
@@ -71,7 +73,7 @@ import com.projectpandora.app.data.PanelItem
             Text(entry.title,style=MaterialTheme.typography.titleSmall,maxLines=if(compact)2 else 3,overflow=TextOverflow.Ellipsis)
             if(!compact)Text(entry.detail?.takeIf {it.isNotBlank()} ?: "查看完整工作安排",style=MaterialTheme.typography.bodySmall,
                 color=colors.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)
-            if(!compact)Spacer(Modifier.weight(1f))
+            Spacer(Modifier.weight(1f))
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
                 FlowRow(Modifier.weight(1f),horizontalArrangement=Arrangement.spacedBy(4.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {labels.forEach {label->Box(Modifier.size(width=18.dp,height=3.dp).background(labelColor(label),MaterialTheme.shapes.small))}}
                 if(onLabels!=null)androidx.compose.material3.IconButton(onClick=onLabels,modifier=Modifier.size(28.dp)) {Text("≡",modifier=Modifier.semantics {contentDescription="设置事项标签"},color=colors.onSurfaceVariant)}
