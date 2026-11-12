@@ -35,6 +35,33 @@ public class UserController {
             : users.findById(user.getManagerId()).map(UserEntity::getDisplayName).orElse(null);
         return ProfileResponse.from(user,managerName);
     }
+    @PutMapping("/me")
+    @Transactional
+    public ProfileResponse updateOwnProfile(@Valid @RequestBody OwnProfileRequest request) {
+        organization.lock();
+        var principal=access.assertBusiness();
+        var user=users.findById(principal.getId()).orElseThrow(()->new ApiException(404,"用户不存在"));
+        String phone=optionalPhone(request.phone());
+        String emergencyPhone=optionalPhone(request.emergencyPhone());
+        user.setDisplayName(request.displayName().trim());
+        user.setPhone(phone);
+        user.setEmergencyContact(optionalText(request.emergencyContact()));
+        user.setEmergencyPhone(emergencyPhone);
+        user.setAddress(optionalText(request.address()));
+        users.saveAndFlush(user);
+        return me();
+    }
+    private static String optionalText(String value) {
+        return value==null || value.isBlank() ? null : value.trim();
+    }
+    private static String optionalPhone(String value) {
+        String phone=optionalText(value);
+        if(phone!=null && (!phone.matches("[+0-9() -]+") || phone.chars().filter(Character::isDigit).count()<3))
+            throw new ApiException(400,"请输入有效联系电话");
+        return phone;
+    }
+    public record OwnProfileRequest(@NotBlank @Size(max=64) String displayName,@Size(max=20) String phone,
+        @Size(max=64) String emergencyContact,@Size(max=20) String emergencyPhone,@Size(max=255) String address) {}
     @PutMapping("/me/password")
     @Transactional
     public ChangePasswordResult changePassword(@Valid @RequestBody ChangePasswordRequest request) {

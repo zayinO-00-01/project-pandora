@@ -1,12 +1,14 @@
+> 0.9.0 工作台调整：视图页移除悬浮刷新/日志按钮；任务日历+时分滚轮；全部任务仅本人创建/负责，支持表格查看；员工仅消息通知，管理人员可审批；视图右上角新增安全通讯录。日志仅今天、昨天、前天，每天一篇（含草稿），不再新建多日记录。APK 和后端须配套更新。详见 [工作台调整说明](../docs/工作台调整-0.9.0.md)。
+
 # Pandora API
 
-Spring Boot3 / Java17，默认H2文件库。根目录start-demo.cmd将Web和API运行在同一服务。完整契约见[OpenAPI](openapi.yaml)。当前整合目标0.8.1，尚未替换运行中的云端0.7.0。
+Spring Boot3 / Java17，默认H2文件库。根目录start-demo.cmd将Web和API运行在同一服务。完整契约见[OpenAPI](openapi.yaml)。当前为本地整合版本，尚未替换运行中的云端版本。
 
 - ADMIN管理账号、档案、公司事项和自己的私密备注；业务成员通过Android处理工作。
 - 创建初审：GET /tasks/pending-approvals、PUT /tasks/{id}/approval；非创始人创建均由其当前直属上级批准。责任人可选全公司有效业务成员，包括本人。
 - 进度/关键词审核：GET /task-reviews、PUT /task-reviews/{id}；进度批准前不改有效内容，创始人本人作为责任人直接操作。内容变更/删除及历史完成待审保留GET /tasks/reviews与POST /tasks/{id}/approve或reject；创建与后续审计分开。
 - 个人清单GET/PUT /priorities/personal使用revision；公司事项及备注使用/company-notices和/admin/company-notices。
-- 日志支持endDate和labelId，今天及前三天可创建，创建后24小时内可修改/提交，修改不延长时限；旧单日记录和旧客户端字段兼容。
+- 日志支持单日 `logDate` 和标签，今天、昨天、前天三个日期可创建，每个账号每天一篇（含草稿），创建后24小时内可修改/提交，修改不延长时限；旧单日记录和旧客户端字段兼容。
 - 初审/内容变更申请人可POST /tasks/{id}/withdraw撤回，进度/关键词申请PUT /task-reviews/{id}使用canceled。
 - 关键词、品牌标签、个人头像和密码设置由本轮PR补充，具体路径见契约；通知为站内刷新读取，不是系统离线推送。
 
@@ -14,7 +16,7 @@ Spring Boot3 / Java17，默认H2文件库。根目录start-demo.cmd将Web和API�
 
 默认H2连接使用WRITE_DELAY=0同步写入，保存后立即结束进程重启也保留最后提交；显式自定义连接串需自行保留该参数。本轮未改变云端连接配置。
 
-V1–V10保持云端原脚本；所有新迁移顺延，先在数据库副本验证，保留全部原字段及审核时间。不得清空原库、覆盖远端数据库或批量修复未知迁移历史。
+V1–V19保持原脚本；本地整合新增 V20、V21，先在数据库副本验证，保留全部原字段及审核时间。不得清空原库、覆盖远端数据库或批量修复未知迁移历史。
 
 ```powershell
 # 从仓库根目录执行，或用本机Maven路径代替mvn

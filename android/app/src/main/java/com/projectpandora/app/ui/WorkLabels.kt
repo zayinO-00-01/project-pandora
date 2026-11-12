@@ -1,6 +1,11 @@
 package com.projectpandora.app.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -29,4 +34,22 @@ fun labelTextColor(label: WorkLabel?): Color {
         }
         if(labels.isEmpty())Text("暂无可选标签，由创始人在“我的”中维护。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+fun contentTags(state: com.projectpandora.app.AppState,kind: String,id: Long,fallback: WorkLabel?=null): List<WorkLabel> = state.contentLabels.firstOrNull {it.kind==kind && it.contentId==id}?.labels ?: listOfNotNull(fallback)
+@OptIn(ExperimentalLayoutApi::class)
+@Composable fun LabelLines(labels: List<WorkLabel>,modifier: Modifier=Modifier) {
+    FlowRow(modifier,horizontalArrangement=Arrangement.spacedBy(4.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {labels.distinctBy {it.id}.forEach {label->Box(Modifier.size(width=20.dp,height=3.dp).background(labelColor(label),MaterialTheme.shapes.small).semantics {contentDescription="标签：${label.name}"})}}
+}
+@Composable fun MultiLabelPicker(labels: List<WorkLabel>,selected: List<Long>,enabled: Boolean,onChange: (List<Long>)->Unit) {
+    var open by remember {mutableStateOf(false)}
+    Column {
+        ControlOutlinedButton(onClick={open=true},enabled=enabled,modifier=Modifier.fillMaxWidth()) {Text("选择标签 · 已选 ${selected.size} 个")}
+    }
+    if(open)AlertDialog(containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={open=false},title={Text("选择标签（可多选）")},text={Column(Modifier.heightIn(max=360.dp).verticalScroll(rememberScrollState())) {
+        if(labels.isEmpty())Text("暂无可选标签，请由创始人维护。")
+        labels.forEach {label->Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {Checkbox(checked=label.id in selected,enabled=enabled && (label.id in selected || selected.size<12),onCheckedChange={yes->onChange(if(yes)selected+label.id else selected-label.id)});Box(Modifier.padding(end=8.dp).size(width=5.dp,height=20.dp).background(labelColor(label),MaterialTheme.shapes.small));Text(label.name)}}
+        val inactive=selected.filter {id->labels.none {it.id==id}}
+        if(inactive.isNotEmpty())ControlTextButton(onClick={onChange(selected-inactive.toSet())},enabled=enabled) {Text("移除已停用的标签（${inactive.size}）")}
+    }},confirmButton={ControlTextButton(onClick={open=false}) {Text("完成")}})
 }

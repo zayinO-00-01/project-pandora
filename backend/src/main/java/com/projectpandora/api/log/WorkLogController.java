@@ -14,12 +14,14 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/logs")
 public class WorkLogController {
     private final WorkLogRepository logs;
+    private final com.projectpandora.api.label.ContentLabelStore contentLabels;
+    private final com.projectpandora.api.user.UserRepository users;
     private final AccessService access;
     private final com.projectpandora.api.label.LabelService labels;
-    public WorkLogController(WorkLogRepository logs,AccessService access,com.projectpandora.api.label.LabelService labels) {this.logs=logs;this.access=access;this.labels=labels;}
+    public WorkLogController(WorkLogRepository logs,AccessService access,com.projectpandora.api.label.LabelService labels,com.projectpandora.api.user.UserRepository users,com.projectpandora.api.label.ContentLabelStore contentLabels) {this.contentLabels=contentLabels;this.logs=logs;this.access=access;this.labels=labels;this.users=users;}
     @GetMapping("/integrity")
     public IntegrityResponse integrity() {
-        return new IntegrityResponse(true, "完整性校验通过: user="+access.assertBusiness().getUsername(),true);
+        return new IntegrityResponse(true, "完整性校验通过: user="+access.assertBusiness().getUsername(),false);
     }
     @GetMapping
     public List<WorkLogResponse> list(@RequestParam(required=false) LocalDate date,
@@ -31,15 +33,19 @@ public class WorkLogController {
         return result.stream().filter(e->me.equals(target) || "submitted".equals(e.getStatus())).map(WorkLogResponse::from).toList();
     }
     @PostMapping
+    @Transactional
     public ResponseEntity<WorkLogResponse> create(@Valid @RequestBody CreateLogRequest r) {
         assertCreatable(r.logDate());
         var end=r.endDate()==null ? r.logDate() : r.endDate();
-        assertCreatable(end);
-        if(end.isBefore(r.logDate()))throw new ApiException(400,"结束日期不能早于开始日期");
+        if(!end.equals(r.logDate()))throw new ApiException(400,"日报只能选择一天，暂不支持连续多日记录");
+        Long userId=access.assertBusiness().getId();
+        users.lockById(userId).orElseThrow(()->new ApiException(401,"账号不可用"));
+        if(!logs.coveringDate(userId,r.logDate()).isEmpty())throw new ApiException(409,"这一天已有日志，请打开原日志查看或修改");
         var e=new WorkLogEntity();
-        e.setUserId(access.assertBusiness().getId()); e.setLogDate(r.logDate()); e.setEndDate(end);
+        e.setUserId(userId); e.setLogDate(r.logDate()); e.setEndDate(end);
         e.setLabel(labels.resolve(r.labelId(),null)); e.setContent(r.content().trim()); e.setStatus(r.status()==null ? "submitted" : r.status());
-        return ResponseEntity.status(201).body(WorkLogResponse.from(logs.saveAndFlush(e)));
+        logs.saveAndFlush(e);contentLabels.save("log",e.getId(),r.labelIds());
+        return ResponseEntity.status(201).body(WorkLogResponse.from(e));
     }
     @PutMapping("/{id}")
     @Transactional
@@ -54,6 +60,7 @@ public class WorkLogController {
         e.setLogDate(r.logDate()); e.setEndDate(end); e.setContent(r.content().trim());
         e.setLabel(labels.resolve(r.labelId(),e.getLabel()));
         if(r.status()!=null) e.setStatus(r.status());
+        contentLabels.save("log",e.getId(),r.labelIds());
         return WorkLogResponse.from(logs.saveAndFlush(e));
     }
     @PostMapping("/{id}/submit")
@@ -70,8 +77,8 @@ public class WorkLogController {
     }
     private void assertCreatable(LocalDate date) {
         var today=LocalDate.now(ZoneId.of("Asia/Shanghai"));
-        if(date.isBefore(today.minusDays(3)) || date.isAfter(today))
-            throw new ApiException(400,"可创建今天及往前 3 天的日报");
+        if(date.isBefore(today.minusDays(2)) || date.isAfter(today))
+            throw new ApiException(400,"仅可创建今天、昨天和前天的日报");
     }
     private void assertModifiable(WorkLogEntity log) {
         var now=java.time.Instant.now();

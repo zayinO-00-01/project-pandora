@@ -40,7 +40,7 @@ class TaskDemoTests {
     String token(JsonNode user) { return "Bearer " + user.get("token").asText(); }
     String payload(JsonNode assignee, String title) throws Exception {
         return json.writeValueAsString(Map.of("title", title, "detail", "任务详情", "priority", "high",
-            "assigneeId", assignee.get("userId").asLong(), "dueAt", "2026-10-01T15:59:59Z"));
+            "assigneeId", assignee.get("userId").asLong(), "dueAt", "2090-10-01T15:59:59Z"));
     }
     JsonNode create(JsonNode creator, JsonNode assignee, String title) throws Exception {
         var created=json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization", token(creator))
@@ -91,8 +91,8 @@ class TaskDemoTests {
         var own = create(founder, leader, "领导本人任务");
         var hidden = create(founder, other, "无关任务");
         var created = create(leader, staff, "领导派发任务");
-        assertThat(list(founder).size()).isEqualTo(4);
-        assertThat(list(leader).findValuesAsText("id")).containsExactly(created.get("id").asText(), own.get("id").asText(), direct.get("id").asText());
+        assertThat(list(founder).size()).isEqualTo(3);
+        assertThat(list(leader).findValuesAsText("id")).containsExactly(created.get("id").asText(), own.get("id").asText());
         assertThat(list(staff).findValuesAsText("id")).containsExactly(created.get("id").asText(), direct.get("id").asText());
         assertThat(list(other).findValuesAsText("id")).containsExactly(hidden.get("id").asText());
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(leader)).contentType(MediaType.APPLICATION_JSON).content(payload(other, "跨队任务")))
@@ -104,9 +104,9 @@ class TaskDemoTests {
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON).content(payload(admin, "管理员")))
             .andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/tasks").header("Authorization", token(founder)).contentType(MediaType.APPLICATION_JSON)
-            .content("{\"title\":\"不存在\",\"assigneeId\":9223372036854775807}"))
+            .content("{\"title\":\"不存在\",\"dueAt\":\"2090-11-01T10:00:00Z\",\"assigneeId\":9223372036854775807}"))
             .andExpect(status().isNotFound());
-        assertThat(list(founder).size()).isEqualTo(4);
+        assertThat(list(founder).size()).isEqualTo(3);
     }
 
     @Test void onlyAssigneeCanUpdateIncludingCreatorAndAdmin() throws Exception {
@@ -140,12 +140,13 @@ class TaskDemoTests {
     @Test void invalidCreationCreatesNothingAndDefaultsAreStable() throws Exception {
         var leader = login("team_lead"); var staff = login("staff");
         var defaults = new HashMap<String, Object>(); defaults.put("title", " 简单任务 "); defaults.put("assigneeId", staff.get("userId").asLong());
-        defaults.put("dueAt", null);
+        defaults.put("dueAt", "2090-11-01T10:00:00Z");
         var task = json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization", token(leader))
             .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(defaults)))
             .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
         assertThat(task.get("priority").asText()).isEqualTo("normal");
-        assertThat(task.get("dueAt").isNull()).isTrue();
+        assertThat(task.get("dueAt").asText()).isEqualTo("2090-11-01T10:00:00Z");
+        assertThat(task.get("startAt").isNull()).isTrue();
         assertThat(task.get("detail").asText()).isEmpty();
         for (Map<String, String> change : java.util.List.of(Map.of("title", "  "), Map.of("title", "x".repeat(129)),
                 Map.of("detail", "x".repeat(5001)), Map.of("priority", "urgent"), Map.of("dueAt", "not-a-date"))) {
