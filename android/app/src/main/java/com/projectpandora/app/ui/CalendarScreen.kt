@@ -122,7 +122,7 @@ import androidx.compose.ui.text.font.FontWeight
                         ControlTextButton(onClick={model.selectDate(date.toString())},modifier=Modifier.weight(1f).height(calendarRowHeight).semantics {this.selected=date==selected;contentDescription="$date，$count 项安排，${dayLabel?.name?.let {"日期标签：$it，"}.orEmpty()}${summaries.take(2).joinToString("，")}"},shape=MaterialTheme.shapes.small,contentPadding=PaddingValues(0.dp),
                             colors=ButtonDefaults.textButtonColors(containerColor=if(dayLabel!=null)labelColor(dayLabel) else if(date==selected)MaterialTheme.colorScheme.secondary.copy(alpha=0.12f) else androidx.compose.ui.graphics.Color.Transparent,contentColor=if(dayLabel!=null)dayForeground else if(date==selected)MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface)) {
                             Column(horizontalAlignment=androidx.compose.ui.Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                                CalendarDateNumber(date,state,dayLabel)
+                                Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {CalendarDateNumber(date,state,dayLabel);HolidayBadge(date)}
                                 Column(Modifier.fillMaxWidth().heightIn(min=28.dp).padding(horizontal=2.dp),horizontalAlignment=androidx.compose.ui.Alignment.CenterHorizontally) {
                                     if(summaries.isEmpty())Spacer(Modifier.height(28.dp))
                                     dayTasks.take(2).forEach {task->
@@ -149,7 +149,6 @@ import androidx.compose.ui.text.font.FontWeight
             }
         }}
         item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            ControlOutlinedButton(onClick={model.screen("tasks")},modifier=Modifier.weight(1f)) {Text("全部任务 · ${relatedTasks(state.tasks,state.session?.userId ?: 0).size}")}
             ControlButton(onClick=model::openDispatch,enabled=!state.saving,modifier=Modifier.weight(1f)) {Text("创建任务")}
         }}
         item {HorizontalDivider(Modifier.padding(top=12.dp),color=MaterialTheme.colorScheme.outlineVariant)}
@@ -161,6 +160,7 @@ import androidx.compose.ui.text.font.FontWeight
             item {Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface.copy(alpha=0.96f),MaterialTheme.shapes.medium).panelOutline().padding(12.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("${agendaDate.monthValue} 月 ${agendaDate.dayOfMonth} 日 · 周${listOf("一","二","三","四","五","六","日")[agendaDate.dayOfWeek.value-1]}",style=MaterialTheme.typography.titleMedium)
+                    holidayLabel(agendaDate)?.let {Text(it,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.secondary)}
                     Text("${tasks.size} 项任务",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 ControlTextButton(onClick={showHelp=true}) {Text("说明",style=MaterialTheme.typography.labelMedium)}

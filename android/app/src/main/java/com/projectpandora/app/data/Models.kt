@@ -62,3 +62,5 @@ data class DirectoryContact(val id: Long,val username: String,val displayName: S
 data class ContentLabels(val kind: String,val contentId: Long,val labels: List<WorkLabel>)
 
 data class DailyTodo(val id: String,val title: String,val date: String,val completed: Boolean=false)
+
+data class OwnProfileInput(val displayName: String,val phone: String,val emergencyContact: String,val emergencyPhone: String,val address: String)

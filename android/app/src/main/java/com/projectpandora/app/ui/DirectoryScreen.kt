@@ -29,6 +29,19 @@ import com.projectpandora.app.data.*
     var section by rememberSaveable(me.userId) {mutableStateOf("home")}
     var selectedId by rememberSaveable(me.userId) {mutableStateOf<Long?>(null)}
     val selected=state.directory.firstOrNull {it.id==selectedId}
+    val contactsById=state.directory.associateBy {it.id}
+    fun canReadWork(person: DirectoryContact): Boolean {
+        if(person.id==me.userId)return false
+        if(me.role=="FOUNDER")return true
+        if(!AppRoles.canViewDown(me.role))return false
+        val seen=mutableSetOf<Long>()
+        var parent=person.managerId
+        while(parent!=null && seen.add(parent)) {
+            if(parent==me.userId)return true
+            parent=contactsById[parent]?.managerId
+        }
+        return false
+    }
     fun back() {if(selectedId!=null)selectedId=null else if(section!="home")section="home" else model.screen("day")}
     BackHandler(onBack=::back)
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=24.dp)) {
@@ -54,6 +67,20 @@ import com.projectpandora.app.data.*
                 ContactInfo("直属上级",selected.managerName)
                 ContactInfo("工作联系电话",selected.phone)
             }}}
+            if(canReadWork(selected) && !state.developmentPreview) {
+                val loaded=state.member?.id==selected.id
+                item {ControlOutlinedButton(onClick={model.openMember(UserSummary(selected.id,selected.username,selected.displayName,selected.role))},enabled=!state.organizationLoading || !loaded) {Text(if(loaded)"刷新日志和任务" else "查看日志和任务")}}
+                if(loaded) {
+                    if(state.organizationLoading)item {LinearProgressIndicator(Modifier.fillMaxWidth())}
+                    else if(state.organizationError!=null)item {Hint(state.organizationError,true)}
+                    else {
+                        item {Text("已提交日志 · ${state.memberLogs.size}",style=MaterialTheme.typography.titleMedium)}
+                        items(state.memberLogs,key={"contact-log-${it.id}"}) {log->Column {Text(log.logDate,style=MaterialTheme.typography.labelMedium);Text(log.content)}}
+                        item {Text("任务 · ${state.memberTasks.size}",style=MaterialTheme.typography.titleMedium)}
+                        items(orderedTasks(state.memberTasks),key={"contact-task-${it.id}"}) {task->Column {Text(task.title,style=MaterialTheme.typography.titleSmall);Text(taskFeedbackLabel(task));if(task.detail.isNotBlank())Text(task.detail);if(task.progressNote.isNotBlank())Text(task.progressNote)}}
+                    }
+                }
+            }
         } else {
             item {OutlinedTextField(query,{query=it},singleLine=true,label={Text("搜索姓名、账号或联系电话")},modifier=Modifier.fillMaxWidth())}
             if(section=="home" && query.isBlank()) {

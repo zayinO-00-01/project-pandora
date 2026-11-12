@@ -68,7 +68,7 @@ import com.google.gson.reflect.TypeToken
      val date=first.withDayOfMonth(day).toString()
      val todos=entries.filter {it.date==date}
      ControlTextButton(onClick={selectedText=date},modifier=Modifier.weight(1f).height(64.dp),contentPadding=PaddingValues(1.dp),colors=ButtonDefaults.textButtonColors(containerColor=if(date==selectedText)MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)) {
-      Column(horizontalAlignment=Alignment.CenterHorizontally) {Text("$day");todos.take(2).forEach {Text((if(it.completed)"✓ " else "")+it.title,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.labelSmall)}}
+      Column(horizontalAlignment=Alignment.CenterHorizontally) {Row {Text("$day");HolidayBadge(first.withDayOfMonth(day))};todos.take(2).forEach {Text((if(it.completed)"✓ " else "")+it.title,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.labelSmall)}}
      }
     }
    }

@@ -55,8 +55,8 @@ import androidx.compose.ui.semantics.contentDescription
         item {Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                 if(!dayOnly && allDates)Text("全部记录 · ${logs.size} 条",modifier=Modifier.padding(vertical=14.dp),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                else DateButton(state.selectedDate,!state.saving) {allDates=false;model.selectDate(it)}
-                if(!dayOnly)ControlTextButton(onClick={allDates=!allDates},enabled=!state.saving,colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.secondary)) {Text(if(allDates)"按日期筛选" else "全部记录",style=MaterialTheme.typography.labelMedium)}
+                else Text(state.selectedDate,modifier=Modifier.padding(vertical=14.dp),style=MaterialTheme.typography.labelMedium)
+                if(!dayOnly)ControlTextButton(onClick={allDates=!allDates},enabled=!state.saving,colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.secondary)) {Text(if(allDates)"日志月历" else "全部记录",style=MaterialTheme.typography.labelMedium)}
             }
             if(dayOnly)Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                 ControlOutlinedButton(onClick={model.selectDate(LocalDate.parse(state.selectedDate).minusDays(1).toString())}) {Text("← 前一天")}
@@ -67,6 +67,24 @@ import androidx.compose.ui.semantics.contentDescription
             if(state.checkingIntegrity)Hint("正在校验日志连接，请稍候。")
             HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
         }}
+        if(!dayOnly && !allDates) {
+            item {LogCalendar(state,model)}
+            val date=LocalDate.parse(state.selectedDate)
+            val tasks=orderedTasks(state.tasks.filter {taskDate(it)==date && it.assigneeId==state.session?.userId && taskIsApproved(it) && !it.deleted})
+            item {
+                Column(Modifier.padding(vertical=12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                    holidayLabel(date)?.let {Text(it,color=MaterialTheme.colorScheme.secondary)}
+                    Text("当天任务 · ${tasks.size} 项",style=MaterialTheme.typography.titleMedium)
+                }
+            }
+            items(tasks,key={"log-calendar-task-${it.id}"}) {task->
+                Column {
+                    TaskSummary(task,!state.saving) {model.openTask(task.id)}
+                    LabelLines(contentTags(state,"task",task.id,task.label))
+                }
+            }
+            item {Text("当天日志 · ${logs.size} 条",style=MaterialTheme.typography.titleMedium,modifier=Modifier.padding(top=12.dp))}
+        }
         if(logs.isEmpty() && !state.loading && state.logError==null)item {
             if(dayOnly)EmptyCard("还没有工作记录","换个日期看看，或去日志页记录工作。")
             else Column(Modifier.fillMaxWidth().padding(top=48.dp,bottom=32.dp),verticalArrangement=Arrangement.Top) {

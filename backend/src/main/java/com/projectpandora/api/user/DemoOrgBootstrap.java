@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 @Order(1)
 public class DemoOrgBootstrap implements ApplicationRunner {
+    @org.springframework.beans.factory.annotation.Value("${pandora.demo.extra-accounts:false}")
+    private boolean extraAccounts;
     private final UserRepository users;
     private final PasswordEncoder passwords;
     public DemoOrgBootstrap(UserRepository users,PasswordEncoder passwords) {this.users=users;this.passwords=passwords;}
@@ -18,13 +20,19 @@ public class DemoOrgBootstrap implements ApplicationRunner {
     @Transactional
     public void run(ApplicationArguments args) {
         boolean initialize=users.findByUsername("founder").isEmpty();
-        if(!initialize) return;
+        if(!initialize && !extraAccounts) return;
         String hash=passwords.encode("demo1234");
-        var founder=ensure("founder",hash,Role.FOUNDER,"创始人",null);
-        var department=ensure("leader",hash,Role.DEPT_HEAD,"部门老总",founder.getId());
-        department.setRole(Role.DEPT_HEAD);department.setManagerId(founder.getId());users.save(department);
-        var team=ensure("team_lead",hash,Role.TEAM_LEAD,"团队长",department.getId());
-        users.findByUsername("staff").ifPresent(staff->{staff.setRole(Role.STAFF);staff.setManagerId(team.getId());users.save(staff);});
+        if(initialize) {
+            var founder=ensure("founder",hash,Role.FOUNDER,"创始人",null);
+            var department=ensure("leader",hash,Role.DEPT_HEAD,"部门老总",founder.getId());
+            department.setRole(Role.DEPT_HEAD);department.setManagerId(founder.getId());users.save(department);
+            var team=ensure("team_lead",hash,Role.TEAM_LEAD,"团队长",department.getId());
+            users.findByUsername("staff").ifPresent(staff->{staff.setRole(Role.STAFF);staff.setManagerId(team.getId());users.save(staff);});
+        }
+        if(extraAccounts) users.findByUsername("team_lead").ifPresent(team->{
+            ensure("staff_demo2",hash,Role.STAFF,"演示员工小李",team.getId());
+            ensure("staff_demo3",hash,Role.STAFF,"演示员工小陈",team.getId());
+        });
     }
     private UserEntity ensure(String name,String hash,Role role,String displayName,Long manager) {
         return users.findByUsername(name).orElseGet(()->{

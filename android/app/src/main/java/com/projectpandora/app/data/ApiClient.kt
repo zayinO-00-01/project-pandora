@@ -77,6 +77,7 @@ class ApiClient(address: String) {
     fun password(session: Session,current: String,new: String): ActionResult = request("/profile/password","PUT",mapOf("currentPassword" to current,"newPassword" to new),session,ActionResult::class.java)
     fun directory(session: Session): List<DirectoryContact> = request("/directory","GET",null,session,object:TypeToken<List<DirectoryContact>>(){}.type)
     fun users(session: Session): List<UserSummary> = request("/users","GET",null,session,object:TypeToken<List<UserSummary>>(){}.type)
+    fun updateOwnProfile(session: Session,input: OwnProfileInput): Profile = request("/users/me","PUT",input,session,Profile::class.java)
     fun profile(session: Session): Profile = request("/users/me","GET",null,session,Profile::class.java)
     fun changePassword(session: Session, currentPassword: String, newPassword: String) {
         require(newPassword.length in 6..72) {"新密码需为 6-72 位"}

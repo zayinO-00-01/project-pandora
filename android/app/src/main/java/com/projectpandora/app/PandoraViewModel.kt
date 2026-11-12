@@ -447,6 +447,25 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         if(name=="labels")loadWorkspaceExtras()
         if(name in listOf("home","tasks","day","profile","inbox"))refresh()
     }
+    fun updateOwnProfile(input: OwnProfileInput,onSaved: ()->Unit) {
+        val me=state.value.session ?: return
+        if(state.value.saving || state.value.developmentPreview)return
+        val gen=generation
+        mutable.update {it.copy(saving=true,profileError=null)}
+        viewModelScope.launch {
+            try {
+                val profile=withContext(Dispatchers.IO) {api(me).updateOwnProfile(me,input)}
+                if(gen==generation && state.value.session==me) {
+                    mutable.update {it.copy(saving=false,profile=profile,notice="本人档案已保存")}
+                    onSaved()
+                }
+            } catch(e:CancellationException) {throw e}
+            catch(e:Exception) {if(gen==generation && state.value.session==me) {
+                if(e is ApiException && e.status==401)failure(e,false)
+                else mutable.update {it.copy(saving=false,profileError=message(e))}
+            }}
+        }
+    }
     fun changeAvatar(avatar: String) {
         val me=state.value.session ?: return
         if(state.value.saving || state.value.developmentPreview)return
