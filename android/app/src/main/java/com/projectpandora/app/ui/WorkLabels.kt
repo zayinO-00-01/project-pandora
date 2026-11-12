@@ -49,5 +49,7 @@ fun contentTags(state: com.projectpandora.app.AppState,kind: String,id: Long,fal
     if(open)AlertDialog(containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={open=false},title={Text("选择标签（可多选）")},text={Column(Modifier.heightIn(max=360.dp).verticalScroll(rememberScrollState())) {
         if(labels.isEmpty())Text("暂无可选标签，请由创始人维护。")
         labels.forEach {label->Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {Checkbox(checked=label.id in selected,enabled=enabled && (label.id in selected || selected.size<12),onCheckedChange={yes->onChange(if(yes)selected+label.id else selected-label.id)});Box(Modifier.padding(end=8.dp).size(width=5.dp,height=20.dp).background(labelColor(label),MaterialTheme.shapes.small));Text(label.name)}}
+        val inactive=selected.filter {id->labels.none {it.id==id}}
+        if(inactive.isNotEmpty())ControlTextButton(onClick={onChange(selected-inactive.toSet())},enabled=enabled) {Text("移除已停用的标签（${inactive.size}）")}
     }},confirmButton={ControlTextButton(onClick={open=false}) {Text("完成")}})
 }

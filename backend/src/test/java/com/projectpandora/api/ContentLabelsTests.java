@@ -13,7 +13,41 @@ class ContentLabelsTests {
 @Autowired org.springframework.test.web.servlet.MockMvc mvc;
 @Autowired com.fasterxml.jackson.databind.ObjectMapper json;
 @Autowired org.springframework.jdbc.core.JdbcTemplate db;
+@Autowired jakarta.persistence.EntityManager entities;
 String token(String name)throws Exception{return TaskPolicyTestSupport.token(mvc,json,name);}
+@Test void archivedExistingLabelsDoNotBlockEditsButCannotBeNewlySelected()throws Exception {
+ long owner=db.queryForObject("select id from users where username='staff'",Long.class);
+ db.update("insert into work_logs(user_id,log_date,end_date,content,status,created_at,updated_at) values(?,CURRENT_DATE,CURRENT_DATE,'test','submitted',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",owner);
+ long id=db.queryForObject("select max(id) from work_logs",Long.class);
+ db.update("insert into work_labels(name,color,active) values('Historical','#ABCDEF',true)");
+ long label=db.queryForObject("select id from work_labels where name='Historical'",Long.class);
+ String selected=json.writeValueAsString(java.util.Map.of("labelIds",java.util.List.of(label)));
+ mvc.perform(put("/api/v1/content-labels/log/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(selected)).andExpect(status().isOk());
+ db.update("update work_labels set active=false where id=?",label);
+ entities.clear();
+ var today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).toString();
+ String edit=json.writeValueAsString(java.util.Map.of("logDate",today,"content","edited","status","submitted","labelIds",java.util.List.of(label)));
+ mvc.perform(put("/api/v1/logs/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(edit)).andExpect(status().isOk()).andExpect(jsonPath("$.content").value("edited"));
+ mvc.perform(put("/api/v1/content-labels/log/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(selected)).andExpect(status().isOk());
+ mvc.perform(put("/api/v1/content-labels/log/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content("{\"labelIds\":[]}")).andExpect(status().isOk());
+ mvc.perform(put("/api/v1/content-labels/log/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(selected)).andExpect(status().isBadRequest());
+}
+@Test void archivedTaskLabelSurvivesDefinitionChangeApproval()throws Exception {
+ long owner=db.queryForObject("select id from users where username='staff'",Long.class);
+ db.update("insert into work_labels(name,color,active) values('TaskHistory','#ABCDEF',true)");
+ long label=db.queryForObject("select id from work_labels where name='TaskHistory'",Long.class);
+ var values=new java.util.HashMap<String,Object>();
+ values.put("title","task history");values.put("assigneeId",owner);
+ values.put("dueAt",java.time.Instant.now().plusSeconds(86400).toString());
+ values.put("labelIds",java.util.List.of(label));
+ var created=mvc.perform(post("/api/v1/tasks").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(values))).andExpect(status().isCreated()).andReturn();
+ long id=json.readTree(created.getResponse().getContentAsString()).get("id").asLong();
+ mvc.perform(put("/api/v1/tasks/"+id+"/approval").header("Authorization",token("team_lead")).contentType(MediaType.APPLICATION_JSON).content("{\"decision\":\"approved\"}")).andExpect(status().isOk());
+ db.update("update work_labels set active=false where id=?",label);entities.clear();
+ values.put("title","edited task history");
+ mvc.perform(put("/api/v1/tasks/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(values))).andExpect(status().isOk()).andExpect(jsonPath("$.reviewStatus").value("pending_change"));
+ mvc.perform(post("/api/v1/tasks/"+id+"/approve").header("Authorization",token("team_lead")).contentType(MediaType.APPLICATION_JSON).content("{\"note\":\"approved\"}")).andExpect(status().isOk()).andExpect(jsonPath("$.title").value("edited task history"));
+}
 @Test void multiLabelsPersistAndOtherAuthorsCannotChangeThem()throws Exception {
  long owner=db.queryForObject("select id from users where username='staff'",Long.class);
  db.update("insert into work_logs(user_id,log_date,end_date,content,status,created_at,updated_at) values(?,CURRENT_DATE,CURRENT_DATE,'test','submitted',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",owner);

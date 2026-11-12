@@ -243,8 +243,8 @@ internal fun dueLabel(value: String?): String = if(value==null)"未设置" else 
         }}}
         state.labelError?.let {item {Hint(it,true,onRetry=model::loadWorkspaceExtras)}}
         item {MultiLabelPicker(state.labels,draft.labelIds ?: listOfNotNull(draft.labelId?.takeIf {it>0}),enabled,model::changeDispatchLabels)}
-        item {DeadlinePicker(draft.startDate.orEmpty(),enabled,label="开始时间",required=false,minDate=if(draft.taskId==null)today().minusDays(2) else null) {model.changeDispatch(startDate=it)}}
-        item {DeadlinePicker(draft.dueDate,enabled,minDate=if(draft.taskId==null)today().minusDays(2) else null) {model.changeDispatch(dueDate=it)}}
+        item {DeadlinePicker(draft.startDate.orEmpty(),enabled,label="开始时间",required=false) {model.changeDispatch(startDate=it)}}
+        item {DeadlinePicker(draft.dueDate,enabled,minDate=today()) {model.changeDispatch(dueDate=it)}}
         item {OutlinedTextField(value=draft.detail,onValueChange={model.changeDispatch(detail=it.take(5000))},enabled=enabled,label={Text("详细说明")},minLines=5,supportingText={Text("${draft.detail.length} / 5000")},modifier=Modifier.fillMaxWidth())}
         state.dispatchError?.let {item {Hint(it,true)}}
         item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
