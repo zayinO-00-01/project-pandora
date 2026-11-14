@@ -27,6 +27,7 @@ import com.google.gson.reflect.TypeToken
  var error by remember(key) {mutableStateOf<String?>(null)}
  var editing by remember {mutableStateOf<DailyTodo?>(null)}
  var title by remember {mutableStateOf("")}
+ var chosen by remember {mutableStateOf(emptyList<Long>())}
  var creating by remember {mutableStateOf(false)}
  val scope=rememberCoroutineScope()
  val api=remember(me.server,state.developmentPreview) {if(state.developmentPreview)null else ApiClient(me.server)}
@@ -50,10 +51,16 @@ import com.google.gson.reflect.TypeToken
  Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
   Text("每日事项",style=MaterialTheme.typography.titleLarge)
   val todosByDate=remember(entries) {entries.groupBy {it.date}}
-  WorkspaceCalendar(selected,onDate={selectedText=it.toString()}) {date->
+  val drag=remember {CalendarItemDrag()}
+  CalendarDragLayer(drag) {
+  WorkspaceCalendar(selected,onDate={selectedText=it.toString()},drag=drag) {date->
    todosByDate[date.toString()].orEmpty().take(2).forEach {item->
-    Text((if(item.completed)"✓ " else "")+item.title,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.labelSmall)
+    CalendarItemChip((if(item.completed)"✓ " else "")+item.title,item.labels.orEmpty(),
+        Modifier.calendarDrag(drag,item.title,date,if(busy)null else {target->
+            change(item.copy(date=target.toString(),labelIds=null));selectedText=target.toString()
+        }))
    }
+  }
   }
   HorizontalDivider()
   Row(verticalAlignment=Alignment.CenterVertically) {
@@ -61,17 +68,17 @@ import com.google.gson.reflect.TypeToken
     Text("${selected.monthValue}月${selected.dayOfMonth}日",style=MaterialTheme.typography.titleMedium)
     holidayLabel(selected)?.let {Text(it,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.secondary)}
    }
-   ControlButton(onClick={creating=true;title="";editing=DailyTodo(UUID.randomUUID().toString(),"",selectedText)},enabled=!busy) {Text("添加事项")}}
+   ControlButton(onClick={creating=true;title="";chosen=emptyList();editing=DailyTodo(UUID.randomUUID().toString(),"",selectedText)},enabled=!busy) {Text("添加事项")}}
   if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())
   error?.let {Hint(it,true)}
   val daily=entries.filter {it.date==selectedText}.sortedBy {it.completed}
   if(daily.isEmpty() && !busy && error==null)Text("暂无个人事项",color=MaterialTheme.colorScheme.onSurfaceVariant)
   daily.forEach {item->Row(verticalAlignment=Alignment.CenterVertically) {
-   Checkbox(item.completed,{change(item.copy(completed=it))},enabled=!busy)
-   ControlTextButton(onClick={creating=false;title=item.title;editing=item},enabled=!busy,modifier=Modifier.weight(1f)) {Text(item.title)}
+   Checkbox(item.completed,{change(item.copy(completed=it,labelIds=null))},enabled=!busy)
+   ControlTextButton(onClick={creating=false;title=item.title;chosen=item.labels.orEmpty().map {it.id};editing=item},enabled=!busy,modifier=Modifier.weight(1f)) {Column {Text(item.title);LabelLines(item.labels.orEmpty())}}
    ControlTextButton(onClick={change(item,delete=true)},enabled=!busy) {Text("删除")}
   }}
  }
  }
- editing?.let {item->AlertDialog(onDismissRequest={if(!busy)editing=null},title={Text(if(creating)"添加个人事项" else "编辑个人事项")},text={Column {OutlinedTextField(title,{title=it.take(200)},label={Text("事项内容")},enabled=!busy);error?.let {Text(it,color=MaterialTheme.colorScheme.error)}}},confirmButton={ControlTextButton(onClick={change(item.copy(title=title.trim()),new=creating)},enabled=!busy && title.isNotBlank()) {Text("保存")}},dismissButton={ControlTextButton(onClick={editing=null},enabled=!busy) {Text("取消")}})}
+ editing?.let {item->AlertDialog(onDismissRequest={if(!busy)editing=null},title={Text(if(creating)"添加个人事项" else "编辑个人事项")},text={Column {OutlinedTextField(title,{title=it.take(200)},label={Text("事项内容")},enabled=!busy);MultiLabelPicker((state.labels+item.labels.orEmpty()).distinctBy {it.id},chosen,!busy) {chosen=it};error?.let {Text(it,color=MaterialTheme.colorScheme.error)}}},confirmButton={ControlTextButton(onClick={change(item.copy(title=title.trim(),labelIds=chosen,labels=(state.labels+item.labels.orEmpty()).associateBy {it.id}.let {byId->chosen.mapNotNull(byId::get)}),new=creating)},enabled=!busy && title.isNotBlank()) {Text("保存")}},dismissButton={ControlTextButton(onClick={editing=null},enabled=!busy) {Text("取消")}})}
 }

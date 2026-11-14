@@ -2,6 +2,8 @@ package com.projectpandora.app.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
 import androidx.compose.ui.platform.LocalDensity
@@ -32,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
     onMode: ((String)->Unit)?=null,
     gridHeight: androidx.compose.ui.unit.Dp?=null,
     onResizeToggle: (() -> Unit)?=null,
+    drag: CalendarItemDrag?=null,
     dayContent: @Composable (LocalDate)->Unit
 ) {
     var showDateJump by rememberSaveable {mutableStateOf(false)}
@@ -53,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
     val gridStart=monthDates.first().minusDays((monthDates.first().dayOfWeek.value%7).toLong())
     val padded=List(weekCount*7) {gridStart.plusDays(it.toLong())}
     val selectedRow=padded.indexOf(selected)/7
+    LoadHolidaySchedules((padded.map {it.year}+(selected.year+1)).toSet())
     Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(4.dp)) {
         if(onMode!=null)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf("month" to "月视图","week" to "周视图","day" to "日视图").forEach {(key,label)->
@@ -78,12 +82,20 @@ import androidx.compose.ui.text.font.FontWeight
                     Row(Modifier.fillMaxWidth()) {
                         week.forEach {date->
                             val festival=remember(date) {festivalName(date)}
+                            val target=if(drag==null)Modifier else {
+                                DisposableEffect(drag,date) {onDispose {drag.cells.remove(date)}}
+                                Modifier.onGloballyPositioned {drag.cells[date]=it.boundsInRoot()}
+                            }
                             ControlTextButton(onClick={onDate(date)},
-                                modifier=Modifier.weight(1f).height(calendarRowHeight).semantics {
+                                modifier=Modifier.weight(1f).height(calendarRowHeight).then(target).semantics {
                                     this.selected=date==selected
                                     contentDescription=listOfNotNull(date.toString(),festival,holidayScheduleLabel(date)).distinct().joinToString("，")
                                 },shape=MaterialTheme.shapes.small,contentPadding=PaddingValues(0.dp),
-                                colors=ButtonDefaults.textButtonColors(containerColor=if(date==selected)MaterialTheme.colorScheme.secondary.copy(alpha=.12f) else androidx.compose.ui.graphics.Color.Transparent)) {
+                                colors=ButtonDefaults.textButtonColors(containerColor=when(date) {
+                                    drag?.hover->MaterialTheme.colorScheme.secondaryContainer
+                                    selected->MaterialTheme.colorScheme.secondary.copy(alpha=.12f)
+                                    else->androidx.compose.ui.graphics.Color.Transparent
+                                })) {
                                 Column(horizontalAlignment=androidx.compose.ui.Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(2.dp)) {
                                     Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {CalendarDateNumber(date,date==selected);HolidayBadge(date)}
                                     if(festival!=null)Text(festival,maxLines=1,overflow=TextOverflow.Ellipsis,

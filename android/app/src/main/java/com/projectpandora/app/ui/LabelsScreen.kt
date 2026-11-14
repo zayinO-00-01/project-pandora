@@ -23,7 +23,7 @@ import com.projectpandora.app.data.*
         if(state.developmentPreview)item {Hint("开发预览：以下为示例品牌标签；真实标签由创始人登录后维护。")}
         state.labelError?.let {item {Hint(it,true,onRetry=model::loadWorkspaceExtras)}}
         state.workspaceError?.let {item {Hint(it,true)}}
-        if(!founder)item {Text("标签由创始人维护，所有成员可在任务与日志中选择。",style=MaterialTheme.typography.bodySmall)}
+        if(!founder)item {Text("标签由创始人维护，所有成员可在任务、日志与每日事项中选择。",style=MaterialTheme.typography.bodySmall)}
         if(state.labels.isEmpty() && state.labelError==null)item {EmptyCard("暂无品牌标签",if(founder)"在下方填写品牌名称并选择颜色后保存。" else "请创始人登录后添加品牌名称和颜色。")}
         if(founder) {
             item {OutlinedTextField(value=name,onValueChange={name=it.take(64)},label={Text(if(editing==null)"新标签名称" else "编辑标签名称")},modifier=Modifier.fillMaxWidth(),singleLine=true)}

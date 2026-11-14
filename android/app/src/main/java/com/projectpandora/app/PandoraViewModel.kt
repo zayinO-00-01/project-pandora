@@ -380,6 +380,26 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     fun archiveLabel(id: Long)=workspaceAction({api(it).archiveLabel(it,id);Unit},"标签已停用，历史记录保留原标签")
     fun readNotification(message: AppNotification)=confirmNotificationsRead(setOf(message.id),false)
 
+    fun moveTaskDate(task: DispatchTask, date: java.time.LocalDate) {
+        if(!canRescheduleTask(state.value,task))return
+        val zone=java.time.ZoneId.of("Asia/Shanghai")
+        val due=task.dueAt?.let {java.time.Instant.parse(it).atZone(zone)} ?: return
+        val newDue=date.atTime(due.toLocalTime()).atZone(zone).toInstant()
+        if(task.startAt?.let {java.time.Instant.parse(it).isAfter(newDue)}==true) {
+            mutable.update {it.copy(workspaceError="截止时间不能早于开始时间")}
+            return
+        }
+        if(state.value.developmentPreview) {
+            mutable.update {s->s.copy(tasks=s.tasks.map {if(it.id==task.id)it.copy(dueAt=newDue.toString()) else it},selectedDate=date.toString())}
+            return
+        }
+        val input=TaskCreateInput(task.title,task.detail,task.priority,task.assigneeId,newDue.toString(),startAt=task.startAt)
+        val founder=state.value.session?.role=="FOUNDER"
+        workspaceAction({api(it).editTask(it,task.id,input);Unit},if(founder)"任务已改期" else "改期申请已提交，审批后生效") {
+            if(founder)selectDate(date.toString())
+        }
+    }
+
     fun editTaskDetails(task: DispatchTask) {
         val me=state.value.session ?: return
         if(state.value.saving || (task.createdBy!=me.userId && me.role!="FOUNDER") || taskHasPendingReview(task,state.value.taskReviewRecords) || task.approvalStatus=="pending" || task.deleted)return
@@ -1044,4 +1064,10 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             notice=if(editor || taskEditor)it.notice else message(e))}
     }
     private fun message(e: Throwable): String = e.message ?: "操作失败，请重试"
+}
+
+internal fun canRescheduleTask(state: AppState,task: DispatchTask): Boolean {
+    val user=state.session ?: return false
+    return !state.saving && taskDate(task)!=null && taskCanReportProgress(task,state.taskReviewRecords) &&
+        (state.developmentPreview || user.role=="FOUNDER" || task.createdBy==user.userId)
 }

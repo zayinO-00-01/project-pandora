@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.projectpandora.app.AppState
 import com.projectpandora.app.PandoraViewModel
+import com.projectpandora.app.canRescheduleTask
 import com.projectpandora.app.data.*
 import java.time.LocalDate
 
@@ -34,6 +35,7 @@ import java.time.LocalDate
     val mode=state.calendarMode
     val feedback=LocalControlFeedback.current
     val listState=rememberLazyListState()
+    val itemDrag=remember {CalendarItemDrag()}
     var expanded by rememberSaveable {mutableStateOf(false)}
     LaunchedEffect(mode,expanded) {listState.scrollToItem(0)}
     val tasksByDay=remember(state.tasks) {
@@ -98,7 +100,7 @@ import java.time.LocalDate
                     while(true) {
                         val event=awaitPointerEvent(PointerEventPass.Initial)
                         val change=event.changes.firstOrNull {it.id==down.id} ?: break
-                        if(change.isConsumed)break
+                        if(change.isConsumed || itemDrag.item!=null)break
                         velocity.addPosition(change.uptimeMillis,change.position)
                         if(!change.pressed) {released=true;break}
                         if(!resizing) {
@@ -119,20 +121,21 @@ import java.time.LocalDate
             }
         }.padding(horizontal=16.dp),state=listState,verticalArrangement=Arrangement.spacedBy(4.dp),contentPadding=PaddingValues(bottom=32.dp)) {
             item {
+                CalendarDragLayer(itemDrag) {
                 WorkspaceCalendar(selected,onDate={model.selectDate(it.toString())},mode=mode,
                     onMode={expanded=false;model.calendarMode(it)},gridHeight=height.dp,
-                    onResizeToggle={applySize(if(currentSize=="normal")"week" else "normal")}) {date->
-                    val dayTasks=tasksByDay[date].orEmpty()
-                                    dayTasks.take(2).forEach {task->
-                                        val tags=contentTags(state,"task",task.id,task.label)
-                                        val primary=tags.firstOrNull()
-                                        Row(Modifier.fillMaxWidth().padding(vertical=1.dp).background(if(primary!=null)labelColor(primary) else MaterialTheme.colorScheme.surfaceVariant,MaterialTheme.shapes.extraSmall),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
-                                            Text(task.title,maxLines=if(dayTasks.size==1)2 else 1,overflow=TextOverflow.Ellipsis,modifier=Modifier.weight(1f).padding(horizontal=3.dp,vertical=1.dp),style=MaterialTheme.typography.labelSmall.copy(fontSize=9.5.sp,lineHeight=13.5.sp),color=if(primary!=null)labelTextColor(primary) else MaterialTheme.colorScheme.onSurfaceVariant)
-                                            tags.drop(1).take(11).forEach {tag->Box(Modifier.padding(end=1.dp).size(width=2.dp,height=10.dp).background(labelColor(tag)))}
-                                        }
-                                    }
+                    onResizeToggle={applySize(if(currentSize=="normal")"week" else "normal")},drag=itemDrag) {date->
+                    tasksByDay[date].orEmpty().take(2).forEach {task->
+                        val canMove=canRescheduleTask(state,task)
+                        CalendarItemChip(task.title,contentTags(state,"task",task.id,task.label),
+                            Modifier.calendarDrag(itemDrag,task.title,date,if(!canMove)null else {target->
+                                model.moveTaskDate(task,target)
+                            }))
+                    }
+                }
                 }
             }
+        state.workspaceError?.let {item {Hint(it,true)}}
         item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             ControlButton(onClick=model::openDispatch,enabled=!state.saving,modifier=Modifier.weight(1f)) {Text("创建任务")}
         }}

@@ -6,36 +6,63 @@ import android.icu.util.ULocale
 import java.time.LocalDate
 import java.time.ZoneOffset
 import kotlin.math.sin
+import kotlinx.coroutines.*
 
-// State Council holiday notices for 2026 and 2027.
-private val holidayLabels = buildMap<LocalDate,String> {
-    fun holiday(year: Int, month: Int, days: IntRange, name: String) {
-        days.forEach { put(LocalDate.of(year,month,it),name) }
-    }
-    holiday(2026,1,1..3,"元旦")
-    holiday(2026,2,15..23,"春节")
-    holiday(2026,4,4..6,"清明节")
-    holiday(2026,5,1..5,"劳动节")
-    holiday(2026,6,19..21,"端午节")
-    holiday(2026,9,25..27,"中秋节")
-    holiday(2026,10,1..7,"国庆节")
-    holiday(2027,1,1..3,"元旦")
-    holiday(2027,2,5..13,"春节")
-    holiday(2027,4,3..5,"清明节")
-    holiday(2027,5,1..5,"劳动节")
-    holiday(2027,6,9..9,"端午节")
-    holiday(2027,9,15..15,"中秋节")
-    holiday(2027,10,1..7,"国庆节")
-    listOf("2026-01-04","2026-02-14","2026-02-28","2026-05-09","2026-09-20","2026-10-10",
-        "2027-01-31","2027-02-14","2027-05-08","2027-09-26","2027-10-09").forEach {
-        put(LocalDate.parse(it),"调休上班")
+private val holidayYears = androidx.compose.runtime.mutableStateMapOf<Int, Map<LocalDate,String>>()
+
+internal fun parseHolidaySchedule(json: String, year: Int): Map<LocalDate,String> {
+    val data=com.google.gson.JsonParser.parseString(json).asJsonObject
+    require(data["year"].asInt==year && data.getAsJsonArray("papers").any {
+        java.net.URI(it.asString).let {uri->uri.scheme=="https" && uri.host?.endsWith(".gov.cn")==true}
+    })
+    return data.getAsJsonArray("days").associate {entry->
+        val day=entry.asJsonObject
+        val date=LocalDate.parse(day["date"].asString)
+        require(kotlin.math.abs(date.year-year)<=1)
+        date to if(day["isOffDay"].asBoolean)day["name"].asString else "调休上班"
+    }.also {require(it.isNotEmpty())}
+}
+
+@androidx.compose.runtime.Composable
+fun LoadHolidaySchedules(years: Set<Int>) {
+    val context=androidx.compose.ui.platform.LocalContext.current.applicationContext
+    androidx.compose.runtime.LaunchedEffect(years) {
+        val prefs=context.getSharedPreferences("holiday-cn",0)
+        kotlinx.coroutines.coroutineScope {
+            years.forEach {year->launch {
+                val cached=prefs.getString("$year",null) ?: withContext(Dispatchers.IO) {
+                    runCatching {context.assets.open("holidays/$year.json").bufferedReader(Charsets.UTF_8).use {it.readText()}}.getOrNull()
+                }
+                if(cached!=null && !holidayYears.containsKey(year))
+                    runCatching {parseHolidaySchedule(cached,year)}.getOrNull()?.let {holidayYears[year]=it}
+                if(holidayYears.containsKey(year) && System.currentTimeMillis()-prefs.getLong("$year.checked",0)<86_400_000L)return@launch
+                val downloaded=withContext(Dispatchers.IO) {
+                    listOf(
+                        "https://raw.githubusercontent.com/NateScarlet/holiday-cn/master/$year.json",
+                        "https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/$year.json"
+                    ).firstNotNullOfOrNull {url->runCatching {
+                        val connection=java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                        try {
+                            connection.connectTimeout=5000
+                            connection.readTimeout=5000
+                            val json=connection.inputStream.bufferedReader(Charsets.UTF_8).use {it.readText()}
+                            json to parseHolidaySchedule(json,year)
+                        } finally {connection.disconnect()}
+                    }.getOrNull()}
+                }
+                downloaded?.let {(json,dates)->
+                    prefs.edit().putString("$year",json).putLong("$year.checked",System.currentTimeMillis()).apply()
+                    holidayYears[year]=dates
+                }
+            }}
+        }
     }
 }
 
-fun holidayScheduleLabel(date: LocalDate): String? = holidayLabels[date]
+fun holidayScheduleLabel(date: LocalDate): String? =
+    holidayYears[date.year]?.get(date) ?: holidayYears[date.year+1]?.get(date) ?: holidayYears[date.year-1]?.get(date)
 
-fun holidayLabel(date: LocalDate): String? = if(holidayScheduleLabel(date)=="调休上班") "调休上班"
-    else festivalName(date) ?: holidayScheduleLabel(date)
+fun holidayLabel(date: LocalDate): String? = holidayScheduleLabel(date) ?: festivalName(date)
 
 private val beijingOffset=ZoneOffset.ofHours(8)
 

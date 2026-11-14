@@ -1,7 +1,5 @@
 package com.projectpandora.app.ui
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -27,20 +25,18 @@ import com.projectpandora.app.PandoraViewModel
     else Image(image,"我的头像",modifier=Modifier.size(48.dp).clip(CircleShape))
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable fun AccountSettings(state: AppState,model: PandoraViewModel) {
-    val picker=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {uri->if(uri!=null)model.changeAvatar(uri)}
+@Composable fun AccountSettings(state: AppState,model: PandoraViewModel,onAvatar: ()->Unit) {
     var passwordOpen by remember {mutableStateOf(false)}
     val enabled=!state.saving && !state.developmentPreview
-    FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-        ControlTextButton(onClick={picker.launch("image/*")},enabled=enabled) {Text("更换头像")}
-        if(state.myProfile?.avatarData!=null)ControlTextButton(onClick={model.changeAvatar(null)},enabled=enabled) {Text("移除头像")}
-        ControlTextButton(onClick={passwordOpen=true},enabled=enabled) {Text("修改密码")}
+    ProfileSection("账号安全") {
+        ProfileEntry("更换头像",enabled,onAvatar)
+        if(state.myProfile?.avatarData!=null)ProfileEntry("移除头像",enabled) {model.changeAvatar(null)}
+        ProfileEntry("修改密码",enabled) {passwordOpen=true}
     }
-    ControlOutlinedButton(onClick={model.screen("inbox")},enabled=!state.saving) {Text("通知与审核 · ${state.unreadCount} 条未读")}
-    ControlOutlinedButton(onClick={model.screen("labels")},enabled=!state.saving) {Text(if(state.session?.role=="FOUNDER")"维护品牌标签" else "查看品牌标签")}
-    if(state.saving)LinearProgressIndicator(Modifier.fillMaxWidth())
-    state.profileError?.let {Hint(it,true)}
+    ProfileSection("工作入口") {
+        ProfileEntry("通知与审核 · "+state.unreadCount+" 条未读",!state.saving) {model.screen("inbox")}
+        ProfileEntry(if(state.session?.role=="FOUNDER")"维护品牌标签" else "查看品牌标签",!state.saving) {model.screen("labels")}
+    }
     if(passwordOpen)PasswordDialog(state,model) {passwordOpen=false}
 }
 
