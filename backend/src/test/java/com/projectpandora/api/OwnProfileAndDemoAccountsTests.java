@@ -13,7 +13,11 @@ import java.util.Map;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties="pandora.demo.extra-accounts=true")
+// Bootstrap runs before test transactions; keep the opt-in accounts out of other test contexts.
+@SpringBootTest(properties={
+    "pandora.demo.extra-accounts=true",
+    "spring.datasource.url=jdbc:h2:mem:pandora_demo_accounts_ci;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH"
+})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional

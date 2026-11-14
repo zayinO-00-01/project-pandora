@@ -28,12 +28,13 @@ class TaskTimeTests {
             .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
     }
     @Test void startIsOptionalDeadlineRequiredAndRangeValidated() throws Exception {
-        assertThat(create("founder",body()).get("startAt").isNull()).isTrue();
+        mvc.perform(post("/api/v1/tasks").header("Authorization",token("founder"))
+            .contentType(MediaType.APPLICATION_JSON).content(body().toString())).andExpect(status().isBadRequest());
         String start="2090-11-01T01:00:00Z";
         assertThat(create("founder",body().put("startAt",start)).get("startAt").asText()).isEqualTo(start);
         assertThat(create("founder",body().put("startAt","2090-11-03T10:00:00Z")).get("startAt").asText()).isEqualTo("2090-11-03T10:00:00Z");
-        var missing=body();missing.remove("dueAt");
-        for(var invalid:java.util.List.of(missing,body().putNull("dueAt"),body().put("startAt","2090-11-04T01:00:00Z"),body().put("startAt","invalid")))
+        var missing=body().put("startAt","2090-11-03T10:00:00Z");missing.remove("dueAt");
+        for(var invalid:java.util.List.of(missing,body().put("startAt","2090-11-03T10:00:00Z").putNull("dueAt"),body().put("startAt","2090-11-04T01:00:00Z"),body().put("startAt","invalid")))
             mvc.perform(post("/api/v1/tasks").header("Authorization",token("founder")).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(invalid))).andExpect(status().isBadRequest());
     }
     @Test void editingTimesWaitsForReviewThenPersistsAndCanClearStart() throws Exception {

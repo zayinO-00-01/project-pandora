@@ -15,7 +15,9 @@ import com.projectpandora.app.data.*
 @Composable fun OrganizationScreen(state: AppState,model: PandoraViewModel) {
     val me=state.session ?: return
     var section by rememberSaveable(me.server,me.userId) {mutableStateOf(if(AppRoles.canViewDown(me.role))"members" else "manager")}
-    LaunchedEffect(state.viewRequestsOpen,state.selectedViewRequestId) {if(state.viewRequestsOpen)section="requests"}
+    LaunchedEffect(state.viewRequestsOpen,state.selectedViewRequestId) {
+        if(state.viewRequestsOpen)section=if(AppRoles.canReview(me.role))"requests" else "manager"
+    }
     var memberQuery by rememberSaveable(me.userId) {mutableStateOf("")}
     var reason by rememberSaveable {mutableStateOf("")}
     val enabled=!state.saving && !state.organizationLoading

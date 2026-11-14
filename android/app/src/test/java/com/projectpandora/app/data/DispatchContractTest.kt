@@ -59,7 +59,7 @@ class DispatchContractTest {
         MockWebServer().use {server ->
             server.start()
             val api=ApiClient(server.url("/").toString())
-            val input=TaskCreateInput("任务","","normal",3,"2090-11-01T10:00:00Z")
+            val input=TaskCreateInput("任务","","normal",3,"2090-11-01T10:00:00Z",startAt="2090-11-01T10:00:00Z")
             for(role in listOf("ADMIN","LEADER")) {
                 try {api.createTask(Session(api.server,"t",2,role,null,"u"),input);fail("accepted $role")}
                 catch(e:ApiException) {assertEquals(403,e.status)}
@@ -71,7 +71,7 @@ class DispatchContractTest {
             assertEquals(0,server.requestCount)
         }
     }
-    @Test fun optionalStartAndServerFailureDoNotInventSuccess() {
+    @Test fun requiredStartAndServerFailureDoNotInventSuccess() {
         MockWebServer().use {server ->
             server.enqueue(MockResponse().setBody(task))
             server.enqueue(MockResponse().setResponseCode(403).setBody("""{"message":"组织关系已变更"}"""))
@@ -79,10 +79,11 @@ class DispatchContractTest {
             server.start()
             val api=ApiClient(server.url("/").toString())
             val me=Session(api.server,"t",2,"DEPT_HEAD",null,"d")
-            val input=TaskCreateInput("任务","","normal",3,"2090-11-01T10:00:00Z")
+            val input=TaskCreateInput("任务","","normal",3,"2090-11-01T10:00:00Z",startAt="2090-11-01T10:00:00Z")
+            org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {api.createTask(me,input.copy(startAt=null))}
             assertEquals(19L,api.createTask(me,input).id)
             val body=JsonParser.parseString(server.takeRequest().body.readUtf8()).asJsonObject
-            assertEquals("2090-11-01T10:00:00Z",body["dueAt"].asString);assertTrue(body["startAt"].isJsonNull)
+            assertEquals("2090-11-01T10:00:00Z",body["dueAt"].asString);assertEquals(input.startAt,body["startAt"].asString)
             try {api.createTask(me,input);fail("permission failure accepted")} catch(e:ApiException) {assertEquals(403,e.status)}
             try {api.createTask(me,input);fail("wrong assignee accepted")} catch(e:ApiException) {assertEquals(502,e.status)}
         }
