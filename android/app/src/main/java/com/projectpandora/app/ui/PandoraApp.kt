@@ -69,7 +69,7 @@ import java.time.format.DateTimeFormatter
     BackHandler(enabled=state.editor==null && state.selectedTaskId==null && state.screen!="home" && !state.dispatchOpen) {if(!state.saving)model.screen(if(state.screen=="labels")"profile" else if(state.screen in listOf("tasks","organization","inbox","directory"))"day" else "home")}
     val pageTitle=when {
         state.editor!=null -> "潘多拉"
-        state.screen=="home" || state.screen=="ai" -> "公司"
+        state.screen=="home" || state.screen=="ai" -> "首页"
         state.dispatchOpen -> "新建任务"
         state.screen=="functions" -> "职能"
         state.screen=="tasks" -> if(state.selectedTaskId==null)"任务列表" else "任务详情"
