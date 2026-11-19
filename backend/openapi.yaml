@@ -2156,8 +2156,7 @@ components:
         startAt:
           type: string
           format: date-time
-          nullable: true
-          description: 新建任务必填；旧任务编辑可为空。不得晚于截止时间。
+          description: 必填；可以早于或晚于今天，但不得晚于截止时间。历史任务修改时须补填。
         labelId:
           type: integer
           format: int64
@@ -2167,6 +2166,7 @@ components:
       - title
       - assigneeId
       - dueAt
+      - startAt
     Task:
       type: object
       properties:

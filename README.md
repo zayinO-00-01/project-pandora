@@ -2,7 +2,7 @@
 
 # Project Pandora
 
-企业工作日志与任务协作原型。Android用于业务，Web用于账号、档案和公司十大事项管理。当前工作区为本地整合版本 `0.9.10-week-calendar-fix`（Android versionCode 62），尚未上传或部署；支持任务本人私密备注、审核详情和可靠通知操作。
+企业工作日志与任务协作原型。Android用于业务，Web用于账号、档案和公司十大事项管理。Android 版本 `0.10.9-calendar-integration`（versionCode 72）。公司任务和每日事项共用日历卡片，支持长按拖动改期。任务开始时间与截止时间均须填写。
 
 ## 本地运行
 

@@ -59,13 +59,13 @@ class DispatchContractTest {
         MockWebServer().use {server ->
             server.start()
             val api=ApiClient(server.url("/").toString())
-            val input=TaskCreateInput("任务","","normal",3,"2090-11-01T10:00:00Z",startAt="2090-11-01T10:00:00Z")
+            val input=TaskCreateInput("任务","","normal",3,"2090-11-01T10:00:00Z",startAt="2090-11-01T09:00:00Z")
             for(role in listOf("ADMIN","LEADER")) {
                 try {api.createTask(Session(api.server,"t",2,role,null,"u"),input);fail("accepted $role")}
                 catch(e:ApiException) {assertEquals(403,e.status)}
             }
             val me=Session(api.server,"t",2,"FOUNDER",null,"f")
-            for(bad in listOf(input.copy(title=" "),input.copy(title="x".repeat(129)),input.copy(detail="x".repeat(5001)),input.copy(priority="urgent"),input.copy(assigneeId=0),input.copy(dueAt="tomorrow"),input.copy(dueAt=null),input.copy(startAt="bad"),input.copy(startAt="2090-11-02T10:00:00Z"))) {
+            for(bad in listOf(input.copy(title=" "),input.copy(title="x".repeat(129)),input.copy(detail="x".repeat(5001)),input.copy(priority="urgent"),input.copy(assigneeId=0),input.copy(dueAt="tomorrow"),input.copy(dueAt=null),input.copy(startAt=null),input.copy(startAt=""),input.copy(startAt="bad"),input.copy(startAt="2090-11-02T10:00:00Z"))) {
                 try {api.createTask(me,bad);fail("invalid accepted")} catch(_:IllegalArgumentException) {}
             }
             assertEquals(0,server.requestCount)
@@ -79,18 +79,17 @@ class DispatchContractTest {
             server.start()
             val api=ApiClient(server.url("/").toString())
             val me=Session(api.server,"t",2,"DEPT_HEAD",null,"d")
-            val input=TaskCreateInput("任务","","normal",3,"2090-11-01T10:00:00Z",startAt="2090-11-01T10:00:00Z")
-            org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {api.createTask(me,input.copy(startAt=null))}
+            val input=TaskCreateInput("任务","","normal",3,"2090-11-01T10:00:00Z",startAt="2090-11-01T09:00:00Z")
             assertEquals(19L,api.createTask(me,input).id)
             val body=JsonParser.parseString(server.takeRequest().body.readUtf8()).asJsonObject
-            assertEquals("2090-11-01T10:00:00Z",body["dueAt"].asString);assertEquals(input.startAt,body["startAt"].asString)
+            assertEquals("2090-11-01T10:00:00Z",body["dueAt"].asString);assertEquals("2090-11-01T09:00:00Z",body["startAt"].asString)
             try {api.createTask(me,input);fail("permission failure accepted")} catch(e:ApiException) {assertEquals(403,e.status)}
             try {api.createTask(me,input);fail("wrong assignee accepted")} catch(e:ApiException) {assertEquals(502,e.status)}
         }
     }
     @Test fun dispatchDraftUsesShanghaiTimeAndActualDownwardMembers() {
         val member=UserSummary(3,"staff",null,"STAFF")
-        val draft=TaskDispatchBuffer("server",2,"任务","详情","normal",3,"2090-10-16 10:30")
+        val draft=TaskDispatchBuffer("server",2,"任务","详情","normal",3,"2090-10-16 10:30",startDate="2090-10-16 09:00")
         assertNull(TaskDispatchValidation.error(draft,listOf(member)))
         assertEquals("2090-10-16T02:30:00Z",TaskDispatchValidation.input(draft).dueAt)
         assertNotNull(TaskDispatchValidation.error(draft.copy(dueDate=""),listOf(member)))
@@ -98,7 +97,8 @@ class DispatchContractTest {
         assertEquals("2090-10-15T01:00:00Z",TaskDispatchValidation.input(withStart).startAt)
         assertNull(TaskDispatchValidation.error(withStart,listOf(member)))
         assertNull(TaskDispatchValidation.error(draft.copy(startDate=draft.dueDate),listOf(member)))
-        assertNull(TaskDispatchValidation.error(draft.copy(startDate=""),listOf(member)))
+        assertNotNull(TaskDispatchValidation.error(draft.copy(startDate=""),listOf(member)))
+        assertNotNull(TaskDispatchValidation.error(draft.copy(startDate=null),listOf(member)))
         assertNotNull(TaskDispatchValidation.error(draft.copy(startDate="2090-10-17 09:00"),listOf(member)))
         assertNotNull(TaskDispatchValidation.error(draft.copy(startDate="2090-02-30 09:00"),listOf(member)))
         assertNotNull(TaskDispatchValidation.error(draft,emptyList()))

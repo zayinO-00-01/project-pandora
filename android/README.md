@@ -2,7 +2,7 @@
 
 # Pandora Android
 
-当前本地整合版本 `0.9.10-week-calendar-fix`，versionCode62。Kotlin / Jetpack Compose，最低 Android8，SDK35。四种业务角色在 App 办理业务，ADMIN 使用 Web。
+当前版本 `0.10.9-calendar-integration`，versionCode 72。Kotlin / Jetpack Compose，最低 Android8，SDK35。四种业务角色在 App 办理业务，ADMIN 使用 Web。
 
 整合水墨界面、四宫格总览、页面转场、悬浮操作、公司卡片、标签、协作关键词、账户设置和拖拽排序。任务管理与组织入口合并到“视图”下方，通知与审核入口同时保留。本轮接通后端保存、冲突提示、旧本机事项导入、个人资料读取和日志秒级时间。资料由 Web 管理员维护，公司原文在 App 只读。
 

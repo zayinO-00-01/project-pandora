@@ -113,7 +113,6 @@ public class TaskService {
     }
     @Transactional
     public TaskResponse create(CreateTaskRequest request) {
-        if(request.startAt()==null)throw new ApiException(400,"请选择开始时间");
         assertTaskTimes(request);
         organization.lock();var me=access.assertBusiness();
         var assignee=users.findById(request.assigneeId()).orElseThrow(()->new ApiException(404,"责任人不存在"));
@@ -137,7 +136,8 @@ public class TaskService {
         var today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
         if(request.dueAt()==null || request.dueAt().atZone(java.time.ZoneId.of("Asia/Shanghai")).toLocalDate().isBefore(today))
             throw new ApiException(400,"截止日期不能早于今天");
-        if(request.startAt()!=null && request.startAt().isAfter(request.dueAt()))
+        if(request.startAt()==null)throw new ApiException(400,"请选择开始时间");
+        if(request.startAt().isAfter(request.dueAt()))
             throw new ApiException(400,"开始时间不能晚于截止时间");
     }
 
