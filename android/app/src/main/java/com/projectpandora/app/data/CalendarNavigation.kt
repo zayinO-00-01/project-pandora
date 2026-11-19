@@ -12,3 +12,18 @@ fun jumpCalendarDate(selected: LocalDate,year: Int,month: Int): LocalDate? {
     val target=YearMonth.of(year,month)
     return target.atDay(minOf(selected.dayOfMonth,target.lengthOfMonth()))
 }
+
+/** A short tap or canceled drag must not switch calendar modes. */
+fun calendarDragMode(distance: Float,threshold: Float): String? = when {
+    distance>=threshold -> "month"
+    distance<=-threshold -> "week"
+    else -> null
+}
+
+/** Adjacent transitions only: week <-> normal month <-> expanded month. */
+fun calendarSizeAfterDrag(current: String,distance: Float,threshold: Float): String {
+    val sizes=listOf("week","normal","expanded")
+    val index=sizes.indexOf(current).coerceAtLeast(0)
+    val step=when {distance>=threshold->1;distance<=-threshold->-1;else->0}
+    return sizes[(index+step).coerceIn(0,sizes.lastIndex)]
+}

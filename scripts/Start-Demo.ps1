@@ -3,6 +3,7 @@ param(
     [ValidateRange(1,65535)][int]$Port = 8080,
     [switch]$SkipBuild,
     [switch]$BuildOnly,
+    [switch]$SeedExtraAccounts,
     [string]$MavenPath,
     [string]$JavaHome
 )
@@ -68,7 +69,12 @@ try {
     $lanAddresses = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -notmatch '^(127\.|169\.254\.)' -and $_.AddressState -eq 'Preferred' }
     foreach ($address in $lanAddresses) { Write-Host "局域网：http://$($address.IPAddress):$Port（手机需与电脑同网）" }
     Push-Location (Join-Path $repoPath 'backend')
-    try { Invoke-Checked $javaPath @('-Duser.timezone=Asia/Shanghai', '-jar', $jarPath, "--server.port=$Port", '--server.address=0.0.0.0') }
+    $demoOptions=@()
+    if($SeedExtraAccounts) {
+        $demoOptions+='--pandora.demo.extra-accounts=true'
+        Write-Host '新增演示账号：staff_demo2 / staff_demo3，密码 demo1234。'
+    }
+    try { Invoke-Checked $javaPath (@('-Duser.timezone=Asia/Shanghai', '-jar', $jarPath, "--server.port=$Port", '--server.address=0.0.0.0')+$demoOptions) }
     finally { Pop-Location }
 } catch {
     Write-Host "启动失败：$($_.Exception.Message)" -ForegroundColor Red

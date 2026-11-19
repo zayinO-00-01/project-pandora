@@ -8,7 +8,7 @@ import java.time.ZoneId
 
 fun canWriteLog(date: String,reference: LocalDate=today()): Boolean = runCatching {
     val parsed=LocalDate.parse(date)
-    parsed>=reference.minusDays(3) && parsed<=reference
+    parsed>=reference.minusDays(2) && parsed<=reference
 }.getOrDefault(false)
 
 /** The creation instant fixes the edit deadline, including historical and range logs. */
@@ -22,6 +22,7 @@ fun logEditorReadOnly(buffer: EditBuffer,logs: List<WorkLog>): Boolean = buffer.
 
 object AppRoles {
     fun canViewDown(role: String)=role in setOf("FOUNDER","DEPT_HEAD","TEAM_LEAD")
+    fun canReview(role: String)=canViewDown(role)
     fun canDispatch(role: String)=role in business
     fun canCreateTask(role: String)=role in business
     fun homeTitle(role: String)=when(role) {"FOUNDER"->"公司总览";"DEPT_HEAD"->"部门总览";"TEAM_LEAD"->"团队总览";else->"我的工作"}
@@ -80,4 +81,8 @@ fun WorkLog.covers(date: String): Boolean = date>=logDate && date<=lastDate
 fun WorkLog.isMultiDay(): Boolean = lastDate>logDate
 fun logRangeDays(start: String,end: String?): Long = runCatching {java.time.temporal.ChronoUnit.DAYS.between(LocalDate.parse(start),LocalDate.parse(end ?: start))+1}.getOrDefault(0)
 fun logDateLabel(start: String,end: String?): String = if(end==null || end==start)start else "$start 至 $end · ${logRangeDays(start,end)} 天"
-fun canWriteLogRange(start: String,end: String?,reference: LocalDate=today()): Boolean = canWriteLog(start,reference) && canWriteLog(end ?: start,reference) && (end ?: start)>=start
+fun canWriteLogRange(start: String,end: String?,reference: LocalDate=today()): Boolean = canWriteLog(start,reference) && (end==null || end==start)
+
+fun relatedTasks(tasks: List<DispatchTask>,userId: Long): List<DispatchTask> = orderedTasks(tasks.filter { !it.deleted && (it.createdBy==userId || it.assigneeId==userId) })
+
+fun directoryAssignees(contacts: List<DirectoryContact>): List<UserSummary> = contacts.filter {it.role in AppRoles.business}.distinctBy {it.id}.map {UserSummary(it.id,it.username,it.displayName,it.role)}

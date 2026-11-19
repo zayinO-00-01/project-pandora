@@ -9,11 +9,11 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.MockResponse
 
 class WorkspaceRulesTest {
-    @Test fun logWindowCoversTodayAndThreePriorDays() {
+    @Test fun logWindowCoversTodayYesterdayAndDayBefore() {
         val reference=LocalDate.of(2026,1,3)
         assertTrue(canWriteLog("2026-01-01",reference))
         assertTrue(canWriteLog("2026-01-03",reference))
-        assertTrue(canWriteLog("2025-12-31",reference))
+        assertFalse(canWriteLog("2025-12-31",reference))
         assertFalse(canWriteLog("2025-12-30",reference))
         assertFalse(canWriteLog("2026-01-04",reference))
         assertFalse(canWriteLog("2026-02-30",reference))

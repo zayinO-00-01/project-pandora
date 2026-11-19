@@ -11,5 +11,7 @@ public interface CompanyNoticeRepository extends JpaRepository<CompanyNoticeEnti
 
     long countByEnabledTrue();
 
+    boolean existsByTitle(String title);
+
     Optional<CompanyNoticeEntity> findByIdAndEnabledTrue(Long id);
 }

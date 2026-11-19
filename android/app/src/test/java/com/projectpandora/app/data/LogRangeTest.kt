@@ -8,7 +8,9 @@ import okhttp3.mockwebserver.MockWebServer
 class LogRangeTest {
     @Test fun inclusiveRangeCrossesYearAndRejectsOutsideEndpoints() {
         val reference=LocalDate.of(2026,1,2)
-        assertTrue(canWriteLogRange("2025-12-31","2026-01-02",reference))
+        assertFalse(canWriteLogRange("2025-12-31","2026-01-02",reference))
+        assertTrue(canWriteLogRange("2025-12-31",null,reference))
+        assertTrue(canWriteLogRange("2026-01-02","2026-01-02",reference))
         assertEquals(3L,logRangeDays("2025-12-31","2026-01-02"))
         assertFalse(canWriteLogRange("2025-12-29","2026-01-01",reference))
         assertFalse(canWriteLogRange("2026-01-02","2026-01-03",reference))
@@ -31,9 +33,8 @@ class LogRangeTest {
             server.start();server.enqueue(MockResponse().setBody("""{"ok":true}"""))
             val api=ApiClient(server.url("/").toString());val session=Session(api.server,"t",1,"STAFF",null,"staff")
             try {api.save(session,null,LogInput(today().minusDays(2).toString(),"病假","submitted",today().toString()));fail("old service accepted range")}
-            catch(e:ApiException) {assertEquals(409,e.status)}
-            assertEquals(1,server.requestCount)
-            assertEquals("GET",server.takeRequest().method)
+            catch(e:IllegalArgumentException) {assertTrue(e.message.orEmpty().contains("只能选择一天"))}
+            assertEquals(0,server.requestCount)
         }
     }
 }

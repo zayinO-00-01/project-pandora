@@ -55,7 +55,7 @@ class OrganizationAccessTests {
         long id=apply(s,t);decision(t,id,"approved");
         long submitted=0;
         for(String state:new String[]{"draft","submitted"}) {
-            var result=mvc.perform(post("/api/v1/logs").header("Authorization",token(t)).contentType(MediaType.APPLICATION_JSON).content(body(Map.of("logDate",LocalDate.now().minusDays(1).toString(),"content","private-content","status",state)))).andExpect(status().isCreated()).andReturn();
+            var result=mvc.perform(post("/api/v1/logs").header("Authorization",token(t)).contentType(MediaType.APPLICATION_JSON).content(body(Map.of("logDate",LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).minusDays(state.equals("draft")?1:0).toString(),"content","private-content","status",state)))).andExpect(status().isCreated()).andReturn();
             if(state.equals("submitted"))submitted=json.readTree(result.getResponse().getContentAsString()).get("id").asLong();
         }
         mvc.perform(get("/api/v1/logs").param("userId",t.getId().toString()).header("Authorization",token(s))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].status").value("submitted"));

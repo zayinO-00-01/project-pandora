@@ -18,7 +18,7 @@ import com.projectpandora.app.data.*
     val palette=listOf("#B9DAD0","#F3CCA8","#BCD3EF","#D8C5E8","#EAB8B8","#F2D984","#285A59","#435473")
     val founder=state.session?.role=="FOUNDER"
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=28.dp)) {
-        item {ControlTextButton(onClick={model.screen("profile")}) {Text("← 返回我的")}}
+        item {BackdropTextButton(onClick={model.screen("profile")}) {Text("← 返回我的")}}
         item {ScreenHeading("品牌标签","统一维护品牌名称与颜色，任务卡片和任务日历同步使用这些颜色。")}
         if(state.developmentPreview)item {Hint("开发预览：以下为示例品牌标签；真实标签由创始人登录后维护。")}
         state.labelError?.let {item {Hint(it,true,onRetry=model::loadWorkspaceExtras)}}

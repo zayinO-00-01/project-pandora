@@ -15,7 +15,7 @@ import com.projectpandora.app.data.*
     val tasks=dutyTasks(state.tasks,me.userId,leader)
     Column(Modifier.fillMaxWidth().padding(top=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         Text("任务管理",style=MaterialTheme.typography.titleLarge)
-        ControlOutlinedButton(onClick={model.screen("inbox")},modifier=Modifier.fillMaxWidth()) {Text("通知与审核 · ${state.unreadCount} 条未读 · ${state.pendingTaskApprovals.size+state.reviews.size+state.taskReviewRecords.count {it.status=="pending" && it.reviewerId==me.userId}} 项待审")}
+        ControlOutlinedButton(onClick={model.screen("inbox")},modifier=Modifier.fillMaxWidth()) {Text(if(AppRoles.canReview(me.role))"通知与审核 · ${state.unreadCount} 条未读 · ${state.pendingTaskApprovals.size+state.reviews.size+state.taskReviewRecords.count {it.status=="pending" && it.reviewerId==me.userId}} 项待审" else "消息通知 · ${state.unreadCount} 条未读")}
         Surface(color=MaterialTheme.colorScheme.surface.copy(alpha=0.97f),shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth().panelOutline()) {
             Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
                 ScreenHeading(if(leader)"任务安排" else "待处理任务",if(me.role=="FOUNDER")"可为公司任一业务成员安排任务，创建与本人进度直接生效。" else "可为公司任一业务成员安排任务；创建和进度均经本人当前直属上级批准后生效。")
@@ -33,7 +33,6 @@ import com.projectpandora.app.data.*
         Surface(color=MaterialTheme.colorScheme.surface.copy(alpha=0.96f),shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth().panelOutline()) {
             Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                 Text(if(leader)AppRoles.scopeLabel(me.role) else "查看上级",style=MaterialTheme.typography.titleMedium)
-                Text(if(leader)"输入姓名查找成员，查看已提交的工作信息。" else "申请查看直属上级的工作信息，获批后可只读查看。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 ControlOutlinedButton(onClick={model.screen("organization")},enabled=!state.saving) {Text(if(leader)"查看${AppRoles.scopeLabel(me.role)}" else "查看直属上级")}
             }
         }

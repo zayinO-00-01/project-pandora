@@ -24,25 +24,21 @@ class LogRangeTests {
     LocalDate today(){return LocalDate.now(ZoneId.of("Asia/Shanghai"));}
     String token(String name){var u=users.findByUsername(name).orElseThrow();return "Bearer "+jwt.createToken(u.getId(),u.getUsername(),u.getRole());}
     String body(LocalDate start,LocalDate end,String status) throws Exception{return json.writeValueAsString(Map.of("logDate",start.toString(),"endDate",end.toString(),"content","连续三天病假，未到岗","status",status));}
-    @Test void oneRangeCoversAllDatesAndKeepsDatesFixedWithoutDuplicateRows() throws Exception {
-        var result=mvc.perform(post("/api/v1/logs").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(today().minusDays(2),today(),"submitted")))
-            .andExpect(status().isCreated()).andExpect(jsonPath("$.endDate").value(today().toString())).andReturn();
-        long id=json.readTree(result.getResponse().getContentAsString()).get("id").asLong();
-        var row=logs.findById(id).orElseThrow();
+    @Test void legacyRangeRemainsReadableAndBlocksNewDailyDuplicate() throws Exception {
+        var row=new WorkLogEntity();row.setUserId(users.findByUsername("staff").orElseThrow().getId());row.setLogDate(today().minusDays(2));row.setEndDate(today());row.setContent("历史三天病假");row.setStatus("submitted");logs.saveAndFlush(row);
+        long id=row.getId();
         for(int i=0;i<3;i++) {
             var date=today().minusDays(i);
-            assertThat(logs.coveringDate(row.getUserId(),date)).extracting(WorkLogEntity::getId).contains(id);
-            mvc.perform(get("/api/v1/logs").param("date",date.toString()).header("Authorization",token("staff")))
-                .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.id == "+id+")].endDate").value(org.hamcrest.Matchers.hasItem(today().toString())));
+            mvc.perform(get("/api/v1/logs").param("date",date.toString()).header("Authorization",token("staff"))).andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(id));
+            mvc.perform(post("/api/v1/logs").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(date,date,"submitted"))).andExpect(status().isConflict());
         }
-        mvc.perform(put("/api/v1/logs/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(today(),today(),"submitted"))).andExpect(status().isBadRequest());
-        mvc.perform(post("/api/v1/logs/"+id+"/submit").header("Authorization",token("staff"))).andExpect(status().isOk());
+        mvc.perform(put("/api/v1/logs/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(today().minusDays(2),today(),"submitted"))).andExpect(status().isOk());
         assertThat(logs.findById(id).orElseThrow().getLogDate()).isEqualTo(today().minusDays(2));
     }
     @Test void rejectsReverseExpiredFutureAndPreservesHistoricalDraftPrivacy() throws Exception {
         for(var pair:java.util.List.of(new LocalDate[]{today(),today().minusDays(1)},new LocalDate[]{today().minusDays(4),today()},new LocalDate[]{today(),today().plusDays(1)}))
             mvc.perform(post("/api/v1/logs").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(pair[0],pair[1],"submitted"))).andExpect(status().isBadRequest());
-        mvc.perform(post("/api/v1/logs").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(today().minusDays(2),today(),"draft"))).andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("draft"));
+        mvc.perform(post("/api/v1/logs").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(today().minusDays(2),today(),"draft"))).andExpect(status().isBadRequest());
         mvc.perform(post("/api/v1/logs").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(today().minusDays(1),today().minusDays(1),"draft"))).andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("draft"));
         mvc.perform(post("/api/v1/logs").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(today(),today(),"draft"))).andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("draft"));
     }
@@ -51,7 +47,7 @@ class LogRangeTests {
         long id=json.readTree(result.getResponse().getContentAsString()).get("id").asLong();
         mvc.perform(put("/api/v1/logs/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(body(today(),today(),"submitted"))).andExpect(status().isOk());
         mvc.perform(put("/api/v1/logs/"+id).header("Authorization",token("leader")).contentType(MediaType.APPLICATION_JSON).content(body(today(),today(),"submitted"))).andExpect(status().isForbidden());
-        mvc.perform(get("/api/v1/logs/integrity").header("Authorization",token("staff"))).andExpect(jsonPath("$.supportsDateRanges").value(true));
+        mvc.perform(get("/api/v1/logs/integrity").header("Authorization",token("staff"))).andExpect(jsonPath("$.supportsDateRanges").value(false));
     }
 
     @Test void migrationBackfillsOldSingleDayWithoutChangingContent() throws Exception {

@@ -8,7 +8,7 @@ public record TaskResponse(Long id, String title, String detail, String priority
         String creatorName, String assigneeName, Instant createdAt, Instant updatedAt,
         String approvalStatus, String approvalNote, Long reviewerId, Instant reviewedAt,
         String reviewStatus, String reviewReason, Long reviewedBy, Instant lifecycleReviewedAt,
-        boolean deleted, String pendingChange, com.projectpandora.api.label.LabelResponse label, java.util.List<KeywordResponse> keywords) {
+        boolean deleted, String pendingChange, com.projectpandora.api.label.LabelResponse label, java.util.List<KeywordResponse> keywords, Instant startAt) {
     public record KeywordResponse(Long id,String text,Long createdBy) {}
     static TaskResponse from(TaskEntity task) {
         return new TaskResponse(task.getId(), task.getTitle(), task.getDetail(), task.getPriority(),
@@ -18,7 +18,7 @@ public record TaskResponse(Long id, String title, String detail, String priority
                 task.getApprovalStatus(), task.getApprovalNote(), task.getReviewerId(), task.getReviewedAt(),
                 task.getReviewStatus(), task.getReviewReason(), task.getReviewedBy(), task.getLifecycleReviewedAt(),
                 task.isDeleted(), task.getPendingChange(),com.projectpandora.api.label.LabelResponse.from(task.getLabel()),
-                task.getKeywords().stream().map(k->new KeywordResponse(k.getId(),k.getText(),k.getCreatedBy())).toList());
+                task.getKeywords().stream().map(k->new KeywordResponse(k.getId(),k.getText(),k.getCreatedBy())).toList(), task.getStartAt());
     }
     private static String name(UserEntity user) {
         return user.getDisplayName() == null || user.getDisplayName().isBlank() ? user.getUsername() : user.getDisplayName();
