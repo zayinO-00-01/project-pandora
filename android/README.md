@@ -2,7 +2,7 @@
 
 # Pandora Android
 
-当前本地整合版本 `0.9.10-week-calendar-fix`，versionCode62。Kotlin / Jetpack Compose，最低 Android8，SDK35。四种业务角色在 App 办理业务，ADMIN 使用 Web。
+当前版本 `0.10.9-calendar-integration`，versionCode 72。Kotlin / Jetpack Compose，最低 Android8，SDK35。四种业务角色在 App 办理业务，ADMIN 使用 Web。
 
 整合水墨界面、四宫格总览、页面转场、悬浮操作、公司卡片、标签、协作关键词、账户设置和拖拽排序。任务管理与组织入口合并到“视图”下方，通知与审核入口同时保留。本轮接通后端保存、冲突提示、旧本机事项导入、个人资料读取和日志秒级时间。资料由 Web 管理员维护，公司原文在 App 只读。
 
@@ -35,3 +35,12 @@
 失败提示和本机草稿不等于已存服务器。换设备读取、断网保留输入、冲突选择和触摸布局按 [当前验收](../docs/MVP验收.md) 检查。
 
 Debug 开发预览和示例不发业务请求，Release 禁止该入口。真正权限由后端校验。历史设计记录保留在 docs；当前功能以根目录 README 和验收说明为准。
+
+
+### 节假日同步与事项标签
+
+Android 按显示年份读取 [holiday-cn](https://github.com/NateScarlet/holiday-cn) 的年度 JSON，
+papers 字段链接到中国政府网的原始通知。下载失败会尝试同一数据源的 jsDelivr 镜像。
+成功下载的数据在设备上缓存；重新进入日历时检查是否需要更新。
+首次离线使用可读取随包提供的原始数据快照。还未公布的年份只显示可计算的节日，不推测补班。
+每日事项多选标签需要包含 V23__personal_todo_labels.sql 的 API 版本。

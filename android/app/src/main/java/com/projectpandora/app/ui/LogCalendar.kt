@@ -24,6 +24,7 @@ import java.time.LocalDate
 @Composable internal fun LogCalendar(state: AppState,model: PandoraViewModel) {
     val selected=LocalDate.parse(state.selectedDate)
     var jump by remember {mutableStateOf(false)}
+    LoadHolidaySchedules(setOf(selected.year, selected.year+1))
     val first=selected.withDayOfMonth(1)
     val offset=first.dayOfWeek.value%7
     Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(4.dp)) {

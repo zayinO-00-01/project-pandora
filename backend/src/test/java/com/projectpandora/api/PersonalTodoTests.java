@@ -25,6 +25,26 @@ class PersonalTodoTests {
   mvc.perform(delete("/api/v1/personal-todos/"+id).header("Authorization",staff)).andExpect(status().isOk());
   mvc.perform(get("/api/v1/personal-todos").header("Authorization",staff)).andExpect(jsonPath("$.length()").value(0));
  }
+ @Autowired org.springframework.jdbc.core.JdbcTemplate db;
+ @Test void sharedLabelsPersistAcrossDateMovesAndCannotBeChosenAfterArchive() throws Exception {
+  String staff=TaskPolicyTestSupport.token(mvc,json,"staff");
+  var ids=db.queryForList("select id from work_labels where name in ('计划','跟进') order by id",Long.class);
+  org.junit.jupiter.api.Assertions.assertEquals(2,ids.size());
+  var body=json.createObjectNode().put("title","跟进项目").put("date","2026-11-14");
+  body.putArray("labelIds").add(ids.get(1)).add(ids.get(0));
+  var result=mvc.perform(post("/api/v1/personal-todos").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+      .andExpect(status().isCreated()).andExpect(jsonPath("$.labels.length()").value(2)).andReturn();
+  String id=json.readTree(result.getResponse().getContentAsString()).get("id").asText();
+  var founder=TaskPolicyTestSupport.token(mvc,json,"founder");
+  mvc.perform(delete("/api/v1/labels/"+ids.get(1)).header("Authorization",staff)).andExpect(status().isForbidden());
+  mvc.perform(delete("/api/v1/labels/"+ids.get(1)).header("Authorization",founder)).andExpect(status().isOk());
+  mvc.perform(post("/api/v1/personal-todos").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+      .andExpect(status().isBadRequest());
+  body.remove("labelIds");body.put("date","2026-11-16");
+  mvc.perform(put("/api/v1/personal-todos/"+id).header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.date").value("2026-11-16"))
+      .andExpect(jsonPath("$.labels[0].active").value(false)).andExpect(jsonPath("$.labels.length()").value(2));
+ }
  @Test void invalidTodoAndAnonymousRequestAreRejected() throws Exception {
   mvc.perform(get("/api/v1/personal-todos")).andExpect(status().isUnauthorized());
   mvc.perform(post("/api/v1/personal-todos").header("Authorization",TaskPolicyTestSupport.token(mvc,json,"staff")).contentType(MediaType.APPLICATION_JSON).content("{\"title\":\" \"}")).andExpect(status().isBadRequest());

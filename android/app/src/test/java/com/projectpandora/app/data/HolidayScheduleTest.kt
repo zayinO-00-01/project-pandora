@@ -1,19 +1,20 @@
 package com.projectpandora.app.data
 
 import java.time.LocalDate
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class HolidayScheduleTest {
-    @Test fun known2026ScheduleIncludesRestAndAdjustedWorkdays() {
-        assertEquals("春节",holidayScheduleLabel(LocalDate.of(2026,2,23)))
-        assertEquals("调休上班",holidayScheduleLabel(LocalDate.of(2026,2,28)))
-        assertEquals("中秋节",holidayScheduleLabel(LocalDate.of(2026,9,27)))
-        assertNull(holidayScheduleLabel(LocalDate.of(2026,11,12)))
+    private val data="""{"year":2027,"papers":["https://www.gov.cn/example.htm"],"days":[
+        {"name":"春节","date":"2027-02-05","isOffDay":true},
+        {"name":"春节","date":"2027-02-14","isOffDay":false}
+    ]}"""
+
+    @Test fun annualNoticeDifferentiatesHolidayAndMakeUpWork() {
+        val days=parseHolidaySchedule(data,2027)
+        assertEquals(mapOf(LocalDate.of(2027,2,5) to "春节",LocalDate.of(2027,2,14) to "调休上班"),days)
     }
-    @Test fun unverifiedFutureScheduleDoesNotClaimAnOfficialRestOrWorkday() {
-        assertNull(holidayScheduleLabel(LocalDate.of(2027,1,31)))
-        assertNull(holidayScheduleLabel(LocalDate.of(2027,2,5)))
-        assertNull(holidayScheduleLabel(LocalDate.of(2028,10,1)))
-    }
+
+    @Test(expected=IllegalArgumentException::class)
+    fun wrongYearIsRejected() { parseHolidaySchedule(data,2028) }
 }
