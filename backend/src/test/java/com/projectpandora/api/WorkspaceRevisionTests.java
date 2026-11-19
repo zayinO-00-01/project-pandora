@@ -39,7 +39,7 @@ class WorkspaceRevisionTests {
         var staff=users.findByUsername("staff").orElseThrow();
         var due=LocalDate.now(ZoneId.of("Asia/Shanghai")).plusDays(2).atTime(10,0)
             .atZone(ZoneId.of("Asia/Shanghai")).toInstant().toString();
-        var body=json.writeValueAsString(Map.of("title","直属任务不进入全部任务","assigneeId",staff.getId(),"dueAt",due));
+        var body=json.writeValueAsString(Map.of("title","直属任务不进入全部任务","assigneeId",staff.getId(),"startAt",due,"dueAt",due));
         var created=json.readTree(mvc.perform(post("/api/v1/tasks").header("Authorization",token("founder"))
             .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isCreated()).andReturn()
             .getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));

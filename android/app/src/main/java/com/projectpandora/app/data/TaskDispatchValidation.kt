@@ -34,10 +34,9 @@ object TaskDispatchValidation {
         if(input.assigneeId<=0)return "请选择公司业务成员"
         if(input.dueAt.isNullOrBlank())return "请选择截止时间"
         val due=runCatching {Instant.parse(input.dueAt)}.getOrNull() ?: return "截止时间无效"
-        if(input.startAt!=null) {
-            val start=runCatching {Instant.parse(input.startAt)}.getOrNull() ?: return "开始时间无效"
-            if(start.isAfter(due))return "开始时间不能晚于截止时间"
-        }
+        if(input.startAt.isNullOrBlank())return "请选择开始时间"
+        val start=runCatching {Instant.parse(input.startAt)}.getOrNull() ?: return "开始时间无效"
+        if(start.isAfter(due))return "开始时间不能晚于截止时间"
         return null
     }
 }

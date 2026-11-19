@@ -4,16 +4,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import kotlin.math.abs
 import kotlin.math.sign
-import kotlinx.coroutines.launch
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
@@ -59,15 +54,12 @@ import java.time.LocalDate
             expanded=size=="expanded"
             model.calendarMode(if(size=="week")"week" else "month")
         }
-        val scope=rememberCoroutineScope()
         val startDrag by rememberUpdatedState<(Float)->Boolean> { direction->
             val canResize=mode!="day" && (if(direction>0)currentSize!="expanded" else currentSize!="week")
             if(canResize) {
                 heightTarget=height
                 distance=0f
                 dragging=true
-                if(listState.firstVisibleItemIndex!=0 || listState.firstVisibleItemScrollOffset!=0)
-                    scope.launch {listState.scrollToItem(0)}
             }
             canResize
         }
@@ -87,37 +79,15 @@ import java.time.LocalDate
             }
             applySize(calendarSizeAfterDrag(currentSize,intent,threshold))
         }
-        LazyColumn(Modifier.fillMaxSize().pointerInput(Unit) {
-            awaitEachGesture {
-                val down=awaitFirstDown(requireUnconsumed=false,pass=PointerEventPass.Initial)
-                val velocity=VelocityTracker()
-                velocity.addPosition(down.uptimeMillis,down.position)
-                var resizing=false
-                var released=false
-                try {
-                    while(true) {
-                        val event=awaitPointerEvent(PointerEventPass.Initial)
-                        val change=event.changes.firstOrNull {it.id==down.id} ?: break
-                        if(change.isConsumed)break
-                        velocity.addPosition(change.uptimeMillis,change.position)
-                        if(!change.pressed) {released=true;break}
-                        if(!resizing) {
-                            val travel=change.position-down.position
-                            if(abs(travel.x)>viewConfiguration.touchSlop && abs(travel.x)>abs(travel.y))break
-                            if(abs(travel.y)<=viewConfiguration.touchSlop)continue
-                            if(!startDrag(travel.y))break
-                            resizing=true
-                            resize(travel.y-sign(travel.y)*viewConfiguration.touchSlop)
-                        } else {
-                            resize(change.position.y-change.previousPosition.y)
-                        }
-                        change.consume()
-                    }
-                } finally {
-                    if(resizing)finishDrag(if(released)velocity.calculateVelocity().y else null)
-                }
-            }
-        }.padding(horizontal=16.dp),state=listState,verticalArrangement=Arrangement.spacedBy(4.dp),contentPadding=PaddingValues(bottom=32.dp)) {
+        val calendarScroll=remember(listState) {
+            CalendarScrollConnection(
+                isAtTop={!listState.canScrollBackward},
+                startResize={startDrag(it)},
+                resize={resize(it)},
+                finishResize={finishDrag(it)}
+            )
+        }
+        LazyColumn(Modifier.fillMaxSize().nestedScroll(calendarScroll).padding(horizontal=16.dp),state=listState,verticalArrangement=Arrangement.spacedBy(4.dp),contentPadding=PaddingValues(bottom=32.dp)) {
             item {
                 WorkspaceCalendar(selected,onDate={model.selectDate(it.toString())},mode=mode,
                     onMode={expanded=false;model.calendarMode(it)},gridHeight=height.dp,

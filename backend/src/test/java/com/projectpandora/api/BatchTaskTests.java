@@ -14,7 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class BatchTaskTests {
  @Autowired org.springframework.test.web.servlet.MockMvc mvc;@Autowired com.fasterxml.jackson.databind.ObjectMapper json;@Autowired org.springframework.jdbc.core.JdbcTemplate db;
  long uid(String name){return db.queryForObject("select id from users where username=?",Long.class,name);}
- Map<String,Object> task(long id){return Map.of("title","批量安排","assigneeId",id,"dueAt","2026-12-01T10:00:00Z");}
+ Map<String,Object> task(long id){return Map.of("title","批量安排","assigneeId",id,"startAt","2026-12-01T09:00:00Z","dueAt","2026-12-01T10:00:00Z");}
  @Test void createsDistinctTasksAndEachKeepsItsOwnProgressAndApproval()throws Exception {
  var body=json.writeValueAsString(Map.of("tasks",List.of(task(uid("staff")),task(uid("team_lead")))));
  var result=mvc.perform(post("/api/v1/tasks/batch").header("Authorization",TaskPolicyTestSupport.token(mvc,json,"staff")).contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isCreated()).andExpect(jsonPath("$.length()").value(2)).andReturn();
