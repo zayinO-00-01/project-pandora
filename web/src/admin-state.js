@@ -24,14 +24,15 @@ const profileFields = ['phone', 'idCard', 'birthDate', 'gender', 'hireDate', 'em
 export function editableProfile(user = {}) {
   return { displayName: user.displayName ?? '', ...Object.fromEntries(profileFields.map(field => [field, user[field] ?? ''])) };
 }
-export function phoneError(form) {
+export function phoneError(form, original) {
   const phone = (form.phone ?? '').trim();
   if (!form.id && !phone) return '新建账号请填写手机号。';
+  if (original && original.id === form.id && phone === (original.phone ?? '').trim()) return '';
   return phone && !/^1[3-9]\d{9}$/.test(phone) ? '手机号须为 11 位有效号码。' : '';
 }
-export function profileForSave(form) {
+export function profileForSave(form, original) {
   const profile = Object.fromEntries(profileFields.map(field => [field, (form[field] ?? '').trim()]));
-  if (form.id && !profile.phone) delete profile.phone;
+  if (form.id && (!profile.phone || (original?.id === form.id && profile.phone === (original.phone ?? '').trim()))) delete profile.phone;
   profile.birthDate ||= null;
   profile.hireDate ||= null;
   return profile;

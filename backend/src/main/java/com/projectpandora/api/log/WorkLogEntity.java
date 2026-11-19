@@ -42,6 +42,11 @@ public class WorkLogEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @jakarta.persistence.Version
+    private long revision;
+
+    public long getRevision() { return revision; }
+
     @PrePersist
     void onCreate() {
         Instant now = Instant.now();

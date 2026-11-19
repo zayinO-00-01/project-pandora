@@ -31,14 +31,15 @@ data class AppState(
     val taskNote: TaskNoteState = TaskNoteState(),
     val notificationReadBusy: Boolean = false,val notificationReadError: String? = null,
     val notificationReadRetryIds: Set<Long> = emptySet(),val notificationReadRetryAll: Boolean = false,
+    val notificationReadQueuedIds: Set<Long> = emptySet(),val notificationReadQueuedAll: Boolean = false,
     val selectedViewRequestId: Long? = null,val viewRequestsOpen: Boolean = false,
     val pendingTaskApprovals: List<DispatchTask> = emptyList(), val taskReviewError: String? = null,
     val organization: Organization? = null,val viewRequests: List<ViewRequest> = emptyList(),val organizationLoading: Boolean = false,
     val organizationError: String? = null,val member: UserSummary? = null,val memberLogs: List<WorkLog> = emptyList(),val memberTasks: List<DispatchTask> = emptyList(),
-    val dispatchEditor: TaskDispatchBuffer? = null, val dispatchOpen: Boolean = false,
+    val dispatchEditor: TaskDispatchBuffer? = null, val dispatchOpen: Boolean = false,val pendingDispatchTarget: DispatchTask?=null,
     val dispatchMembers: List<UserSummary> = emptyList(), val dispatchLoading: Boolean = false, val dispatchError: String? = null,
     val taskEditor: TaskEditBuffer? = null, val taskEditorError: String? = null,
-    val logError: String? = null, val panelError: String? = null, val authError: String? = null,
+    val logError: String? = null, val logsLoaded: Boolean = false,val panelError: String? = null, val authError: String? = null,
     val editor: EditBuffer? = null, val editorError: String? = null,
     val screen: String = "home", val selectedDate: String = today().toString(), val calendarMode: String = "month",
     val checkingIntegrity: Boolean = false, val integrityDate: String? = null, val integrityError: String? = null,
@@ -69,7 +70,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         // This local identity is never stored as a login or sent to any server.
         val preview=Session("本地开发预览","",-1,"STAFF","开发预览","developer")
         mutable.value=AppState(session=preview,server=state.value.server,username=state.value.username,
-            developmentPreview=true,localPriorities=priorityStore.read(preview),labels=PreviewWorkspace.labels,tasks=PreviewWorkspace.tasks(),
+            developmentPreview=true,localPriorities=priorityStore.read(preview),labels=PreviewWorkspace.labels,tasks=PreviewWorkspace.tasks(),logsLoaded=true,
             panels=PanelMap(companyImportant=CompanyPriorityExamples.items),integrityDate=today().toString(),
             logs=listOf(WorkLog(-201,-1,today().minusDays(2).toString(),"病假：连续三天未到岗。\n恢复后跟进工作安排。","submitted",java.time.Instant.now().toString(),java.time.Instant.now().toString(),today().toString())),
             notice="开发预览：可查看页面及编辑布局，真实数据和保存需登录。")
@@ -380,36 +381,39 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     fun archiveLabel(id: Long)=workspaceAction({api(it).archiveLabel(it,id);Unit},"标签已停用，历史记录保留原标签")
     fun readNotification(message: AppNotification)=confirmNotificationsRead(setOf(message.id),false)
 
-    fun moveTaskDate(task: DispatchTask, date: java.time.LocalDate) {
+    fun moveTaskDate(task: DispatchTask, dueAt: String, supplementalStart: String? = null) {
         if(!canRescheduleTask(state.value,task))return
-        val zone=java.time.ZoneId.of("Asia/Shanghai")
-        val due=task.dueAt?.let {java.time.Instant.parse(it).atZone(zone)} ?: return
-        val newDue=date.atTime(due.toLocalTime()).atZone(zone).toInstant()
-        if(task.startAt?.let {java.time.Instant.parse(it).isAfter(newDue)}==true) {
-            mutable.update {it.copy(workspaceError="截止时间不能早于开始时间")}
-            return
-        }
+        val date=java.time.Instant.parse(dueAt).atZone(TaskDispatchValidation.zone).toLocalDate()
         if(state.value.developmentPreview) {
-            mutable.update {s->s.copy(tasks=s.tasks.map {if(it.id==task.id)it.copy(dueAt=newDue.toString()) else it},selectedDate=date.toString())}
+            mutable.update {s->s.copy(tasks=s.tasks.map {if(it.id==task.id)it.copy(dueAt=dueAt,startAt=it.startAt ?: supplementalStart) else it},selectedDate=date.toString())}
             return
         }
-        val input=TaskCreateInput(task.title,task.detail,task.priority,task.assigneeId,newDue.toString(),startAt=task.startAt)
         val founder=state.value.session?.role=="FOUNDER"
-        workspaceAction({api(it).editTask(it,task.id,input);Unit},if(founder)"任务已改期" else "改期申请已提交，审批后生效") {
+        workspaceAction({api(it).rescheduleTask(it,task.id,dueAt,supplementalStart);Unit},if(founder)"任务已改期" else "改期申请已提交，审批后生效") {
             if(founder)selectDate(date.toString())
         }
     }
 
-    fun editTaskDetails(task: DispatchTask) {
+    fun editTaskDetails(task: DispatchTask) = editTaskDetails(task,false)
+    private fun editTaskDetails(task: DispatchTask,replaceDraft: Boolean) {
         val me=state.value.session ?: return
         if(state.value.saving || (task.createdBy!=me.userId && me.role!="FOUNDER") || taskHasPendingReview(task,state.value.taskReviewRecords) || task.approvalStatus=="pending" || task.deleted)return
-        val due=task.dueAt?.let {runCatching {java.time.Instant.parse(it).atZone(java.time.ZoneId.of("Asia/Shanghai")).format(java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm"))}.getOrNull()}.orEmpty()
-        val start=task.startAt?.let {runCatching {java.time.Instant.parse(it).atZone(java.time.ZoneId.of("Asia/Shanghai")).format(java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm"))}.getOrNull()}
-        val draft=TaskDispatchBuffer(me.server,me.userId,task.title,task.detail,task.priority,task.assigneeId,due,task.id,task.label?.id ?: 0,start,state.value.contentLabels.firstOrNull {it.kind=="task" && it.contentId==task.id}?.labels?.map {it.id})
+        val existing=state.value.dispatchEditor
+        if(!replaceDraft && existing!=null && existing.taskId!=task.id) {
+            mutable.update {it.copy(pendingDispatchTarget=task)};return
+        }
+        val due=TaskDispatchValidation.displayTime(task.dueAt)
+        val start=TaskDispatchValidation.displayTime(task.startAt).takeIf {it.isNotEmpty()}
+        val draft=existing?.takeIf {it.taskId==task.id }?.let {
+            TaskDispatchValidation.restoreOriginalSchedule(it,task)
+        } ?: TaskDispatchBuffer(me.server,me.userId,task.title,task.detail,task.priority,task.assigneeId,due,task.id,startDate=start,
+            originalStartAt=task.startAt,originalDueAt=task.dueAt)
         store.saveDispatchBuffer(draft)
-        mutable.update {it.copy(dispatchEditor=draft,dispatchOpen=true,screen="tasks",dispatchError=null)}
+        mutable.update {it.copy(dispatchEditor=draft,dispatchOpen=true,pendingDispatchTarget=null,screen="tasks",dispatchError=null)}
         loadDispatchMembers()
     }
+    fun dismissDispatchDraftConflict() {mutable.update {it.copy(pendingDispatchTarget=null)}}
+    fun replaceDispatchDraft() {state.value.pendingDispatchTarget?.let {editTaskDetails(it,true)}}
     fun loadProfile() {
         val me=state.value.session ?: return
         if(state.value.developmentPreview)return
@@ -513,7 +517,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         val draft=current.dispatchEditor ?: TaskDispatchBuffer(me.server,me.userId,assigneeId=me.userId)
         store.saveDispatchBuffer(draft)
         taskSelectionGeneration++;taskDetailJob?.cancel();taskNoteJob?.cancel()
-        mutable.update {it.copy(dispatchEditor=draft,dispatchOpen=true,dispatchError=null,selectedTaskId=null,selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=null,taskNote=TaskNoteState(),screen="tasks",notice=null)}
+        mutable.update {it.copy(dispatchEditor=draft,dispatchOpen=true,pendingDispatchTarget=null,dispatchError=null,selectedTaskId=null,selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=null,taskNote=TaskNoteState(),screen="tasks",notice=null)}
         loadDispatchMembers()
     }
     fun loadDispatchMembers() {
@@ -524,11 +528,19 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         mutable.update {it.copy(dispatchLoading=true,dispatchError=null,dispatchMembers=emptyList())}
         dispatchJob=viewModelScope.launch {
             try {
-                val contacts=withContext(Dispatchers.IO) {api(me).directory(me)}
+                val legacyId=state.value.dispatchEditor?.takeIf(TaskDispatchValidation::needsOriginalSchedule)?.taskId
+                val (contacts,legacyTask)=withContext(Dispatchers.IO) {api(me).let {client->
+                    client.directory(me) to legacyId?.let {client.task(me,it)}
+                }}
                 val members=directoryAssignees(contacts)
-                val currentTask=state.value.tasks.firstOrNull {it.id==state.value.dispatchEditor?.taskId}
+                val currentTask=legacyTask ?: state.value.tasks.firstOrNull {it.id==state.value.dispatchEditor?.taskId}
                 val available=if(currentTask!=null && members.none {it.id==currentTask.assigneeId})members+UserSummary(currentTask.assigneeId,"",currentTask.assigneeName,"STAFF") else members
-                if(gen==generation)mutable.update {it.copy(directory=contacts,directoryError=null,dispatchMembers=available,dispatchLoading=false)}
+                if(gen==generation) {
+                    val draft=state.value.dispatchEditor
+                    val restored=if(draft!=null && legacyTask!=null)TaskDispatchValidation.restoreOriginalSchedule(draft,legacyTask) else draft
+                    if(restored!=null && restored!=draft)store.saveDispatchBuffer(restored)
+                    mutable.update {it.copy(directory=contacts,directoryError=null,dispatchMembers=available,dispatchLoading=false,dispatchEditor=restored)}
+                }
             } catch(e:CancellationException) {throw e}
             catch(e:Exception) {
                 if(gen==generation) {
@@ -553,7 +565,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     }
     fun changeLogLabels(ids: List<Long>) {
         val draft=state.value.editor ?: return
-        if(state.value.saving || logEditorReadOnly(draft,state.value.logs))return
+        if(state.value.saving || logEditorState(draft,state.value.logs,state.value.logsLoaded,state.value.logError!=null)!="editable")return
         val next=draft.copy(labelIds=ids);store.saveBuffer(next);mutable.update {it.copy(editor=next)}
     }
     fun changeDispatch(title: String? = null,detail: String? = null,priority: String? = null,assigneeId: Long? = null,dueDate: String? = null,labelId: Long? = null,startDate: String? = null) {
@@ -574,7 +586,6 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         val me=current.session ?: return
         val draft=current.dispatchEditor ?: return
         if(current.saving || current.dispatchLoading || current.developmentPreview || !AppRoles.canCreateTask(me.role))return
-        if(draft.taskId==null)runCatching {TaskDispatchValidation.input(draft)}.getOrNull()?.let {TaskDispatchValidation.creationDateError(it)}?.let {error->mutable.update {it.copy(dispatchError=error)};return}
         TaskDispatchValidation.error(draft,current.dispatchMembers)?.let {error->mutable.update {it.copy(dispatchError=error)};return}
         val gen=generation
         mutable.update {it.copy(saving=true,dispatchError=null,notice=null)}
@@ -869,17 +880,34 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     fun retryNotificationRead()=confirmNotificationsRead(state.value.notificationReadRetryIds,state.value.notificationReadRetryAll)
     private fun confirmNotificationsRead(ids: Set<Long>,all: Boolean) {
         val me=state.value.session ?: return
-        if(state.value.developmentPreview || state.value.notificationReadBusy)return
+        if(state.value.developmentPreview)return
+        if(state.value.notificationReadBusy) {
+            mutable.update {it.copy(notificationReadQueuedIds=it.notificationReadQueuedIds+ids,notificationReadQueuedAll=it.notificationReadQueuedAll || all)}
+            return
+        }
+        val current=state.value
+        val batch=ids+current.notificationReadRetryIds+current.notificationReadQueuedIds
+        val markAll=all || current.notificationReadRetryAll || current.notificationReadQueuedAll
+        if(batch.isEmpty() && !markAll)return
         val gen=generation
-        mutable.update {it.copy(notificationReadBusy=true,notificationReadError=null,notificationReadRetryIds=ids,notificationReadRetryAll=all)}
+        mutable.update {it.copy(notificationReadBusy=true,notificationReadError=null,notificationReadRetryIds=batch,
+            notificationReadRetryAll=markAll,notificationReadQueuedIds=emptySet(),notificationReadQueuedAll=false)}
         viewModelScope.launch {
             try {
-                withContext(Dispatchers.IO) {if(all)api(me).readAllNotifications(me) else ids.forEach {api(me).readNotification(me,it)}}
+                withContext(Dispatchers.IO) {
+                    val client=api(me)
+                    if(markAll)client.readAllNotifications(me)
+                    else batch.forEach {id->
+                        try {client.readNotification(me,id)}
+                        catch(e:ApiException) {if(e.status!=404)throw e}
+                    }
+                }
                 if(gen!=generation || state.value.session!=me)return@launch
                 notificationReadVersion++
-                mutable.update {s->val confirmed=NotificationList(s.notifications,s.unreadCount).confirmRead(ids)
+                mutable.update {s->val confirmed=NotificationList(s.notifications,s.unreadCount).confirmRead(batch)
                     s.copy(notifications=confirmed.items,unreadCount=confirmed.unreadCount,notificationReadBusy=false,notificationReadError=null,notificationReadRetryIds=emptySet(),notificationReadRetryAll=false)}
-                loadNotifications()
+                if(state.value.notificationReadQueuedIds.isNotEmpty() || state.value.notificationReadQueuedAll)confirmNotificationsRead(emptySet(),false)
+                else loadNotifications()
             } catch(e:CancellationException) {throw e}
             catch(e:Exception) {if(gen==generation && state.value.session==me) {
                 if(e is ApiException && e.status==401)failure(e,false)
@@ -897,12 +925,16 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         if(state.value.saving)return
         val me=state.value.session ?: return
         val existing=log
-        val buffer=EditBuffer(me.server,me.userId,existing?.id,existing?.logDate ?: date,existing?.content ?: "",existing?.status ?: "draft",existing?.endDate,existing?.label?.id ?: 0,state.value.contentLabels.firstOrNull {it.kind=="log" && it.contentId==existing?.id}?.labels?.map {it.id})
-        if(!state.value.developmentPreview)store.saveBuffer(buffer)
+        val saved=if(state.value.developmentPreview)null else logDraftForOpening(store.buffer(me),existing)
+        if(saved!=null && (saved.logId!=existing?.id || (saved.logId==null && saved.date!=date))) {
+            mutable.update {it.copy(editor=saved,editorError=null,notice="已恢复本机未保存的日志。请先保存或放弃，再打开另一篇。",screen="logs")}
+            return
+        }
+        val buffer=saved ?: EditBuffer(me.server,me.userId,existing?.id,existing?.logDate ?: date,existing?.content ?: "",existing?.status ?: "draft",existing?.endDate,baseRevision=existing?.revision)
         mutable.update {it.copy(editor=buffer,editorError=null,notice=null,screen="logs")}
     }
     fun changeEditor(date: String? = null, content: String? = null, endDate: String? = null,labelId: Long? = null) {
-        state.value.editor?.let {if(logEditorReadOnly(it,state.value.logs))return}
+        state.value.editor?.let {if(logEditorState(it,state.value.logs,state.value.logsLoaded,state.value.logError!=null)!="editable")return}
         if(state.value.saving)return
         val current=state.value.editor ?: return
         val buffer=current.copy(date=if(current.logId==null)date ?: current.date else current.date,content=content ?: current.content,endDate=if(current.logId==null && date!=null)endDate else current.endDate,labelId=labelId ?: current.labelId)
@@ -914,12 +946,25 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         state.value.session?.let {store.clearBuffer(it)}
         mutable.update {it.copy(editor=null,editorError=null,notice=null)}
     }
+    fun closeLogEditor() {
+        if(!state.value.saving)mutable.update {it.copy(editor=null,editorError=null,notice=null)}
+    }
+    fun reconcileLogEditor(useLatest: Boolean) {
+        val current=state.value
+        val draft=current.editor ?: return
+        if(current.saving || logEditorState(draft,current.logs,current.logsLoaded,current.logError!=null)!="changed")return
+        val latest=current.logs.firstOrNull {it.id==draft.logId} ?: return
+        val merged=if(useLatest)draft.copy(content=latest.content,baseRevision=latest.revision,status=latest.status,labelId=null,labelIds=null)
+            else draft.copy(baseRevision=latest.revision,status=latest.status)
+        store.saveBuffer(merged)
+        mutable.update {it.copy(editor=merged,editorError=null,notice=null)}
+    }
     fun save(status: String) {
         val current=state.value
         if(current.saving)return
-        current.editor?.let {if(logEditorReadOnly(it,current.logs)) {mutable.update {s->s.copy(editorError="该日志已超出创建后 24 小时，仅供查看")};return}}
         val me=current.session ?: return
         val buffer=current.editor ?: return
+        if(logEditorState(buffer,current.logs,current.logsLoaded,current.logError!=null)!="editable")return
         val original=current.logs.firstOrNull {it.id==buffer.logId}
         if(original!=null && (buffer.date!=original.logDate || (buffer.endDate ?: buffer.date)!=original.lastDate)) {
             mutable.update {it.copy(editorError="已保存日志的日期范围不可修改，请重新打开日志。")};return
@@ -934,7 +979,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         mutable.update {it.copy(saving=true,editorError=null,notice=null)}
         viewModelScope.launch {
             try {
-                val result=withContext(Dispatchers.IO) {api(me).save(me,buffer.logId,LogInput(buffer.date,buffer.content.trim(),status,buffer.endDate,buffer.labelId,buffer.labelIds))}
+                val result=withContext(Dispatchers.IO) {api(me).save(me,buffer.logId,LogInput(buffer.date,buffer.content.trim(),status,buffer.endDate,buffer.labelId,buffer.labelIds,buffer.baseRevision))}
                 if(gen!=generation)return@launch
                 store.clearBuffer(me)
                 mutable.update {it.copy(saving=false,editor=null,editorError=null,selectedDate=result.logDate,
@@ -944,6 +989,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             } catch(e: Exception) {
                 if(gen!=generation)return@launch
                 failure(e,true)
+                if(e is ApiException && e.status==409)refresh()
             }
         }
     }
@@ -976,7 +1022,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             ensureActive()
             if(gen!=generation)return@launch
             if((logResult.exceptionOrNull() as? ApiException)?.status==401) {failure(logResult.exceptionOrNull()!!,false);return@launch}
-            logResult.onSuccess {logs-> mutable.update {it.copy(logs=logs)} }
+            logResult.onSuccess {logs-> mutable.update {it.copy(logs=logs,logsLoaded=true)} }
                 .onFailure {e->mutable.update {it.copy(logError=message(e))}}
             val panelResult=withContext(Dispatchers.IO) {runCatching {api(me).panels(me)}}
             ensureActive()
@@ -1069,5 +1115,5 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
 internal fun canRescheduleTask(state: AppState,task: DispatchTask): Boolean {
     val user=state.session ?: return false
     return !state.saving && taskDate(task)!=null && taskCanReportProgress(task,state.taskReviewRecords) &&
-        (state.developmentPreview || user.role=="FOUNDER" || task.createdBy==user.userId)
+        (state.developmentPreview || user.role=="FOUNDER" || task.createdBy==user.userId || task.assigneeId==user.userId)
 }

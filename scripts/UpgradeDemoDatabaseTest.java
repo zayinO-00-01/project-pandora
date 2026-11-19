@@ -8,7 +8,13 @@ import org.flywaydb.core.Flyway;
 class UpgradeDemoDatabaseTest {
     static Path repo, root, current;
     static String url(Path db) { return "jdbc:h2:file:"+db.toString().replace('\\','/')+";MODE=MySQL;DATABASE_TO_LOWER=TRUE"; }
-    static void migrate(Path db, Path location) { Flyway.configure().dataSource(url(db),"sa","").locations("filesystem:"+location).load().migrate(); }
+    static void migrate(Path db, Path location) {
+        var h2=location.resolveSibling("migration-h2");
+        var config=Flyway.configure().dataSource(url(db),"sa","");
+        if (Files.isDirectory(h2)) config.locations("filesystem:"+location,"filesystem:"+h2);
+        else config.locations("filesystem:"+location);
+        config.load().migrate();
+    }
     static void check(boolean condition,String message) { if(!condition) throw new AssertionError(message); }
     static void sql(Path db,String sql) throws Exception { try(var c=DriverManager.getConnection(url(db),"sa","");var s=c.createStatement()){s.execute(sql);} }
     static Map<String,String> snapshot(Path db) throws Exception {
@@ -25,8 +31,10 @@ class UpgradeDemoDatabaseTest {
                 Process p=new ProcessBuilder("git","show","f91516e:backend/src/main/resources/db/migration/"+file).directory(repo.toFile()).start();
                 byte[] bytes=p.getInputStream().readAllBytes();check(p.waitFor()==0,"git fixture extraction");Files.write(scripts.resolve(file),bytes);
             }
-        } else try(var paths=Files.list(current)) {
-            for(Path p:paths.toList()) if(p.getFileName().toString().matches("V[0-9]+__.*\\.sql") && Integer.parseInt(p.getFileName().toString().split("__")[0].substring(1))<=limit)Files.copy(p,scripts.resolve(p.getFileName()));
+        } else for(Path location:List.of(current,current.resolveSibling("migration-h2"))) {
+            try(var paths=Files.list(location)) {
+                for(Path p:paths.toList()) if(p.getFileName().toString().matches("V[0-9]+__.*\\.sql") && Integer.parseInt(p.getFileName().toString().split("__")[0].substring(1))<=limit)Files.copy(p,scripts.resolve(p.getFileName()));
+            }
         }
         Path db=root.resolve(name);migrate(db,scripts);
         sql(db,"INSERT INTO work_logs(user_id,log_date,content,status) SELECT id,DATE '2026-10-01','keep log','draft' FROM users WHERE username='staff'");
@@ -84,6 +92,12 @@ class UpgradeDemoDatabaseTest {
         rejectCopy(main,"noncanonical-version","UPDATE flyway_schema_history SET version='03' WHERE version='3'");
         rejectCopy(main,"unknown-type","UPDATE flyway_schema_history SET type='JDBC' WHERE version='3'");
         rejectCopy(main,"failed-history","UPDATE flyway_schema_history SET success=FALSE WHERE version='3'");
+        Path released=fixture("main-v23",false,23);
+        sql(released,"UPDATE users SET avatar_image='existing avatar' WHERE username='staff'");
+        run(released);migrate(released,current);run(released);
+        try(var c=UpgradeDemoDatabase.open(released);var s=c.createStatement();var r=s.executeQuery("SELECT avatar_image FROM users WHERE username='staff'")){
+            check(r.next() && "existing avatar".equals(r.getString(1)),"migration changed the existing avatar");
+        }
         Path fresh=fixture("main-full",false,99);before=snapshot(fresh);run(fresh);check(before.equals(snapshot(fresh)),"current full history changed");
         run(root.resolve("nonexistent"));check(!Files.exists(root.resolve("nonexistent.mv.db")),"fresh path created DB");
         System.out.println("PASS: PowerShell wrapper, both histories, partial V3/V4 roles, three-role tasks, full Flyway migration, all business rows, backup contents, idempotence, unknown checksum/description/version/type/failed history refusal, absent DB. Fixtures: "+root);

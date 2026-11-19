@@ -7,8 +7,48 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import kotlin.math.sin
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private val holidayYears = androidx.compose.runtime.mutableStateMapOf<Int, Map<LocalDate,String>>()
+private val scheduleRefresh=Mutex()
+private const val FEED="https://www.shuyz.com/githubfiles/china-holiday-calender/master/holidayAPI.json"
+private const val REFRESH_INTERVAL=86_400_000L
+
+internal fun parseHolidayApi(json: String,year: Int): Map<LocalDate,String> {
+    val rows=com.google.gson.JsonParser.parseString(json).asJsonObject.getAsJsonObject("Years").getAsJsonArray(year.toString())
+        ?: return emptyMap()
+    val ordinary=mutableMapOf<LocalDate,String>()
+    val makeUp=mutableSetOf<LocalDate>()
+    rows.forEach {entry->
+        val row=entry.asJsonObject
+        val source=java.net.URI(row["URL"].asString)
+        require(source.scheme=="https" && (source.host=="gov.cn" || source.host?.endsWith(".gov.cn")==true))
+        val start=LocalDate.parse(row["StartDate"].asString)
+        val end=LocalDate.parse(row["EndDate"].asString)
+        val length=java.time.temporal.ChronoUnit.DAYS.between(start,end)
+        require(kotlin.math.abs(start.year-year)<=1 && length in 0..30)
+        val name=row["Name"].asString
+        require(name.isNotBlank())
+        for(offset in 0..length)ordinary[start.plusDays(offset)]=name
+        row.getAsJsonArray("CompDays")?.forEach {
+            val day=LocalDate.parse(it.asString)
+            require(kotlin.math.abs(day.year-year)<=1)
+            makeUp+=day
+        }
+    }
+    makeUp.forEach {ordinary[it]="调休上班"}
+    return ordinary
+}
+
+private fun readHolidayFeed(url: String): String? = runCatching {
+    val connection=java.net.URL(url).openConnection() as java.net.HttpURLConnection
+    try {
+        connection.connectTimeout=4000
+        connection.readTimeout=4000
+        connection.inputStream.bufferedReader(Charsets.UTF_8).use {it.readText()}
+    } finally {connection.disconnect()}
+}.getOrNull()
 
 internal fun parseHolidaySchedule(json: String, year: Int): Map<LocalDate,String> {
     val data=com.google.gson.JsonParser.parseString(json).asJsonObject
@@ -28,33 +68,45 @@ fun LoadHolidaySchedules(years: Set<Int>) {
     val context=androidx.compose.ui.platform.LocalContext.current.applicationContext
     androidx.compose.runtime.LaunchedEffect(years) {
         val prefs=context.getSharedPreferences("holiday-cn",0)
-        kotlinx.coroutines.coroutineScope {
-            years.forEach {year->launch {
+        scheduleRefresh.withLock {
+            var apiJson=prefs.getString("open-api",null)
+            fun apiYear(year: Int)=apiJson?.let {runCatching {parseHolidayApi(it,year)}.getOrNull()?.takeIf(Map<LocalDate,String>::isNotEmpty)}
+            for(year in years) {
+                if(holidayYears.containsKey(year))continue
                 val cached=prefs.getString("$year",null) ?: withContext(Dispatchers.IO) {
                     runCatching {context.assets.open("holidays/$year.json").bufferedReader(Charsets.UTF_8).use {it.readText()}}.getOrNull()
                 }
-                if(cached!=null && !holidayYears.containsKey(year))
-                    runCatching {parseHolidaySchedule(cached,year)}.getOrNull()?.let {holidayYears[year]=it}
-                if(holidayYears.containsKey(year) && System.currentTimeMillis()-prefs.getLong("$year.checked",0)<86_400_000L)return@launch
+                val initial=apiYear(year) ?: cached?.let {runCatching {parseHolidaySchedule(it,year)}.getOrNull()}
+                initial?.let {holidayYears[year]=it}
+            }
+            val now=System.currentTimeMillis()
+            if(now-prefs.getLong("open-api.checked",0)>=REFRESH_INTERVAL) {
+                val fresh=withContext(Dispatchers.IO) {readHolidayFeed(FEED)}
+                val usable=fresh!=null && years.any {year->runCatching {parseHolidayApi(fresh,year).isNotEmpty()}.getOrDefault(false)}
+                if(usable)apiJson=fresh
+                prefs.edit().apply {
+                    if(usable)putString("open-api",fresh)
+                    putLong("open-api.checked",now)
+                }.apply()
+            }
+            coroutineScope { years.forEach {year->launch {
+                val official=apiYear(year)
+                if(official!=null) {holidayYears[year]=official;return@launch}
+                if(now-prefs.getLong("$year.checked",0)<REFRESH_INTERVAL)return@launch
                 val downloaded=withContext(Dispatchers.IO) {
                     listOf(
                         "https://raw.githubusercontent.com/NateScarlet/holiday-cn/master/$year.json",
                         "https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/$year.json"
-                    ).firstNotNullOfOrNull {url->runCatching {
-                        val connection=java.net.URL(url).openConnection() as java.net.HttpURLConnection
-                        try {
-                            connection.connectTimeout=5000
-                            connection.readTimeout=5000
-                            val json=connection.inputStream.bufferedReader(Charsets.UTF_8).use {it.readText()}
-                            json to parseHolidaySchedule(json,year)
-                        } finally {connection.disconnect()}
-                    }.getOrNull()}
+                    ).firstNotNullOfOrNull {url->readHolidayFeed(url)?.let {data->
+                        runCatching {data to parseHolidaySchedule(data,year)}.getOrNull()
+                    }}
                 }
+                prefs.edit().putLong("$year.checked",now).apply()
                 downloaded?.let {(json,dates)->
-                    prefs.edit().putString("$year",json).putLong("$year.checked",System.currentTimeMillis()).apply()
+                    prefs.edit().putString("$year",json).apply()
                     holidayYears[year]=dates
                 }
-            }}
+            }}}
         }
     }
 }

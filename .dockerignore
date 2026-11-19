@@ -35,3 +35,4 @@ deliverables
 **/*.mv.db
 **/*.trace.db
 backend/data
+backend/src/main/resources/static

@@ -16,12 +16,14 @@ Spring Boot3 / Java17，默认H2文件库。根目录start-demo.cmd将Web和API�
 
 默认H2连接使用WRITE_DELAY=0同步写入，保存后立即结束进程重启也保留最后提交；显式自定义连接串需自行保留该参数。本轮未改变云端连接配置。
 
-V1–V19保持原脚本；本地整合新增 V20、V21，先在数据库副本验证，保留全部原字段及审核时间。不得清空原库、覆盖远端数据库或批量修复未知迁移历史。
+Flyway 根据数据库选择通用脚本和 H2 或 MySQL 专用脚本。H2 的 V12 原脚本保留，用于验证现有迁移历史；MySQL 新库使用支持长头像的 `MEDIUMTEXT`。升级前在数据库副本验证，不改写未知迁移记录。
+
+从仓库根目录运行 `docker compose up -d --build` 会构建 Web 和 API 并启用 MySQL；启动后从 `http://localhost:8080` 打开管理页。Docker 构建不依赖本机预先生成的 Web 文件。
 
 ```powershell
 # 从仓库根目录执行，或用本机Maven路径代替mvn
-mvn -f backend/pom.xml test
-mvn -f backend/pom.xml package -DskipTests
+mvn -f backend/pom.xml clean test
+mvn -f backend/pom.xml clean package -DskipTests
 ```
 
 旧迁移顺序兼容检查仍由scripts/Upgrade-DemoDatabase.ps1执行。新装会创建独立本地库，不会自动连接组长云端。测试、构建和真实接口结果以当前验收记录为准。

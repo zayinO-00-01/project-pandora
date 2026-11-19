@@ -54,7 +54,14 @@ class ApiClient(address: String) {
     val server=ServerAddress.normalize(address)
     private val json=GsonBuilder().serializeNulls().create()
     fun todos(session: Session): List<DailyTodo> = request("/personal-todos","GET",null,session,object:TypeToken<List<DailyTodo>>(){}.type)
-    fun saveTodo(session: Session,todo: DailyTodo,creating: Boolean): DailyTodo = request("/personal-todos"+if(creating)"" else "/${todo.id}",if(creating)"POST" else "PUT",todo,session,DailyTodo::class.java)
+    fun saveTodo(session: Session,todo: DailyTodo,creating: Boolean,original: DailyTodo?=null): DailyTodo {
+        val body=mutableMapOf<String,Any>("title" to todo.title,"date" to todo.date,"completed" to todo.completed)
+        todo.labelIds?.let {body["labelIds"]=it}
+        if(creating)body["requestId"]=todo.id
+        original?.let {body["base"]=mapOf("title" to it.title,"date" to it.date,"completed" to it.completed,
+            "labelIds" to it.labels.orEmpty().map {label->label.id})}
+        return request("/personal-todos"+if(creating)"" else "/${todo.id}",if(creating)"POST" else "PUT",body,session,DailyTodo::class.java)
+    }
     fun deleteTodo(session: Session,id: String): DailyTodo = request("/personal-todos/$id","DELETE",null,session,DailyTodo::class.java)
     fun login(username: String, password: String): Session {
         val result: LoginResponse=request("/auth/login","POST",mapOf("username" to username,"password" to password),null,LoginResponse::class.java)
@@ -68,6 +75,8 @@ class ApiClient(address: String) {
     fun reviews(session: Session): List<TaskReview> = request("/task-reviews","GET",null,session,object:TypeToken<List<TaskReview>>(){}.type)
     fun decideTask(session: Session,id: Long,status: String): TaskReview = request("/task-reviews/$id","PUT",mapOf("status" to status),session,TaskReview::class.java)
     fun editTask(session: Session,id: Long,input: TaskCreateInput): DispatchTask = request("/tasks/$id","PUT",input,session,DispatchTask::class.java)
+    fun rescheduleTask(session: Session,id: Long,dueAt: String,startAt: String?): DispatchTask =
+        request("/tasks/$id/due-date","PUT",buildMap {put("dueAt",dueAt);if(startAt!=null)put("startAt",startAt)},session,DispatchTask::class.java)
     fun saveKeyword(session: Session,taskId: Long,id: Long?,text: String): ActionResult = request(if(id==null)"/tasks/$taskId/keywords" else "/tasks/$taskId/keywords/$id",if(id==null)"POST" else "PUT",mapOf("text" to text),session,ActionResult::class.java)
     fun deleteKeyword(session: Session,taskId: Long,id: Long): ActionResult = request("/tasks/$taskId/keywords/$id","DELETE",null,session,ActionResult::class.java)
     fun saveLabel(session: Session,id: Long?,name: String,color: String): WorkLabel = request(if(id==null)"/labels" else "/labels/$id",if(id==null)"POST" else "PUT",mapOf("name" to name,"color" to color),session,WorkLabel::class.java)

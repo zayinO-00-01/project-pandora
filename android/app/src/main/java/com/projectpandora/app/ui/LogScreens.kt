@@ -112,15 +112,30 @@ import androidx.compose.ui.semantics.contentDescription
 }
 @Composable fun EditorScreen(state: AppState, model: PandoraViewModel) {
     val editor=state.editor ?: return
-    val readOnly=logEditorReadOnly(editor,state.logs)
+    val source=state.logs.firstOrNull {it.id==editor.logId}
+    val editorState=logEditorState(editor,state.logs,state.logsLoaded,state.logError!=null)
+    val readOnly=editorState!="editable"
     var discard by remember {mutableStateOf(false)}
-    BackHandler {if(!state.saving) {if(readOnly)model.discardEditor() else discard=true}}
+    BackHandler {if(!state.saving)model.closeLogEditor()}
     if(discard)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={discard=false},title={Text("放弃这次修改？")},text={Text("未保存内容会被清除，服务器里的日志不会改变。")},confirmButton={ControlTextButton(onClick={discard=false;model.discardEditor()}) {Text("放弃修改")}},dismissButton={ControlTextButton(onClick={discard=false}) {Text("继续编辑")}})
     Column(Modifier.fillMaxSize().imePadding().padding(horizontal=20.dp)) {
         LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=20.dp)) {
-            item {ScreenHeading(if(readOnly)"查看工作日志" else if(editor.logId==null)"新建工作日志" else "编辑工作日志",if(readOnly)"创建后超过 24 小时，当前记录仅供查看。" else "可记录今天、昨天和前天，每天一篇；创建后 24 小时内可修改和提交。")}
-            item {Text(if(readOnly)"历史日志完整保留。" else if(editor.status=="submitted")"保存后，领导刷新即可看到最新内容。" else "草稿仅自己可见，提交后领导才能查看。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-            state.logs.firstOrNull {it.id==editor.logId}?.let {saved->
+            item {ScreenHeading(if(editorState=="expired")"查看工作日志" else if(editor.logId==null)"新建工作日志" else "编辑工作日志","")}
+            when(editorState) {
+                "expired"->item {Hint("已超过创建后 24 小时，只能查看。")}
+                "loading"->item {LinearProgressIndicator(Modifier.fillMaxWidth())}
+                "unavailable"->item {Hint("暂时无法读取原日志，本机内容仍在。",true,onRetry=model::refresh)}
+                "missing"->item {Hint("服务器未返回原日志，本机内容仍在。",true,onRetry=model::refresh)}
+                "changed"->item {Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                    Hint("日志已有更新。请对照服务器内容，再决定使用哪个版本。")
+                    Text("服务器内容：${source?.content.orEmpty()}",style=MaterialTheme.typography.bodyMedium)
+                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                        ControlTextButton(onClick={model.reconcileLogEditor(true)}) {Text("使用服务器内容")}
+                        ControlTextButton(onClick={model.reconcileLogEditor(false)}) {Text("保留本机内容")}
+                    }
+                }}
+            }
+            source?.let {saved->
                 item {Text("创建时间  ${timestamp(saved.createdAt)}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
                 item {Text("最近修改  ${timestamp(saved.updatedAt)}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
             }
@@ -128,16 +143,21 @@ import androidx.compose.ui.semantics.contentDescription
             if(editor.logId==null && editor.date!=today().toString())item {Hint("每天仅一篇，草稿也占用当天名额；创建后 24 小时内可修改，保存后日期固定。")}
             state.workspaceError?.let {item {Hint("标签读取失败：$it",true)}}
             if(!readOnly)state.labelError?.let {item {Hint(it,true,onRetry=model::loadWorkspaceExtras)}}
-            if(!readOnly)item {MultiLabelPicker(state.labels,editor.labelIds ?: listOfNotNull(editor.labelId?.takeIf {it>0}),!state.saving,model::changeLogLabels)}
-            item {OutlinedTextField(value=editor.content,onValueChange={if(it.length<=5000)model.changeEditor(content=it)},readOnly=readOnly,label={Text("工作记录")},placeholder={Text("今天完成了什么？遇到哪些问题？下一步准备做什么？")},enabled=!state.saving,modifier=Modifier.fillMaxWidth().heightIn(min=260.dp),minLines=9,supportingText={Text("${editor.content.length} / 5000")})}
+            if(!readOnly)item {
+                val displayedLabels=editor.labelIds ?: if(editor.labelId!=null)listOfNotNull(editor.labelId.takeIf {it>0})
+                    else source?.let {contentTags(state,"log",it.id,it.label).map {tag->tag.id}}.orEmpty()
+                MultiLabelPicker(state.labels,displayedLabels,!state.saving,model::changeLogLabels)
+            }
+            item {OutlinedTextField(value=editor.content,onValueChange={if(it.length<=5000)model.changeEditor(content=it)},readOnly=readOnly,label={Text(if(editorState=="changed")"本机内容" else "工作记录")},placeholder={Text("今天完成了什么？遇到哪些问题？下一步准备做什么？")},enabled=!state.saving,modifier=Modifier.fillMaxWidth().heightIn(min=260.dp),minLines=9,supportingText={Text("${editor.content.length} / 5000")})}
             state.editorError?.let {item {Hint(it,true)}}
         }
         Row(Modifier.fillMaxWidth().padding(vertical=12.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            if(readOnly)ControlTextButton(onClick={model.discardEditor()},enabled=!state.saving) {Text("返回")}
-            else {
-            ControlTextButton(onClick={discard=true},enabled=!state.saving) {Text("取消")}
-            if(editor.status!="submitted")ControlOutlinedButton(onClick={model.save("draft")},enabled=!state.saving) {Text("存草稿")}
-            ControlButton(onClick={model.save("submitted")},enabled=!state.saving && !state.checkingIntegrity,modifier=Modifier.weight(1f)) {Text(if(state.saving)"保存中…" else if(editor.status=="submitted")"保存修改" else "提交日志")}
+            ControlTextButton(onClick=model::closeLogEditor,enabled=!state.saving) {Text("返回")}
+            if(!readOnly || source?.content!=editor.content || editorState=="changed")
+                ControlTextButton(onClick={discard=true},enabled=!state.saving) {Text("放弃修改")}
+            if(!readOnly) {
+                if(editor.status!="submitted" && source?.status!="submitted")ControlOutlinedButton(onClick={model.save("draft")},enabled=!state.saving) {Text("存草稿")}
+                ControlButton(onClick={model.save("submitted")},enabled=!state.saving && !state.checkingIntegrity,modifier=Modifier.weight(1f)) {Text(if(state.saving)"保存中…" else if(editor.status=="submitted" || source?.status=="submitted")"保存修改" else "提交日志")}
             }
         }
     }

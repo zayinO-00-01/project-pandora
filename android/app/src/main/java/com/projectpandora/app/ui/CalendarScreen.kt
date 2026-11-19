@@ -15,14 +15,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.background
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.projectpandora.app.AppState
 import com.projectpandora.app.PandoraViewModel
 import com.projectpandora.app.canRescheduleTask
 import com.projectpandora.app.data.*
 import java.time.LocalDate
+import java.time.Instant
+import java.time.format.DateTimeFormatter
+
+private val scheduleFormat=DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm")
+private data class CalendarScheduleRequest(val task: DispatchTask,val target: LocalDate?)
 
 @Composable fun CalendarScreen(state: AppState,model: PandoraViewModel) {
     var showHelp by remember {mutableStateOf(false)}
@@ -31,6 +35,15 @@ import java.time.LocalDate
     val feedback=LocalControlFeedback.current
     val listState=rememberLazyListState()
     val itemDrag=remember {CalendarItemDrag()}
+    var moveRequest by remember(state.session?.userId) {mutableStateOf<CalendarScheduleRequest?>(null)}
+    fun move(task: DispatchTask,target: LocalDate) {
+        val start=task.startAt?.let(Instant::parse)
+        val targetTime=Instant.parse(task.dueAt ?: return).atZone(TaskDispatchValidation.zone).toLocalTime()
+        val due=target.atTime(targetTime).atZone(TaskDispatchValidation.zone).toInstant()
+        if(start!=null && due>=start && due>=Instant.now())
+            model.moveTaskDate(task,due.toString())
+        else moveRequest=CalendarScheduleRequest(task,target)
+    }
     var expanded by rememberSaveable {mutableStateOf(false)}
     LaunchedEffect(mode,expanded) {listState.scrollToItem(0)}
     val tasksByDay=remember(state.tasks) {
@@ -94,20 +107,20 @@ import java.time.LocalDate
                 finishResize={finishDrag(it)}
             )
         }
+        CalendarDragLayer(itemDrag) {
         LazyColumn(Modifier.fillMaxSize().nestedScroll(calendarScroll).padding(horizontal=16.dp),state=listState,verticalArrangement=Arrangement.spacedBy(4.dp),contentPadding=PaddingValues(bottom=32.dp)) {
             item(key="company-calendar") {
-                CalendarDragLayer(itemDrag) {
                 WorkspaceCalendar(selected,onDate={model.selectDate(it.toString())},mode=mode,
                     onMode={expanded=false;model.calendarMode(it)},gridHeight=height.dp,
                     onResizeToggle={applySize(if(currentSize=="normal")"week" else "normal")},drag=itemDrag) {date->
-                    tasksByDay[date].orEmpty().take(2).forEach {task->
+                    val tasks=tasksByDay[date].orEmpty()
+                    tasks.take(if(tasks.size>2)1 else 2).forEach {task->
                         val canMove=canRescheduleTask(state,task)
                         CalendarItemChip(task.title,contentTags(state,"task",task.id,task.label),
-                            Modifier.calendarDrag(itemDrag,task.title,date,if(!canMove)null else {target->
-                                model.moveTaskDate(task,target)
-                            }))
+                            Modifier.calendarDrag(itemDrag,task.title,date,if(canMove){{target->move(task,target)}} else null)
+                                .clickable {model.selectDate(date.toString())})
                     }
-                }
+                    if(tasks.size>2)CalendarOverflow(tasks.size-1) {model.selectDate(date.toString())}
                 }
             }
         state.workspaceError?.let {item {Hint(it,true)}}
@@ -137,32 +150,71 @@ import java.time.LocalDate
             }
             tasks.forEach {task->
                 item(key="${agendaDate}-task-${task.id}") {
-                    AgendaEntry(task,state,!state.saving) {feedback();model.openTask(task.id)}
+                    val canMove=canRescheduleTask(state,task)
+                    AgendaEntry(task,state,!state.saving,
+                        Modifier.calendarDrag(itemDrag,task.title,agendaDate,if(canMove){{target->move(task,target)}} else null,fromAgenda=true),
+                        onMove=if(canMove) {{moveRequest=CalendarScheduleRequest(task,null)}} else null
+                    ) {feedback();model.openTask(task.id)}
                 }
             }
         }
         item {TaskManagementSection(state.copy(tasks=state.tasks.filter {taskDate(it)==selected}),model)}
     }
     }
-    if(showHelp)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={showHelp=false},title={Text("显示说明")},text={Text("日历仅显示任务，日志在日志页独立管理。月视图查看整月，周视图查看选中日期所在周，下方仅列出选中当天的工作安排，日视图专注当天详情。点击日期标题可直接输入年份并选择月份；跳转保留所选日期，超出当月天数时使用月末。箭头按当前视图切换月、周或天，“今天”返回当前日期。日期摘要最多两排，详细内容在下方显示。仅展示当前已同步内容，没有截止日期的任务可在任务列表查看。")},confirmButton={ControlTextButton(onClick={showHelp=false}) {Text("关闭")}})
+    }
+    moveRequest?.let { request ->
+        TaskScheduleDialog(request,{moveRequest=null}) { due,start ->
+            moveRequest=null
+            model.moveTaskDate(request.task,due,start)
+        }
+    }
+    if(showHelp)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={showHelp=false},title={Text("日历怎么用")},text={Text("点日期看当天全部任务，点年月可直接跳转。长按任务标签或下方的任务卡片可拖到新日期，也可以点“改期”。创建人和责任人可申请改期，由本人直属上级审核；创始人改期直接生效。")},confirmButton={ControlTextButton(onClick={showHelp=false}) {Text("关闭")}})
 }
-@Composable private fun AgendaEntry(task: DispatchTask,state: AppState,enabled: Boolean,onClick: ()->Unit) {
+@Composable private fun TaskScheduleDialog(request: CalendarScheduleRequest,onDismiss: ()->Unit,onConfirm: (String,String?)->Unit) {
+    val task=request.task
+    val oldDue=Instant.parse(task.dueAt).atZone(TaskDispatchValidation.zone).toLocalDateTime()
+    val oldStart=task.startAt?.let {Instant.parse(it).atZone(TaskDispatchValidation.zone).toLocalDateTime()}
+    var start by remember(request) {mutableStateOf("")}
+    var due by remember(request) {mutableStateOf((request.target?.atTime(oldDue.toLocalTime()) ?: oldDue).format(scheduleFormat))}
+    val selectedStart=TaskDispatchValidation.localTime(start)
+    val selectedDue=TaskDispatchValidation.localTime(due)
+    val earliest=listOfNotNull(currentDeadlineMinimum(),oldStart,selectedStart).max()
+    val valid=(oldStart!=null || selectedStart!=null) && selectedDue!=null && selectedDue>=earliest
+    AlertDialog(onDismissRequest=onDismiss,title={Text("任务改期")},text={
+        Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            Text(task.title)
+            if(oldStart==null){
+                Text("这项任务还没有开始时间，请先补填。")
+                DeadlinePicker(start,true,label="开始时间",maxTime=selectedDue) {start=it}
+            }
+            DeadlinePicker(due,true,minTime=earliest,notBeforeNow=true) {due=it}
+            if(selectedDue!=null && selectedDue<earliest)
+                Text("截止时间不能早于开始时间或当前时间。",color=MaterialTheme.colorScheme.error)
+        }
+    },confirmButton={ControlTextButton(enabled=valid,onClick={
+        if(selectedDue!=null && selectedDue>=TaskDispatchValidation.earliestDeadlineMinute())
+            onConfirm(TaskDispatchValidation.timestamp(due),start.takeIf {it.isNotBlank()}?.let(TaskDispatchValidation::timestamp))
+    }){Text("确认改期")}},dismissButton={ControlTextButton(onClick=onDismiss){Text("取消")}})
+}
+
+@Composable private fun AgendaEntry(task: DispatchTask,state: AppState,enabled: Boolean,modifier: Modifier=Modifier,onMove: (() -> Unit)?=null,onClick: ()->Unit) {
     val background=MaterialTheme.colorScheme.surface.copy(alpha=0.96f)
     val foreground=MaterialTheme.colorScheme.onSurface
-    Surface(onClick=onClick,enabled=enabled,color=background,contentColor=foreground,shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth().panelOutline()) {
+    Surface(color=background,contentColor=foreground,shape=MaterialTheme.shapes.medium,modifier=modifier.fillMaxWidth().panelOutline()) {
         Row(Modifier.padding(12.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
             Column(Modifier.width(44.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                 Text(timestamp(task.dueAt.orEmpty()).substringAfter(' ').take(5),style=MaterialTheme.typography.labelMedium)
                 Text("截止时间",style=MaterialTheme.typography.labelSmall)
             }
-            Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+            Column(Modifier.weight(1f).clickable(enabled=enabled,onClick=onClick),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                 Text(if(taskIsApproved(task))taskFeedbackLabel(task) else "创建${reviewStatus(task.approvalStatus)}",style=MaterialTheme.typography.labelSmall)
                 Text(task.title,style=MaterialTheme.typography.bodyLarge)
                 TaskPriorityText(task.priority,onLabel=false)
                 if(task.detail.isNotBlank())Text(task.detail,style=MaterialTheme.typography.bodyMedium)
                 if(task.progressNote.isNotBlank())Text("进度：${task.progressNote}",style=MaterialTheme.typography.bodySmall)
-                LabelLines(contentTags(state,"task",task.id,task.label))
+                CalendarLabelNames(contentTags(state,"task",task.id,task.label))
             }
+            if(onMove!=null)ControlTextButton(onClick=onMove,enabled=enabled) {Text("改期")}
         }
     }
 }

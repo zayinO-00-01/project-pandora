@@ -3,6 +3,8 @@ import com.projectpandora.api.security.AccessService;
 import com.projectpandora.api.common.ApiException;
 import com.projectpandora.api.task.TaskService;
 import com.projectpandora.api.user.OrganizationGuard;
+import com.projectpandora.api.user.Role;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,19 +18,53 @@ public class ContentLabelsController {
  public ContentLabelsController(JdbcTemplate db,AccessService access,TaskService tasks,LabelRepository labels,ObjectMapper json,OrganizationGuard guard,ContentLabelStore store){this.db=db;this.access=access;this.tasks=tasks;this.labels=labels;this.json=json;this.guard=guard;this.store=store;}
  public record Entry(String kind,Long contentId,List<LabelResponse> labels){}
  public record Input(@NotNull @Size(max=12) List<@NotNull Long> labelIds){}
- private Set<Long> readable(String kind){long me=access.assertBusiness().getId();return switch(kind){
- case "task"->new HashSet<>(tasks.list(null).stream().map(t->t.id()).toList());
- case "log"->new HashSet<>(db.queryForList("select id from work_logs where user_id=?",Long.class,me));
- case "personal"->new HashSet<>(db.queryForList("select id from personal_priorities where owner_id=?",Long.class,me));
- case "company"->new HashSet<>(db.queryForList("select id from company_notices where enabled=true",Long.class));
- default->Set.of();};}
- private Entry entry(String kind,Long id,String ids){try {var values=json.readValue(ids,Long[].class);return new Entry(kind,id,Arrays.stream(values).map(v->labels.findById(v).map(LabelResponse::from).orElse(null)).filter(Objects::nonNull).toList());}catch(Exception e){throw new ApiException(500,"标签记录读取失败");}}
- @GetMapping @Transactional(readOnly=true) public List<Entry> list(){access.assertBusiness();Map<String,Set<Long>> scope=new HashMap<>();for(String k:List.of("task","log","personal","company"))scope.put(k,readable(k));return db.query("select kind,content_id,label_ids from content_label_sets",(rs,n)->entry(rs.getString(1),rs.getLong(2),rs.getString(3))).stream().filter(e->scope.getOrDefault(e.kind(),Set.of()).contains(e.contentId())).toList();}
- @PutMapping("/{kind}/{id}") @Transactional public Entry save(@PathVariable String kind,@PathVariable Long id,@Valid @RequestBody Input input)throws Exception{
- guard.lock();var me=access.assertBusiness();if(!readable(kind).contains(id))throw new ApiException(403,"无权修改此内容标签");
- if(kind.equals("company") && me.getRole()!=com.projectpandora.api.user.Role.FOUNDER)throw new ApiException(403,"公司事项标签由创始人维护");
- if(kind.equals("task")){var t=tasks.list(null).stream().filter(v->v.id().equals(id)).findFirst().orElseThrow();if(!t.createdBy().equals(me.getId()) && !t.assigneeId().equals(me.getId()) && me.getRole()!=com.projectpandora.api.user.Role.FOUNDER)throw new ApiException(403,"仅任务创建人、负责人或创始人可设置标签");}
- var ids=input.labelIds().stream().distinct().toList();store.save(kind,id,ids);
- return entry(kind,id,json.writeValueAsString(ids));
+ private record StoredEntry(String kind,Long contentId,String labelIds,Long logOwner,String logStatus,Long personalOwner,boolean companyEnabled){}
+ private Entry entry(String kind,Long id,String ids) {
+  try {return entry(kind,id,Arrays.asList(json.readValue(ids,Long[].class)));}
+  catch(JsonProcessingException e){throw new ApiException(500,"标签记录读取失败");}
  }
+ private Entry entry(String kind,Long id,List<Long> ids) {
+  return new Entry(kind,id,ids.stream().map(labels::findById).flatMap(Optional::stream).map(LabelResponse::from).toList());
+ }
+ @GetMapping @Transactional(readOnly=true)
+ public List<Entry> list() {
+  Long me=access.assertBusiness().getId();
+  var rows=db.query("""
+      select s.kind,s.content_id,s.label_ids,l.user_id,l.status,p.owner_id,n.enabled
+      from content_label_sets s
+      left join work_logs l on s.kind='log' and s.content_id=l.id
+      left join personal_priorities p on s.kind='personal' and s.content_id=p.id
+      left join company_notices n on s.kind='company' and s.content_id=n.id
+      order by s.kind,s.content_id
+      """,(rs,n)->new StoredEntry(rs.getString(1),rs.getLong(2),rs.getString(3),
+          rs.getObject(4,Long.class),rs.getString(5),rs.getObject(6,Long.class),rs.getBoolean(7)));
+  var logScope=new HashMap<Long,Boolean>();
+  return rows.stream().filter(row->switch(row.kind()) {
+   case "task"->tasks.readableDetail(row.contentId()).isPresent();
+   case "log"->me.equals(row.logOwner()) || (row.logOwner()!=null && "submitted".equals(row.logStatus())
+       && logScope.computeIfAbsent(row.logOwner(),this::canReadUserLogs));
+   case "personal"->me.equals(row.personalOwner());
+   case "company"->row.companyEnabled();
+   default->false;
+  }).map(row->entry(row.kind(),row.contentId(),row.labelIds())).toList();
+ }
+ private boolean canReadUserLogs(Long userId) {
+  try {access.assertCanViewUserLogs(userId);return true;}
+  catch(ApiException e){if(e.getStatus()==403 || e.getStatus()==404)return false;throw e;}
+ }
+ @PutMapping("/{kind}/{id}") @Transactional public Entry save(@PathVariable String kind,@PathVariable Long id,@Valid @RequestBody Input input)throws Exception{
+  guard.lock();var me=access.assertBusiness();
+  boolean canWrite=switch(kind) {
+   case "task"->tasks.readableDetail(id).filter(t->t.createdBy().equals(me.getId()) || t.assigneeId().equals(me.getId())
+       || (me.getRole()==Role.FOUNDER && "approved".equals(t.approvalStatus()))).isPresent();
+   case "log"->exists("select id from work_logs where id=? and user_id=?",id,me.getId());
+   case "personal"->exists("select id from personal_priorities where id=? and owner_id=?",id,me.getId());
+   case "company"->me.getRole()==Role.FOUNDER && exists("select id from company_notices where id=? and enabled=true",id);
+   default->false;
+  };
+  if(!canWrite) throw new ApiException(403,"无权修改此内容标签");
+  var ids=input.labelIds().stream().distinct().toList();store.save(kind,id,ids);
+  return entry(kind,id,ids);
+ }
+ private boolean exists(String sql,Object... args){return !db.queryForList(sql,Long.class,args).isEmpty();}
 }

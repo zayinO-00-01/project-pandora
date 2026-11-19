@@ -26,6 +26,7 @@ jobs:
             APP_DIR="${{ secrets.DEPLOY_PATH }}"
             if [ -z "$APP_DIR" ]; then APP_DIR=/opt/project-pandora; fi
             cd "$APP_DIR"
-            git pull --ff-only || true
+            git pull --ff-only
             docker compose up -d --build
-            curl -fsS http://127.0.0.1:8080/api/v1/health
+            curl --retry 20 --retry-connrefused --retry-delay 2 --max-time 5 -fsS http://127.0.0.1:8080/api/v1/health
+            curl --max-time 5 -fsS http://127.0.0.1:8080/ >/dev/null

@@ -2,6 +2,7 @@ package com.projectpandora.app.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.semantics.semantics
@@ -34,6 +35,21 @@ fun labelTextColor(label: WorkLabel?): Color {
             }
         }
         if(labels.isEmpty())Text("暂无可选标签，由创始人在“我的”中维护。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable internal fun CalendarOverflow(count: Int,onClick: ()->Unit) {
+    if(count<=0)return
+    Text("+$count",modifier=Modifier.fillMaxWidth().clickable(onClickLabel="查看当天另外 $count 项",onClick=onClick)
+        .padding(horizontal=3.dp),color=MaterialTheme.colorScheme.secondary,
+        style=MaterialTheme.typography.labelSmall.copy(fontSize=10.sp,lineHeight=14.sp))
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable internal fun CalendarLabelNames(labels: List<WorkLabel>) {
+    if(labels.isEmpty())return
+    FlowRow(horizontalArrangement=Arrangement.spacedBy(4.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+        labels.distinctBy {it.id}.forEach {LabelBadge(it)}
     }
 }
 

@@ -1,5 +1,6 @@
 package com.projectpandora.api.admin;
 
+import com.fasterxml.jackson.annotation.JsonSetter;
 import com.projectpandora.api.common.ApiException;
 import com.projectpandora.api.security.AccessService;
 import com.projectpandora.api.user.*;
@@ -55,14 +56,14 @@ public class AdminUserController {
         access.assertAdmin();organization.lock();access.assertAdmin();
         var user=users.findById(id).orElseThrow(()->new ApiException(404,"用户不存在"));
         Role oldRole=user.getRole();Long oldManager=user.getManagerId();boolean oldDisabled=user.isDisabled();
-        if(request.role()!=null) user.setRole(request.role());
-        if(request.displayName()!=null) user.setDisplayName(request.displayName().trim());
-        if(request.managerId()!=null || Boolean.TRUE.equals(request.clearManager())) {
-            Long manager=Boolean.TRUE.equals(request.clearManager()) ? null : request.managerId();
+        if(request.role!=null) user.setRole(request.role);
+        if(request.displayName!=null) user.setDisplayName(request.displayName.trim());
+        if(request.managerId!=null || Boolean.TRUE.equals(request.clearManager)) {
+            Long manager=Boolean.TRUE.equals(request.clearManager) ? null : request.managerId;
             assertAssignableManager(manager);user.setManagerId(manager);
         }
-        if(request.disabled()!=null) user.setDisabled(request.disabled());
-        if(request.password()!=null && !request.password().isBlank()) {user.setPasswordHash(passwords.encode(request.password()));user.revokeSessions();}
+        if(request.disabled!=null) user.setDisabled(request.disabled);
+        if(request.password!=null && !request.password.isBlank()) {user.setPasswordHash(passwords.encode(request.password));user.revokeSessions();}
         applyProfileUpdate(user,request);
         validateHierarchy(users.findAll());
         if(oldRole!=user.getRole() || !Objects.equals(oldManager,user.getManagerId()) || oldDisabled!=user.isDisabled()) {
@@ -108,24 +109,24 @@ public class AdminUserController {
         user.setAddress(trimToNull(address));
     }
     private void applyProfileUpdate(UserEntity user,UpdateUserRequest r) {
-        if(r.phone()!=null && !r.phone().isBlank()) {
-            String phone=ProfileRules.normalizePhone(r.phone());
+        if(r.phone!=null && !r.phone.isBlank() && !r.phone.trim().equals(trimToNull(user.getPhone()))) {
+            String phone=ProfileRules.normalizePhone(r.phone);
             users.findByPhone(phone).filter(other->!other.getId().equals(user.getId()))
                 .ifPresent(other->{throw new ApiException(400,"手机号已被使用");});
             user.setPhone(phone);
         }
-        if(r.idCard()!=null) {
-            String idCard=ProfileRules.normalizeIdCard(r.idCard());
+        if(r.idCard!=null) {
+            String idCard=ProfileRules.normalizeIdCard(r.idCard);
             if(idCard!=null) users.findByIdCard(idCard).filter(other->!other.getId().equals(user.getId()))
                 .ifPresent(other->{throw new ApiException(400,"身份证号已被使用");});
             user.setIdCard(idCard);
         }
-        if(r.birthDate()!=null) user.setBirthDate(ProfileRules.validateBirthDate(r.birthDate()));
-        if(r.gender()!=null) user.setGender(ProfileRules.normalizeGender(r.gender()));
-        if(r.hireDate()!=null) user.setHireDate(r.hireDate());
-        if(r.emergencyContact()!=null) user.setEmergencyContact(trimToNull(r.emergencyContact()));
-        if(r.emergencyPhone()!=null) user.setEmergencyPhone(trimToNull(r.emergencyPhone()));
-        if(r.address()!=null) user.setAddress(trimToNull(r.address()));
+        if(r.birthDatePresent) user.setBirthDate(ProfileRules.validateBirthDate(r.birthDate));
+        if(r.gender!=null) user.setGender(ProfileRules.normalizeGender(r.gender));
+        if(r.hireDatePresent) user.setHireDate(r.hireDate);
+        if(r.emergencyContact!=null) user.setEmergencyContact(trimToNull(r.emergencyContact));
+        if(r.emergencyPhone!=null) user.setEmergencyPhone(trimToNull(r.emergencyPhone));
+        if(r.address!=null) user.setAddress(trimToNull(r.address));
     }
     private static String trimToNull(String value) {
         if(value==null) return null;String trimmed=value.trim();return trimmed.isEmpty() ? null : trimmed;
@@ -134,9 +135,22 @@ public class AdminUserController {
         @NotBlank @Size(min=6,max=72) String password,@NotNull Role role,@Size(max=64) String displayName,Long managerId,Boolean disabled,
         String phone,String idCard,LocalDate birthDate,String gender,LocalDate hireDate,
         String emergencyContact,String emergencyPhone,String address) {}
-    public record UpdateUserRequest(Role role,@Size(max=64) String displayName,Long managerId,Boolean clearManager,Boolean disabled,
-        @Size(min=6,max=72) String password,String phone,String idCard,LocalDate birthDate,String gender,LocalDate hireDate,
-        String emergencyContact,String emergencyPhone,String address) {}
+    public static class UpdateUserRequest {
+        public Role role;
+        @Size(max=64) public String displayName;
+        public Long managerId;
+        public Boolean clearManager,disabled;
+        @Size(min=6,max=72) public String password;
+        public String phone,idCard,gender,emergencyContact,emergencyPhone,address;
+        private LocalDate birthDate,hireDate;
+        private boolean birthDatePresent,hireDatePresent;
+
+        @JsonSetter("birthDate")
+        public void setBirthDate(LocalDate value) {birthDate=value;birthDatePresent=true;}
+
+        @JsonSetter("hireDate")
+        public void setHireDate(LocalDate value) {hireDate=value;hireDatePresent=true;}
+    }
     public record AdminUserResponse(Long id,String username,String role,String displayName,Long managerId,boolean disabled,
         String phone,String idCard,LocalDate birthDate,String gender,LocalDate hireDate,
         String emergencyContact,String emergencyPhone,String address) {

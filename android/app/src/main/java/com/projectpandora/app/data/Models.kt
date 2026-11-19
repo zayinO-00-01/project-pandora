@@ -15,14 +15,14 @@ data class Profile(val id: Long, val username: String, val role: String, val dis
     val gender: String?, val hireDate: String?, val emergencyContact: String?, val emergencyPhone: String?, val address: String?)
 data class Organization(val members: List<UserSummary> = emptyList(),val manager: UserSummary? = null, val assignees: List<UserSummary> = emptyList())
 data class ViewRequest(val id: Long,val requester: UserSummary,val target: UserSummary,val reason: String,val status: String,val updatedAt: String)
-data class WorkLog(val id: Long, val userId: Long, val logDate: String, val content: String, val status: String, val createdAt: String, val updatedAt: String, val endDate: String? = null, val label: WorkLabel? = null)
+data class WorkLog(val id: Long, val userId: Long, val logDate: String, val content: String, val status: String, val createdAt: String, val updatedAt: String, val endDate: String? = null, val label: WorkLabel? = null,val revision: Long = 0)
 data class PanelItem(val id: Long, val title: String, val sortOrder: Int?, val myRemark: String?, val detail: String? = null)
 data class IntegrityResponse(val ok: Boolean, val message: String?, val supportsDateRanges: Boolean = false)
 data class PanelMap(val companyImportant: List<PanelItem> = emptyList(), val companyDispatch: List<PanelItem> = emptyList(), val personalTop: List<PanelItem> = emptyList(), val todayLogs: List<WorkLog> = emptyList())
 data class AppNotification(val id: Long, val type: String, val title: String, val body: String, val taskId: Long?, val read: Boolean, val createdAt: String, val referenceId: Long? = null)
 data class NotificationList(val items: List<AppNotification> = emptyList(), val unreadCount: Long = 0)
-data class LogInput(val logDate: String, val content: String, val status: String, val endDate: String? = null,val labelId: Long? = null,val labelIds: List<Long>? = null)
-data class EditBuffer(val server: String, val userId: Long, val logId: Long?, val date: String, val content: String, val status: String, val endDate: String? = null,val labelId: Long? = null,val labelIds: List<Long>? = null)
+data class LogInput(val logDate: String, val content: String, val status: String, val endDate: String? = null,val labelId: Long? = null,val labelIds: List<Long>? = null,val baseRevision: Long?=null)
+data class EditBuffer(val server: String, val userId: Long, val logId: Long?, val date: String, val content: String, val status: String, val endDate: String? = null,val labelId: Long? = null,val labelIds: List<Long>? = null,val baseRevision: Long?=null)
 
 data class DispatchTask(val id: Long, val title: String, val detail: String, val priority: String,
     val status: String, val dueAt: String?, val progress: Int?, val progressNote: String,
@@ -37,7 +37,7 @@ data class TaskProgressInput(val progress: Int?, val progressNote: String, val s
 data class TaskEditBuffer(val server: String, val userId: Long, val taskId: Long, val progress: String, val note: String, val status: String? = null)
 
 data class TaskCreateInput(val title: String, val detail: String, val priority: String, val assigneeId: Long, val dueAt: String?,val labelId: Long? = null,val startAt: String? = null,val labelIds: List<Long>? = null)
-data class TaskDispatchBuffer(val server: String, val userId: Long, val title: String = "", val detail: String = "", val priority: String = "normal", val assigneeId: Long? = null, val dueDate: String = "",val taskId: Long? = null,val labelId: Long? = null,val startDate: String? = null,val labelIds: List<Long>? = null,val assigneeIds: List<Long>? = null)
+data class TaskDispatchBuffer(val server: String, val userId: Long, val title: String = "", val detail: String = "", val priority: String = "normal", val assigneeId: Long? = null, val dueDate: String = "",val taskId: Long? = null,val labelId: Long? = null,val startDate: String? = null,val labelIds: List<Long>? = null,val assigneeIds: List<Long>? = null,val originalStartAt: String?=null,val originalDueAt: String?=null)
 
 
 data class PersonalPriorityWrite(val id: Long?, val title: String, val detail: String, val sortOrder: Int)
@@ -52,7 +52,7 @@ data class NoticeNote(val id: Long, val myNote: String?)
 
 data class WorkLabel(val id: Long,val name: String,val color: String,val active: Boolean = true)
 data class TaskReview(val id: Long,val taskId: Long,val taskTitle: String,val applicantId: Long,val applicantName: String,val reviewerId: Long,val reviewerName: String,val operation: String,val payload: String,val status: String,val createdAt: String,val decidedAt: String?)
-fun reviewOperation(value: String)=when(value) {"CREATE"->"创建任务";"EDIT"->"编辑任务";"DELETE"->"删除任务";"KEYWORD_EDIT"->"修改他人关键词";"KEYWORD_DELETE"->"删除他人关键词";"PROGRESS"->"更新进度";else->"任务变更"}
+fun reviewOperation(value: String)=when(value) {"CREATE"->"创建任务";"EDIT"->"编辑任务";"DELETE"->"删除任务";"KEYWORD_EDIT"->"修改他人关键词";"KEYWORD_DELETE"->"删除他人关键词";"PROGRESS"->"更新进度";"RESCHEDULE"->"任务改期";else->"任务变更"}
 fun reviewStatus(value: String?)=when(value) {"pending"->"待审核";"approved"->"已批准";"canceled"->"已撤回";else->"已拒绝"}
 
 data class TaskKeyword(val id: Long,val text: String,val createdBy: Long)
@@ -63,4 +63,4 @@ data class ContentLabels(val kind: String,val contentId: Long,val labels: List<W
 
 data class DailyTodo(val id: String,val title: String,val date: String,val completed: Boolean=false,val labels: List<WorkLabel>?=null,val labelIds: List<Long>?=null)
 
-data class OwnProfileInput(val displayName: String,val phone: String,val emergencyContact: String,val emergencyPhone: String,val address: String)
+data class OwnProfileInput(val displayName: String,val emergencyContact: String,val emergencyPhone: String,val address: String)
