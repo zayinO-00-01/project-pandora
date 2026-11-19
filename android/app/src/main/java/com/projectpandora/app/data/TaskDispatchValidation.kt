@@ -23,6 +23,7 @@ object TaskDispatchValidation {
         listOf(UserSummary(session.userId,session.username,session.displayName,session.role)) +
             (if(AppRoles.canDispatch(session.role))organization.assignees.filter {it.id!=session.userId && it.role in AppRoles.business} else emptyList())
     fun creationDateError(input: TaskCreateInput, date: java.time.LocalDate=today()): String? {
+        if(input.startAt.isNullOrBlank())return "请选择开始时间"
         val due=input.dueAt?.let {runCatching {Instant.parse(it).atZone(ZoneId.of("Asia/Shanghai")).toLocalDate()}.getOrNull()}
         return if(due!=null && due.isBefore(date))"截止日期不能早于今天" else null
     }

@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.projectpandora.app.data.*
 
 fun labelColor(label: WorkLabel?): Color = runCatching {Color(android.graphics.Color.parseColor(label?.color ?: "#F5F0E5"))}.getOrDefault(Color(0xFFF5F0E5))
@@ -52,4 +53,17 @@ fun contentTags(state: com.projectpandora.app.AppState,kind: String,id: Long,fal
         val inactive=selected.filter {id->labels.none {it.id==id}}
         if(inactive.isNotEmpty())ControlTextButton(onClick={onChange(selected-inactive.toSet())},enabled=enabled) {Text("移除已停用的标签（${inactive.size}）")}
     }},confirmButton={ControlTextButton(onClick={open=false}) {Text("完成")}})
+}
+
+@Composable internal fun CalendarItemChip(title: String,tags: List<WorkLabel>,modifier: Modifier=Modifier) {
+    val main=tags.firstOrNull()
+    Row(modifier.fillMaxWidth().padding(vertical=1.dp)
+        .background(main?.let(::labelColor) ?: MaterialTheme.colorScheme.surfaceVariant,MaterialTheme.shapes.extraSmall),
+        verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+        Text(title,modifier=Modifier.weight(1f).padding(horizontal=3.dp,vertical=1.dp),maxLines=1,
+            overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            style=MaterialTheme.typography.labelSmall.copy(fontSize=9.5F.sp,lineHeight=13.5F.sp),
+            color=main?.let(::labelTextColor) ?: MaterialTheme.colorScheme.onSurfaceVariant)
+        tags.drop(1).forEach {tag->Box(Modifier.padding(end=1.dp).size(width=2.dp,height=10.dp).background(labelColor(tag)))}
+    }
 }

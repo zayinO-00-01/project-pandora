@@ -109,7 +109,7 @@ import java.time.format.DateTimeFormatter
         if(state.editor==null && state.selectedTaskId==null && !state.dispatchOpen)Column {
             HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
             Box(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {NavigationBar(containerColor=MaterialTheme.colorScheme.background,tonalElevation=0.dp,modifier=Modifier.widthIn(max=600.dp).fillMaxWidth().height(72.dp),windowInsets=WindowInsets(0,0,0,0)) {
-                val items=listOf(Triple("home","首页",R.drawable.console_home),Triple("logs","日志",R.drawable.console_log),Triple("day","公司",R.drawable.console_calendar),Triple("profile","我的",R.drawable.console_person))
+                val items=listOf(Triple("home","首页",R.drawable.console_home),Triple("day","公司",R.drawable.console_calendar),Triple("logs","日志",R.drawable.console_log),Triple("profile","我的",R.drawable.console_person))
                 items.forEach {(key,label,icon)->NavigationBarItem(selected=state.screen==key || (key=="day" && state.screen in listOf("tasks","organization","inbox","directory")) || (key=="profile" && state.screen=="labels") || (key=="home" && state.screen=="ai"),
                     onClick={feedback();model.screen(key)},enabled=!state.saving,
                     icon={Icon(painterResource(icon),contentDescription=null,modifier=Modifier.size(21.dp))},label={Text(label,maxLines=1,softWrap=false,style=MaterialTheme.typography.labelSmall)},
@@ -199,10 +199,11 @@ import java.time.format.DateTimeFormatter
     }},confirmButton={ControlTextButton(onClick={avatarPicker=false}) {Text("关闭")}})
     if(leaving)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={leaving=false},title={Text(if(state.developmentPreview)"退出开发预览？" else "退出当前账号？")},text={Text(if(state.developmentPreview)"预览没有登录业务账号，也未向服务器提交数据。" else "工作记录已保存在当前服务。未提交输入会保留在这台设备，再次登录原账号可继续。")},confirmButton={ControlTextButton(onClick={leaving=false;model.logout()}) {Text("退出登录")}},dismissButton={ControlTextButton(onClick={leaving=false}) {Text("取消")}})
     Column(Modifier.fillMaxSize()) {
-    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal=24.dp).padding(top=12.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal=16.dp).padding(top=8.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         val profile=state.profile
         val avatarImage=remember(state.myProfile?.avatarData,state.profile?.avatarImage){decodeAvatarImage(state.myProfile?.avatarData ?: state.profile?.avatarImage)}
-        Row(Modifier.fillMaxWidth().padding(vertical=12.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
+        ProfileSection(null) {
+        Row(Modifier.fillMaxWidth().padding(vertical=4.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
             Surface(shape=androidx.compose.foundation.shape.CircleShape,color=MaterialTheme.colorScheme.surfaceVariant,modifier=Modifier.size(56.dp).clickable(enabled=!state.saving && !state.developmentPreview){avatarPicker=true}) {
                 Box(contentAlignment=androidx.compose.ui.Alignment.Center,modifier=Modifier.fillMaxSize()) {
                     if(avatarImage!=null) Image(bitmap=avatarImage,contentDescription="头像",contentScale=ContentScale.Crop,modifier=Modifier.fillMaxSize().clip(androidx.compose.foundation.shape.CircleShape))
@@ -211,27 +212,18 @@ import java.time.format.DateTimeFormatter
             }
             Column(verticalArrangement=Arrangement.spacedBy(4.dp),modifier=Modifier.weight(1f)) {
                 Text(profile?.displayName ?: me.displayName ?: me.username,style=MaterialTheme.typography.titleMedium)
-                Text("手机号：${profile?.phone?.takeIf {it.isNotBlank()} ?: "未填写"}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                val manager=profile?.managerName
-                val managerText=when {profile?.managerId==null->"未设置";manager.isNullOrBlank()->"#${profile.managerId}";else->"$manager（#${profile.managerId}）"}
-                Text("直属上级：$managerText",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(AppRoles.label(me.role)+" · "+me.username,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
-        Text("本人档案",style=MaterialTheme.typography.titleSmall,modifier=Modifier.padding(top=12.dp,bottom=8.dp))
-        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-            ControlOutlinedButton(onClick={showProfileDetails=!showProfileDetails},
-                modifier=Modifier.weight(1f).fillMaxHeight(),enabled=!state.saving) {
-                Text(if(showProfileDetails)"收起档案" else "查看档案")
-            }
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+            ControlOutlinedButton(onClick={showProfileDetails=!showProfileDetails},modifier=Modifier.weight(1f).fillMaxHeight(),
+                enabled=profile!=null && !state.saving) {Text(if(showProfileDetails)"收起档案" else "本人档案")}
             ControlOutlinedButton(onClick={editingProfile=true},modifier=Modifier.weight(1f).fillMaxHeight(),
-                enabled=!state.saving && !state.developmentPreview && state.profile!=null) {
-                Text("编辑档案")
-            }
+                enabled=profile!=null && !state.saving && !state.developmentPreview) {Text("编辑档案")}
         }
         if(state.profileLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
         state.profileError?.let {Hint(it,true,onRetry=model::refresh)}
-        if(state.developmentPreview)Text("登录业务账号后可查看个人资料",style=MaterialTheme.typography.bodySmall)
         if(showProfileDetails)state.profile?.let {profile->
             listOf("姓名" to profile.displayName,"手机号" to profile.phone,"身份证号" to profile.idCard,
                 "出生日期" to profile.birthDate,"性别" to profile.gender,"入职日期" to profile.hireDate,
@@ -244,8 +236,9 @@ import java.time.format.DateTimeFormatter
             }
 
         }
-        AccountSettings(state,model)
-        HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
+        }
+        AccountSettings(state,model) {avatarPicker=true}
+        ProfileSection("显示与反馈") {
         Row(Modifier.fillMaxWidth().heightIn(min=48.dp).selectableGroup(),verticalAlignment=Alignment.CenterVertically) {
             Text("外观",style=MaterialTheme.typography.bodyMedium,modifier=Modifier.weight(1f))
             listOf(Appearance.LIGHT to "浅色",Appearance.DARK to "深色").forEach {(mode,label)->
@@ -255,34 +248,48 @@ import java.time.format.DateTimeFormatter
                 }
             }
         }
-        Text("操作偏好",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-            FeedbackRow("按键触感","轻量震动，遵循系统触觉设置",settings.haptic,settings.setHaptic)
-            FeedbackRow("按键声音","跟随媒体音量；静音/振动模式不播放",settings.sound,settings.setSound)
-            ControlTextButton(onClick={},enabled=settings.sound || settings.haptic) {Text("试听声音与触感")}
-            Text("听不到声音时，请调高媒体音量并检查蓝牙输出；没有触感时，请开启系统触摸反馈。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-
         HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
-        ControlTextButton(onClick={details="access"},enabled=!state.saving,contentPadding=PaddingValues(0.dp),modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
-            Text("账号与权限",style=MaterialTheme.typography.bodyMedium)
-            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,null,modifier=Modifier.size(20.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
-        }}
-        ControlTextButton(onClick={details="service"},enabled=!state.saving,contentPadding=PaddingValues(0.dp),modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
-            Text("当前服务",style=MaterialTheme.typography.bodyMedium)
-            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,null,modifier=Modifier.size(20.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
-        }}
+        FeedbackRow("按键触感",settings.haptic,settings.setHaptic)
+        FeedbackRow("按键声音",settings.sound,settings.setSound)
+        ProfileEntry("试听声音与触感",settings.sound || settings.haptic) {}
+        }
+        ProfileSection("服务信息") {
+            ProfileEntry("账号与权限",!state.saving) {details="access"}
+            ProfileEntry("当前服务",!state.saving) {details="service"}
+        }
     }
-    Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background.copy(alpha=0.92f)).padding(horizontal=24.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
-        Text("潘多拉",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        ControlTextButton(onClick={leaving=true},enabled=!state.saving,modifier=Modifier.heightIn(min=48.dp),colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurfaceVariant)) {Text(if(state.developmentPreview)"退出预览" else "退出登录",style=MaterialTheme.typography.labelMedium)}
+    Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(horizontal=16.dp,vertical=6.dp)) {
+        ControlOutlinedButton(onClick={leaving=true},enabled=!state.saving,modifier=Modifier.fillMaxWidth()) {
+            Text(if(state.developmentPreview)"退出预览" else "退出登录")
+        }
     }
     }
 }
 
-@Composable private fun FeedbackRow(title: String,detail: String,value: Boolean,onChange: (Boolean)->Unit) {
+@Composable internal fun ProfileSection(title: String?,content: @Composable ColumnScope.()->Unit) {
+    Surface(color=MaterialTheme.colorScheme.surface.copy(alpha=.97f),shape=MaterialTheme.shapes.medium,
+        modifier=Modifier.fillMaxWidth().panelOutline()) {
+        Column(Modifier.padding(horizontal=14.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(2.dp)) {
+            title?.let {Text(it,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.secondary,
+                modifier=Modifier.padding(bottom=2.dp))}
+            content()
+        }
+    }
+}
+
+@Composable internal fun ProfileEntry(title: String,enabled: Boolean,onClick: ()->Unit) {
+    ControlTextButton(onClick=onClick,enabled=enabled,modifier=Modifier.fillMaxWidth().heightIn(min=44.dp),
+        colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface),contentPadding=PaddingValues(0.dp)) {
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
+            Text(title,style=MaterialTheme.typography.bodyMedium,modifier=Modifier.weight(1f))
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,null,modifier=Modifier.size(20.dp))
+        }
+    }
+}
+
+@Composable private fun FeedbackRow(title: String,value: Boolean,onChange: (Boolean)->Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min=56.dp).toggleable(value=value,role=Role.Switch,onValueChange=onChange),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {Text(title,style=MaterialTheme.typography.bodyMedium);Text(detail,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+        Text(title,modifier=Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium)
         Switch(checked=value,onCheckedChange=null,colors=SwitchDefaults.colors(checkedTrackColor=MaterialTheme.colorScheme.secondary,checkedThumbColor=MaterialTheme.colorScheme.background),modifier=Modifier.scale(0.75f))
     }
 }

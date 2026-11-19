@@ -38,6 +38,7 @@ String token(String name)throws Exception{return TaskPolicyTestSupport.token(mvc
  long label=db.queryForObject("select id from work_labels where name='TaskHistory'",Long.class);
  var values=new java.util.HashMap<String,Object>();
  values.put("title","task history");values.put("assigneeId",owner);
+ values.put("startAt",java.time.Instant.now().toString());
  values.put("dueAt",java.time.Instant.now().plusSeconds(86400).toString());
  values.put("labelIds",java.util.List.of(label));
  var created=mvc.perform(post("/api/v1/tasks").header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(values))).andExpect(status().isCreated()).andReturn();
@@ -66,7 +67,7 @@ String token(String name)throws Exception{return TaskPolicyTestSupport.token(mvc
  db.update("insert into work_labels(name,color,active) values('CreateA','#ABCDEF',true),('CreateB','#123456',true)");
  var ids=db.queryForList("select id from work_labels where name in ('CreateA','CreateB') order by id",Long.class);
  long owner=db.queryForObject("select id from users where username='founder'",Long.class);
- String body=json.writeValueAsString(java.util.Map.of("title","multi","assigneeId",owner,"dueAt","2026-12-01T10:00:00Z","labelIds",ids));
+ String body=json.writeValueAsString(java.util.Map.of("title","multi","assigneeId",owner,"dueAt","2026-12-01T10:00:00Z","startAt","2026-12-01T10:00:00Z","labelIds",ids));
  mvc.perform(post("/api/v1/tasks").header("Authorization",token("founder")).contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isCreated());
  body=json.writeValueAsString(java.util.Map.of("logDate",java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).toString(),"content","multi","labelIds",ids));
  mvc.perform(post("/api/v1/logs").header("Authorization",token("founder")).contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isCreated());

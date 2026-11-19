@@ -490,7 +490,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TaskInput'
+              $ref: '#/components/schemas/TaskCreateInput'
   /tasks/pending-approvals:
     get:
       summary: 待本人审批的任务创建申请（含自建与派发）
@@ -1546,7 +1546,7 @@ paths:
                   minItems: 1
                   maxItems: 100
                   items:
-                    $ref: '#/components/schemas/TaskInput'
+                    $ref: '#/components/schemas/TaskCreateInput'
       responses:
         '201':
           description: 全部创建成功，顺序与输入一致
@@ -1955,6 +1955,11 @@ components:
         completed:
           type: boolean
           default: false
+        labelIds:
+          type: array
+          maxItems: 12
+          items: {type: integer, format: int64}
+          description: 省略时保留已有标签；空数组清除。
     PersonalTodo:
       allOf:
       - $ref: '#/components/schemas/PersonalTodoInput'
@@ -1964,6 +1969,10 @@ components:
           id:
             type: string
             format: uuid
+          labels:
+            type: array
+            items:
+              $ref: "#/components/schemas/WorkLabel"
     OwnProfileInput:
       type: object
       required: [displayName]
@@ -2112,6 +2121,13 @@ components:
         updatedAt:
           type: string
           format: date-time
+    TaskCreateInput:
+      allOf:
+      - $ref: '#/components/schemas/TaskInput'
+      - type: object
+        required: [startAt]
+        properties:
+          startAt: {type: string, format: date-time}
     TaskInput:
       type: object
       properties:
@@ -2141,7 +2157,7 @@ components:
           type: string
           format: date-time
           nullable: true
-          description: 可选；可以早于或晚于今天，但不得晚于截止时间。
+          description: 新建任务必填；旧任务编辑可为空。不得晚于截止时间。
         labelId:
           type: integer
           format: int64

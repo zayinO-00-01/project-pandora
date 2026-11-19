@@ -7,7 +7,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -21,11 +20,11 @@ import java.util.UUID
     val me=state.session ?: return
     // Dispose requests, dialogs and drafts together when the authenticated account changes.
     key(me.server,me.userId,me.token,state.developmentPreview) {
-        DailyTodosContent(me,state.developmentPreview)
+        DailyTodosContent(me,state.developmentPreview,state.labels)
     }
 }
 
-@Composable private fun DailyTodosContent(me: Session,preview: Boolean) {
+@Composable private fun DailyTodosContent(me: Session,preview: Boolean,labels: List<WorkLabel>) {
     val prefs=LocalContext.current.getSharedPreferences("daily-todos-preview",0)
     val storageKey="${me.server}:${me.userId}"
     var selectedText by rememberSaveable {mutableStateOf(today().toString())}
@@ -37,6 +36,7 @@ import java.util.UUID
     var editing by remember {mutableStateOf<DailyTodo?>(null)}
     var deleting by remember {mutableStateOf<DailyTodo?>(null)}
     var title by remember {mutableStateOf("")}
+    var chosen by remember {mutableStateOf(emptyList<Long>())}
     var creating by remember {mutableStateOf(false)}
     val scope=rememberCoroutineScope()
     val api=remember {if(preview)null else ApiClient(me.server)}
@@ -83,17 +83,21 @@ import java.util.UUID
     }
     Surface(color=MaterialTheme.colorScheme.surface.copy(alpha=.97f),shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth().panelOutline()) {
         Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment=Alignment.CenterVertically) {
-                Text("每日事项",style=MaterialTheme.typography.titleLarge,modifier=Modifier.weight(1f))
-                ControlTextButton(onClick=::refresh,enabled=!busy) {Text("刷新")}
-            }
+            Text("每日事项",style=MaterialTheme.typography.titleLarge)
             val todosByDate=remember(entries) {entries.groupBy {it.date}}
-            WorkspaceCalendar(selected,onDate={selectedText=it.toString()}) {date->
-                val items=todosByDate[date.toString()].orEmpty()
-                items.take(if(items.size>2)1 else 2).forEach {item->
-                    Text((if(item.completed)"✓ " else "")+item.title,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.labelSmall)
+            val drag=remember {CalendarItemDrag()}
+            CalendarDragLayer(drag) {
+                WorkspaceCalendar(selected,onDate={selectedText=it.toString()},drag=drag) {date->
+                    val items=todosByDate[date.toString()].orEmpty()
+                    items.take(if(items.size>2)1 else 2).forEach {item->
+                        CalendarItemChip((if(item.completed)"✓ " else "")+item.title,item.labels.orEmpty(),
+                            Modifier.calendarDrag(drag,item.title,date,if(busy)null else {target->
+                                change(item.copy(date=target.toString(),labelIds=null))
+                                selectedText=target.toString()
+                            }))
+                    }
+                    if(items.size>2)Text("共 "+items.size+" 项",style=MaterialTheme.typography.labelSmall)
                 }
-                if(items.size>2)Text("共 ${items.size} 项",style=MaterialTheme.typography.labelSmall)
             }
             HorizontalDivider()
             Row(verticalAlignment=Alignment.CenterVertically) {
@@ -101,7 +105,7 @@ import java.util.UUID
                     Text("${selected.monthValue}月${selected.dayOfMonth}日",style=MaterialTheme.typography.titleMedium)
                     holidayLabel(selected)?.let {Text(it,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.secondary)}
                 }
-                ControlButton(onClick={creating=true;title="";error=null;editing=DailyTodo(UUID.randomUUID().toString(),"",selectedText)},enabled=!busy && loaded) {Text("添加事项")}
+                ControlButton(onClick={creating=true;title="";chosen=emptyList();error=null;editing=DailyTodo(UUID.randomUUID().toString(),"",selectedText)},enabled=!busy && loaded) {Text("添加事项")}
             }
             if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())
             if(editing==null && deleting==null)error?.let {Hint(it,true,onRetry=::refresh)}
@@ -109,8 +113,8 @@ import java.util.UUID
             if(daily.isEmpty() && loaded && !busy)Text("暂无个人事项",color=MaterialTheme.colorScheme.onSurfaceVariant)
             daily.forEach {item->
                 Row(verticalAlignment=Alignment.CenterVertically) {
-                    Checkbox(item.completed,{change(item.copy(completed=it))},enabled=!busy)
-                    ControlTextButton(onClick={creating=false;title=item.title;error=null;editing=item},enabled=!busy,modifier=Modifier.weight(1f)) {Text(item.title)}
+                    Checkbox(item.completed,{change(item.copy(completed=it,labelIds=null))},enabled=!busy)
+                    ControlTextButton(onClick={creating=false;title=item.title;chosen=item.labels.orEmpty().map {it.id};error=null;editing=item},enabled=!busy,modifier=Modifier.weight(1f)) {Column {Text(item.title);LabelLines(item.labels.orEmpty())}}
                     ControlTextButton(onClick={error=null;deleting=item},enabled=!busy) {Text("删除")}
                 }
             }
@@ -119,8 +123,8 @@ import java.util.UUID
     editing?.let {item->AlertDialog(
         onDismissRequest={if(!busy)editing=null},
         title={Text(if(creating)"添加个人事项" else "编辑个人事项")},
-        text={Column {OutlinedTextField(title,{title=it.take(200)},label={Text("事项内容")},enabled=!busy);error?.let {Text(it,color=MaterialTheme.colorScheme.error)}}},
-        confirmButton={ControlTextButton(onClick={change(item.copy(title=title.trim()),new=creating)},enabled=!busy && title.isNotBlank()) {Text("保存")}},
+        text={Column {OutlinedTextField(title,{title=it.take(200)},label={Text("事项内容")},enabled=!busy);MultiLabelPicker((labels+item.labels.orEmpty()).distinctBy {it.id},chosen,!busy) {chosen=it};error?.let {Text(it,color=MaterialTheme.colorScheme.error)}}},
+        confirmButton={ControlTextButton(onClick={change(item.copy(title=title.trim(),labelIds=chosen,labels=chosen.mapNotNull((labels+item.labels.orEmpty()).associateBy {it.id}::get)),new=creating)},enabled=!busy && title.isNotBlank()) {Text("保存")}},
         dismissButton={ControlTextButton(onClick={editing=null;error=null},enabled=!busy) {Text("取消")}}
     )}
     deleting?.let {item->AlertDialog(

@@ -113,6 +113,7 @@ public class TaskService {
     }
     @Transactional
     public TaskResponse create(CreateTaskRequest request) {
+        if(request.startAt()==null)throw new ApiException(400,"请选择开始时间");
         assertTaskTimes(request);
         organization.lock();var me=access.assertBusiness();
         var assignee=users.findById(request.assigneeId()).orElseThrow(()->new ApiException(404,"责任人不存在"));
