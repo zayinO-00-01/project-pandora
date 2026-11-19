@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -41,10 +42,11 @@ public class UserController {
         organization.lock();
         var principal=access.assertBusiness();
         var user=users.findById(principal.getId()).orElseThrow(()->new ApiException(404,"用户不存在"));
-        String phone=optionalPhone(request.phone());
+        // Older clients include phone even when the number has not changed.
+        if (request.phone()!=null && !Objects.equals(optionalText(request.phone()),optionalText(user.getPhone())))
+            throw new ApiException(403,"账号手机号需联系管理员修改");
         String emergencyPhone=optionalPhone(request.emergencyPhone());
         user.setDisplayName(request.displayName().trim());
-        user.setPhone(phone);
         user.setEmergencyContact(optionalText(request.emergencyContact()));
         user.setEmergencyPhone(emergencyPhone);
         user.setAddress(optionalText(request.address()));

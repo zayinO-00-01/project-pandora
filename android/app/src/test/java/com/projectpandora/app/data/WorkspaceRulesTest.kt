@@ -40,6 +40,12 @@ class WorkspaceRulesTest {
         val buffer=EditBuffer("http://server",1,91,today().toString(),"changed","submitted")
         assertTrue(logEditorReadOnly(buffer,emptyList()))
     }
+    @Test fun missingOriginalLogIsNotAnExpiredRecord() {
+        val buffer=EditBuffer("http://server",1,91,today().toString(),"changed","submitted")
+        assertEquals("loading",logEditorState(buffer,emptyList(),false,false))
+        assertEquals("unavailable",logEditorState(buffer,emptyList(),false,true))
+        assertEquals("missing",logEditorState(buffer,emptyList(),true,false))
+    }
     @Test fun periodsHandleLeapMonthAndWeekCrossingYear() {
         val leap=periodDates(LocalDate.of(2024,2,15),"month")
         assertEquals(29,leap.size)

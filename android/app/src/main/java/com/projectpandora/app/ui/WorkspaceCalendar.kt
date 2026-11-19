@@ -86,23 +86,22 @@ import androidx.compose.ui.text.font.FontWeight
                                 DisposableEffect(drag,date) {onDispose {drag.cells.remove(date)}}
                                 Modifier.onGloballyPositioned {drag.cells[date]=it.boundsInRoot()}
                             }
-                            ControlTextButton(onClick={onDate(date)},
-                                modifier=Modifier.weight(1f).height(calendarRowHeight).then(target).semantics {
-                                    this.selected=date==selected
-                                    contentDescription=listOfNotNull(date.toString(),festival,holidayScheduleLabel(date)).distinct().joinToString("，")
-                                },shape=MaterialTheme.shapes.small,contentPadding=PaddingValues(0.dp),
-                                colors=ButtonDefaults.textButtonColors(containerColor=when(date) {
-                                    drag?.hover->MaterialTheme.colorScheme.secondaryContainer
-                                    selected->MaterialTheme.colorScheme.secondary.copy(alpha=.12f)
-                                    else->androidx.compose.ui.graphics.Color.Transparent
-                                })) {
-                                Column(horizontalAlignment=androidx.compose.ui.Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(2.dp)) {
+                            Column(Modifier.weight(1f).height(calendarRowHeight).then(target).background(when(date) {
+                                drag?.hover->MaterialTheme.colorScheme.secondaryContainer
+                                selected->MaterialTheme.colorScheme.secondary.copy(alpha=.12f)
+                                else->androidx.compose.ui.graphics.Color.Transparent
+                            },MaterialTheme.shapes.small),
+                                horizontalAlignment=androidx.compose.ui.Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(1.dp)) {
+                                Column(Modifier.fillMaxWidth().clickable(role=Role.Button,onClickLabel="查看当天安排") {feedback();onDate(date)}
+                                    .semantics(mergeDescendants=true) {
+                                        this.selected=date==selected
+                                        contentDescription=listOfNotNull(date.toString(),festival,holidayScheduleLabel(date)).distinct().joinToString("，")
+                                    },horizontalAlignment=androidx.compose.ui.Alignment.CenterHorizontally) {
                                     Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {CalendarDateNumber(date,date==selected);HolidayBadge(date)}
                                     if(festival!=null)Text(festival,maxLines=1,overflow=TextOverflow.Ellipsis,
                                         style=MaterialTheme.typography.labelSmall.copy(fontSize=9.sp,lineHeight=11.sp),color=MaterialTheme.colorScheme.secondary)
-                                    Column(Modifier.fillMaxWidth().heightIn(min=28.dp).padding(horizontal=2.dp),horizontalAlignment=androidx.compose.ui.Alignment.CenterHorizontally) {dayContent(date)}
-                                    if(date==selected)Box(Modifier.width(16.dp).height(2.dp).background(MaterialTheme.colorScheme.secondary))
                                 }
+                                Column(Modifier.fillMaxWidth().padding(horizontal=2.dp),horizontalAlignment=androidx.compose.ui.Alignment.CenterHorizontally) {dayContent(date)}
                             }
                         }
                     }

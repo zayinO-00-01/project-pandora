@@ -24,6 +24,17 @@ class UpgradeDemoDatabase {
         for(String line:Files.readAllLines(script,StandardCharsets.UTF_8))crc.update(line.replace("\uFEFF","").getBytes(StandardCharsets.UTF_8));
         return (int)crc.getValue();
     }
+    static Path migrationFile(Path directory,int version) throws Exception {
+        List<Path> matches=new ArrayList<>();
+        for (Path location:List.of(directory,directory.resolveSibling("migration-h2"))) {
+            if(!Files.isDirectory(location))continue;
+            try(var paths=Files.list(location)) {
+                paths.filter(p->p.getFileName().toString().startsWith("V"+version+"__")&&p.toString().endsWith(".sql")).forEach(matches::add);
+            }
+        }
+        if(matches.size()>1)throw refuse("Duplicate migration files for V"+version);
+        return matches.isEmpty()?null:matches.get(0);
+    }
     static SortedSet<String> tables(Connection c) throws Exception {
         SortedSet<String> result=new TreeSet<>();
         try(var s=c.createStatement();var r=s.executeQuery("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")){while(r.next())result.add(r.getString(1));}
@@ -73,15 +84,17 @@ class UpgradeDemoDatabase {
             if(old&&e.version>6)throw refuse("Unknown extension of roles-first history");
             int target=old?switch(e.version){case 3->5;case 4->3;case 5->4;default->e.version;}:e.version;
             String expected=old?OLD.get(e.version):MAIN.get(target);
-            if(target>6) {
-                try(var paths=Files.list(migration)){var candidates=paths.filter(p->p.getFileName().toString().startsWith("V"+target+"__")&&p.toString().endsWith(".sql")).toList();if(candidates.size()!=1)throw refuse("Unknown migration version "+target);expected=candidates.get(0).getFileName().toString();}
-            }
-            Path file=expected==null?null:migration.resolve(old?MAIN.get(target):expected);
+            Path file=target>6?migrationFile(migration,target):migration.resolve(MAIN.get(target));
+            if(target>6 && file!=null)expected=file.getFileName().toString();
             if(expected==null||!expected.equals(e.script)||file==null||!Files.isRegularFile(file)||e.checksum!=checksum(file)||(KNOWN.containsKey(target)&&e.checksum!=KNOWN.get(target)))throw refuse("Unknown script/checksum for V"+e.version+" ("+e.script+")");
             String expectedDescription=expected.substring(expected.indexOf("__")+2,expected.length()-4).replace('_',' ');
             if(!expectedDescription.equals(e.description))throw refuse("Unknown description for V"+e.version);
         }
-        for(int version=1;version<=versions.size();version++)if(!versions.contains(version))throw refuse("Noncontiguous migration history");
+        if(!versions.isEmpty()) {
+            for(int version=1;version<=Collections.max(versions);version++) {
+                if(!versions.contains(version)&&migrationFile(migration,version)!=null)throw refuse("Noncontiguous migration history");
+            }
+        }
         return new History(old,List.copyOf(entries));
     }
     static void insert(Connection c,int rank,int version,Path migration) throws Exception {

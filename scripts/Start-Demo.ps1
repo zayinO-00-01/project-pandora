@@ -57,7 +57,7 @@ try {
         $staticPath = Join-Path $repoPath 'backend/src/main/resources/static'
         New-Item -ItemType Directory -Path $staticPath -Force | Out-Null
         Copy-Item -Path (Join-Path $repoPath 'web/dist/*') -Destination $staticPath -Recurse -Force
-        Invoke-Checked $MavenPath @('-B', "-Dmaven.repo.local=$cachePath/m2", '-f', (Join-Path $repoPath 'backend/pom.xml'), 'package', '-DskipTests')
+        Invoke-Checked $MavenPath @('-B', "-Dmaven.repo.local=$cachePath/m2", '-f', (Join-Path $repoPath 'backend/pom.xml'), 'clean', 'package', '-DskipTests')
     }
     if (-not (Test-Path -LiteralPath $jarPath)) { throw '未找到演示包，请先去掉 -SkipBuild 参数重新运行。' }
     if ($BuildOnly) { Write-Host "构建完成：$jarPath" -ForegroundColor Green; exit 0 }

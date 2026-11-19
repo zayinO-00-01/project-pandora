@@ -55,7 +55,7 @@ import com.projectpandora.app.data.*
                 item {InboxHeading("任务变更",changes.size)}
                 items(changes,key={"lifecycle-"+it.id}) {task->ReviewTaskCard(task,!state.saving) {model.openTask(task.id)}}
             }
-            if(records.isNotEmpty())item {InboxHeading("进度与关键词",records.size)}
+            if(records.isNotEmpty())item {InboxHeading("进度、改期与关键词",records.size)}
             items(records.sortedBy {it.status!="pending"},key={"review-"+it.id}) {review->InboxCard {
                 Text(review.taskTitle,style=MaterialTheme.typography.titleMedium)
                 Text(reviewOperation(review.operation)+" · "+reviewStatus(review.status),style=MaterialTheme.typography.labelMedium,color=colors.secondary)

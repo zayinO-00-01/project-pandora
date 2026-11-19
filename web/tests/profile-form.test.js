@@ -19,3 +19,11 @@ test('new users require a valid phone and edits reject malformed nonempty phones
   assert.equal(profileForSave({ id: 5, phone: ' 13800000000 ', address: ' 新地址 ' }).phone, '13800000000');
   assert.equal(profileForSave({ id: 5, address: ' 新地址 ' }).address, '新地址');
 });
+
+test('editing unrelated account details does not validate or submit the unchanged legacy contact number', () => {
+  const source = { id: 5, phone: '010-12345678' };
+  const form = { ...source, displayName: 'New name' };
+  assert.equal(phoneError(form, source), '');
+  assert.equal('phone' in profileForSave(form, source), false);
+  assert.ok(phoneError({ ...form, phone: '020-12345678' }, source));
+});

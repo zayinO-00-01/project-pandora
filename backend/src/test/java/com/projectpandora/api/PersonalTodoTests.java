@@ -49,4 +49,27 @@ class PersonalTodoTests {
   mvc.perform(get("/api/v1/personal-todos")).andExpect(status().isUnauthorized());
   mvc.perform(post("/api/v1/personal-todos").header("Authorization",TaskPolicyTestSupport.token(mvc,json,"staff")).contentType(MediaType.APPLICATION_JSON).content("{\"title\":\" \"}")).andExpect(status().isBadRequest());
  }
+ @Test void repeatedCreationReturnsTheSameItemWithoutDuplicatingIt() throws Exception {
+  String staff=TaskPolicyTestSupport.token(mvc,json,"staff");
+  String input="{\"title\":\"买书\",\"date\":\"2026-11-19\",\"requestId\":\"7b0b60dd-ab88-4de3-9671-4f15d7a582ae\"}";
+  var first=mvc.perform(post("/api/v1/personal-todos").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(input)).andExpect(status().isCreated()).andReturn();
+  String id=json.readTree(first.getResponse().getContentAsString()).get("id").asText();
+  mvc.perform(post("/api/v1/personal-todos").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(input))
+      .andExpect(status().isCreated()).andExpect(jsonPath("$.id").value(id));
+  mvc.perform(get("/api/v1/personal-todos").header("Authorization",staff)).andExpect(jsonPath("$.length()").value(1));
+ }
+ @Test void oldSnapshotMergesIndependentFieldsButRejectsTwoChangesToTheSameField() throws Exception {
+  String staff=TaskPolicyTestSupport.token(mvc,json,"staff");
+  String base="{\"title\":\"买书\",\"date\":\"2026-11-19\",\"completed\":false,\"labelIds\":[]}";
+  var result=mvc.perform(post("/api/v1/personal-todos").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(base)).andExpect(status().isCreated()).andReturn();
+  String path="/api/v1/personal-todos/"+json.readTree(result.getResponse().getContentAsString()).get("id").asText();
+  String rename="{\"title\":\"买工作用书\",\"date\":\"2026-11-19\",\"completed\":false,\"base\":"+base+"}";
+  String complete="{\"title\":\"买书\",\"date\":\"2026-11-19\",\"completed\":true,\"base\":"+base+"}";
+  mvc.perform(put(path).header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(rename)).andExpect(status().isOk());
+  mvc.perform(put(path).header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(complete)).andExpect(status().isOk())
+      .andExpect(jsonPath("$.title").value("买工作用书")).andExpect(jsonPath("$.completed").value(true));
+  mvc.perform(put(path).header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(rename.replace("买工作用书","买别的书")))
+      .andExpect(status().isConflict());
+  mvc.perform(get("/api/v1/personal-todos").header("Authorization",staff)).andExpect(jsonPath("$[0].title").value("买工作用书"));
+ }
 }

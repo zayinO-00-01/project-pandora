@@ -28,18 +28,26 @@ class OwnProfileAndDemoAccountsTests {
     @Test void demoStaffCanEditOnlyTheirOwnPersonalFields() throws Exception {
         String staff=TaskPolicyTestSupport.token(mvc,json,"staff_demo2");
         String colleague=TaskPolicyTestSupport.token(mvc,json,"staff_demo3");
-        String request=json.writeValueAsString(Map.of("displayName","示例姓名","phone","010-12345678",
-            "emergencyContact","示例联系人","emergencyPhone","12345678901","address","示例地址","role","FOUNDER"));
+        long staffId=json.readTree(mvc.perform(get("/api/v1/users/me").header("Authorization",staff))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).get("id").asLong();
+        String admin=TaskPolicyTestSupport.token(mvc,json,"admin");
+        mvc.perform(patch("/api/v1/admin/users/"+staffId).header("Authorization",admin).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"phone\":\"13800007654\"}")).andExpect(status().isOk());
+        String request=json.writeValueAsString(Map.of("displayName","示例姓名",
+            "emergencyContact","示例联系人","emergencyPhone","010-12345678","address","示例地址","role","FOUNDER"));
         mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(request))
             .andExpect(status().isOk()).andExpect(jsonPath("$.displayName").value("示例姓名"))
+            .andExpect(jsonPath("$.emergencyPhone").value("010-12345678"))
             .andExpect(jsonPath("$.role").value("STAFF")).andExpect(jsonPath("$.managerName").value("团队长"));
         mvc.perform(get("/api/v1/users/me").header("Authorization",staff))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.phone").value("010-12345678"));
+            .andExpect(status().isOk()).andExpect(jsonPath("$.phone").value("13800007654"));
         mvc.perform(get("/api/v1/users/me").header("Authorization",colleague))
             .andExpect(status().isOk()).andExpect(jsonPath("$.displayName").value("演示员工小陈"));
-        mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("displayName","无效修改","phone","bad")))).andExpect(status().isBadRequest());
+        for (String phone : java.util.List.of("13900007654","")) {
+            mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(Map.of("displayName","无效修改","phone",phone)))).andExpect(status().isForbidden());
+        }
         mvc.perform(get("/api/v1/users/me").header("Authorization",staff))
-            .andExpect(jsonPath("$.displayName").value("示例姓名"));
+            .andExpect(jsonPath("$.displayName").value("示例姓名")).andExpect(jsonPath("$.phone").value("13800007654"));
     }
 }

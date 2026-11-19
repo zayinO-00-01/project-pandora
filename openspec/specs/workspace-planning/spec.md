@@ -149,9 +149,13 @@ Creators and assignees SHALL add keywords to approved tasks. Authors MAY directl
 - **THEN** the original text remains effective until the applicant's direct manager approves
 ### Requirement: Shared brand labels
 Only founders SHALL maintain label names and colors. All business members SHALL select labels for tasks and logs. Task cards and calendar summaries SHALL use the same label color. Disabling a label SHALL retain historical associations.
+The system SHALL return all applied labels for a task to members who can read its detail, including current reviewers. Read permission alone SHALL NOT allow changing labels. Task creators, assignees with read access, and founders with access to an approved task SHALL be able to update its labels without review. A log author SHALL be able to update its classification independently of the body edit window; authorized readers of other members' logs SHALL only see labels on submitted logs.
 #### Scenario: Brand color updated
 - **WHEN** a founder changes a label color and a member refreshes
 - **THEN** associated task cards and task calendar summaries use the updated color
+#### Scenario: Reviewer opens a task with two labels
+- **WHEN** the current reviewer opens a task they can read only for review
+- **THEN** both labels are visible and the reviewer cannot change them
 ### Requirement: Personal account settings and notifications
 Business members SHALL change their own avatar and password. Password changes SHALL verify the current password and invalidate prior sessions. Avatar data SHALL be validated for actual image type, dimensions and size. App notifications SHALL persist per recipient, expose unread state, and provide review/task navigation. Members SHALL not read or alter another recipient's notifications.
 #### Scenario: Change password

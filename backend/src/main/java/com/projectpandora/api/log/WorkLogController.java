@@ -40,7 +40,8 @@ public class WorkLogController {
         if(!end.equals(r.logDate()))throw new ApiException(400,"日报只能选择一天，暂不支持连续多日记录");
         Long userId=access.assertBusiness().getId();
         users.lockById(userId).orElseThrow(()->new ApiException(401,"账号不可用"));
-        if(!logs.coveringDate(userId,r.logDate()).isEmpty())throw new ApiException(409,"这一天已有日志，请打开原日志查看或修改");
+        // Use a current read after serializing by owner, including on MySQL repeatable read.
+        if(!logs.lockCoveringDate(userId,r.logDate()).isEmpty())throw new ApiException(409,"这一天已有日志，请打开原日志查看或修改");
         var e=new WorkLogEntity();
         e.setUserId(userId); e.setLogDate(r.logDate()); e.setEndDate(end);
         e.setLabel(labels.resolve(r.labelId(),null)); e.setContent(r.content().trim()); e.setStatus(r.status()==null ? "submitted" : r.status());
@@ -52,6 +53,8 @@ public class WorkLogController {
     public WorkLogResponse update(@PathVariable Long id, @Valid @RequestBody CreateLogRequest r) {
         var e=authorLog(id);
         assertModifiable(e);
+        if(r.baseRevision()!=null && r.baseRevision()!=e.getRevision())
+            throw new ApiException(409,"日志已在其他设备更新，本机内容仍保留。请先查看最新版本再决定如何合并。");
         var end=r.endDate()==null ? e.getEndDate() : r.endDate();
         if(!e.getLogDate().equals(r.logDate()) || !e.getEndDate().equals(end))
             throw new ApiException(400,"已创建日志的日期范围不能修改");
@@ -70,10 +73,10 @@ public class WorkLogController {
         return WorkLogResponse.from(logs.saveAndFlush(e));
     }
     private WorkLogEntity authorLog(Long id) {
-        var e=logs.findById(id).orElseThrow(() -> new ApiException(404,"日志不存在"));
-        if(!e.getUserId().equals(access.assertBusiness().getId()))
-            throw new ApiException(403,"只能修改或提交自己的日志");
-        return e;
+        Long owner=access.assertBusiness().getId();
+        users.lockById(owner).orElseThrow(()->new ApiException(401,"账号不可用"));
+        return logs.lockByOwnerAndId(owner,id).orElseThrow(() -> logs.existsById(id)
+            ? new ApiException(403,"只能修改或提交自己的日志") : new ApiException(404,"日志不存在"));
     }
     private void assertCreatable(LocalDate date) {
         var today=LocalDate.now(ZoneId.of("Asia/Shanghai"));

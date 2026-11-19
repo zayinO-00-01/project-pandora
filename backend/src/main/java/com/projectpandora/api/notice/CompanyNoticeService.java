@@ -3,7 +3,9 @@ package com.projectpandora.api.notice;
 import com.projectpandora.api.common.ApiException;
 import java.time.Instant;
 import java.util.List;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -13,10 +15,12 @@ public class CompanyNoticeService {
 
     private final CompanyNoticeRepository notices;
     private final CompanyNoticeNoteRepository notes;
+    private final JdbcTemplate jdbc;
 
-    public CompanyNoticeService(CompanyNoticeRepository notices, CompanyNoticeNoteRepository notes) {
+    public CompanyNoticeService(CompanyNoticeRepository notices, CompanyNoticeNoteRepository notes, JdbcTemplate jdbc) {
         this.notices = notices;
         this.notes = notes;
+        this.jdbc = jdbc;
     }
 
     public List<CompanyNoticeEntity> enabled() {
@@ -36,14 +40,13 @@ public class CompanyNoticeService {
         return notices.findById(id).orElseThrow(() -> new ApiException(404, "公司事项不存在"));
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public CompanyNoticeEntity create(Long publisherId, String title, String content, Integer sortOrder, Boolean enabled) {
         String cleanTitle = requireText(title, 128, "标题不能为空");
         String cleanContent = requireText(content, 20000, "内容不能为空");
         boolean targetEnabled = enabled == null || enabled;
-        if (targetEnabled && notices.countByEnabledTrue() >= MAX_ENABLED) {
-            throw new ApiException(400, "公司十大重要事项最多只能有 10 条启用");
-        }
+        lockPublishing();
+        if (targetEnabled) checkCapacity();
         var notice = new CompanyNoticeEntity();
         notice.setTitle(cleanTitle);
         notice.setContent(cleanContent);
@@ -55,8 +58,9 @@ public class CompanyNoticeService {
         return notices.saveAndFlush(notice);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public CompanyNoticeEntity update(Long id, String title, String content, Integer sortOrder, Boolean enabled) {
+        lockPublishing();
         var notice = notices.findById(id).orElseThrow(() -> new ApiException(404, "公司事项不存在"));
         if (title != null) {
             notice.setTitle(requireText(title, 128, "标题不能为空"));
@@ -68,13 +72,21 @@ public class CompanyNoticeService {
             notice.setSortOrder(sortOrder);
         }
         if (enabled != null) {
-            if (enabled && !notice.isEnabled() && notices.countByEnabledTrue() >= MAX_ENABLED) {
-                throw new ApiException(400, "公司十大重要事项最多只能有 10 条启用");
-            }
+            if (enabled && !notice.isEnabled()) checkCapacity();
             notice.setEnabled(enabled);
         }
         notice.setUpdatedAt(Instant.now());
         return notices.saveAndFlush(notice);
+    }
+
+    private void lockPublishing() {
+        jdbc.queryForObject("SELECT id FROM company_notice_publish_lock WHERE id = 1 FOR UPDATE", Integer.class);
+    }
+
+    private void checkCapacity() {
+        if (notices.countByEnabledTrue() >= MAX_ENABLED) {
+            throw new ApiException(400, "公司十大重要事项最多只能有 10 条启用");
+        }
     }
 
     @Transactional

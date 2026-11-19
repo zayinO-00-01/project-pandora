@@ -10,8 +10,8 @@ android {
         applicationId = "com.projectpandora.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 72
-        versionName = "0.10.9-calendar-integration"
+        versionCode = 74
+        versionName = "0.10.11"
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }

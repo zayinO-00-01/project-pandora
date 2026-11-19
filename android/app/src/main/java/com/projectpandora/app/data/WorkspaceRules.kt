@@ -17,8 +17,24 @@ fun canModifyLog(log: WorkLog,reference: Instant=Instant.now()): Boolean = runCa
     !reference.isBefore(created) && reference.isBefore(created.plusSeconds(24*60*60))
 }.getOrDefault(false)
 
-fun logEditorReadOnly(buffer: EditBuffer,logs: List<WorkLog>): Boolean = buffer.logId!=null &&
-    (logs.firstOrNull {it.id==buffer.logId}?.let {!canModifyLog(it)} ?: true)
+fun logDraftForOpening(saved: EditBuffer?,selected: WorkLog?,reference: Instant=Instant.now()): EditBuffer? =
+    saved?.takeIf {selected==null || selected.id==it.logId || canModifyLog(selected,reference)}
+
+fun logEditorState(buffer: EditBuffer,logs: List<WorkLog>,loaded: Boolean,failed: Boolean): String {
+    if(buffer.logId==null)return "editable"
+    val original=logs.firstOrNull {it.id==buffer.logId}
+    return when {
+        original!=null && !canModifyLog(original)->"expired"
+        failed->"unavailable"
+        !loaded->"loading"
+        original==null->"missing"
+        buffer.baseRevision!=original.revision->"changed"
+        else->"editable"
+    }
+}
+
+fun logEditorReadOnly(buffer: EditBuffer,logs: List<WorkLog>): Boolean =
+    logEditorState(buffer,logs,true,false) in setOf("expired","missing")
 
 object AppRoles {
     fun canViewDown(role: String)=role in setOf("FOUNDER","DEPT_HEAD","TEAM_LEAD")
@@ -51,7 +67,14 @@ fun taskHasPendingReview(task: DispatchTask,records: List<TaskReview> = emptyLis
 fun taskCanReportProgress(task: DispatchTask,records: List<TaskReview> = emptyList())=
     taskIsApproved(task) && !task.deleted && !taskHasPendingReview(task,records)
 fun taskFeedbackLabel(task: DispatchTask)=when(task.approvalStatus) {
-    "pending"->"待上级审核";"rejected"->"审核未通过";else->taskStatusLabel(task.status)
+    "pending"->"待上级审核"
+    "rejected"->"审核未通过"
+    else->{
+        val overdue=task.status!="done" && task.dueAt?.let {
+            runCatching {Instant.parse(it).isBefore(Instant.now())}.getOrDefault(false)
+        }==true
+        taskStatusLabel(task.status)+(if(overdue)" · 已逾期" else "")
+    }
 }
 fun taskReviewLabel(reviewStatus: String?): String? = when(reviewStatus) {
     "pending_done"->"待验收";"pending_change"->"变更待审";"pending_delete"->"删除待审"

@@ -32,6 +32,12 @@ import java.time.format.DateTimeFormatter
     val mine=state.session?.userId
     val isFounder=state.session?.role=="FOUNDER"
     val reviewIds=state.reviews.map {it.id}.toSet()
+    state.pendingDispatchTarget?.let {target->
+        AlertDialog(onDismissRequest=model::dismissDispatchDraftConflict,title={Text("已有未保存的任务")},text={
+            Text("已有「${state.dispatchEditor?.title.orEmpty().ifBlank {"未命名任务"}}」的本机草稿。放弃这份草稿后，才会编辑「${target.title}」。")
+        },confirmButton={ControlTextButton(onClick=model::replaceDispatchDraft) {Text("放弃草稿并打开")}},
+            dismissButton={ControlTextButton(onClick=model::openDispatch) {Text("继续填写草稿")}})
+    }
     if(rejectTarget!=null) {
         val target=rejectTarget!!
         AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={if(!state.saving){rejectTarget=null;rejectReason=""}},title={Text("驳回审核")},
@@ -241,15 +247,25 @@ internal fun dueLabel(value: String?): String = if(value==null)"未设置" else 
         item {Column {Text("优先级",style=MaterialTheme.typography.labelLarge);Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf("low" to "低","normal" to "普通","high" to "高").forEach {(value,label)->FilterChip(selected=draft.priority==value,onClick={model.changeDispatch(priority=value)},enabled=enabled,label={Text(label,color=taskPriorityColor(value))})}
         }}}
-        state.labelError?.let {item {Hint(it,true,onRetry=model::loadWorkspaceExtras)}}
-        item {MultiLabelPicker(state.labels,draft.labelIds ?: listOfNotNull(draft.labelId?.takeIf {it>0}),enabled,model::changeDispatchLabels)}
-        item {DeadlinePicker(draft.startDate.orEmpty(),enabled,label="开始时间",required=true) {model.changeDispatch(startDate=it)}}
-        item {DeadlinePicker(draft.dueDate,enabled,minDate=today()) {model.changeDispatch(dueDate=it)}}
+        if(draft.taskId==null) {
+            state.labelError?.let {item {Hint(it,true,onRetry=model::loadWorkspaceExtras)}}
+            item {MultiLabelPicker(state.labels,draft.labelIds ?: listOfNotNull(draft.labelId?.takeIf {it>0}),enabled,model::changeDispatchLabels)}
+        }
+        val isNew=draft.taskId==null
+        if(!isNew && (draft.originalStartAt==null || draft.originalDueAt==null))item {
+            Text("历史任务可只修改内容；调整时间时请补齐开始和截止时间。",style=MaterialTheme.typography.bodySmall)
+        }
+        item {DeadlinePicker(draft.startDate.orEmpty(),enabled,label="开始时间",required=isNew || draft.originalStartAt!=null) {model.changeDispatch(startDate=it)}}
+        item {
+            val start=TaskDispatchValidation.localTime(draft.startDate)
+            DeadlinePicker(draft.dueDate,enabled,required=isNew || draft.originalDueAt!=null,minTime=start,notBeforeNow=true) {model.changeDispatch(dueDate=it)}
+        }
         item {OutlinedTextField(value=draft.detail,onValueChange={model.changeDispatch(detail=it.take(5000))},enabled=enabled,label={Text("详细说明")},minLines=5,supportingText={Text("${draft.detail.length} / 5000")},modifier=Modifier.fillMaxWidth())}
         state.dispatchError?.let {item {Hint(it,true)}}
         item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             BackdropTextButton(onClick={discard=true},enabled=enabled) {Text("放弃填写")}
-            ControlButton(onClick=model::createTask,enabled=enabled && !state.dispatchLoading && selected!=null && !draft.startDate.isNullOrBlank() && draft.dueDate.isNotBlank(),modifier=Modifier.weight(1f)) {Text(if(state.saving)"提交中…" else if(draft.taskId!=null)"提交修改" else if(needsApproval)"提交审核" else "创建任务")}
+            ControlButton(onClick=model::createTask,enabled=enabled && !state.dispatchLoading && selected!=null &&
+                (!isNew || (!draft.startDate.isNullOrBlank() && draft.dueDate.isNotBlank())),modifier=Modifier.weight(1f)) {Text(if(state.saving)"提交中…" else if(!isNew)"提交修改" else if(needsApproval)"提交审核" else "创建任务")}
         }}
     }
 }

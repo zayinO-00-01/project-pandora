@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 class ProfileAndNoticeTests {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate db;
 
     JsonNode login(String name) throws Exception {
         return json.readTree(mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
@@ -86,6 +87,42 @@ class ProfileAndNoticeTests {
         // duplicate phone rejected
         mvc.perform(post("/api/v1/admin/users").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON)
             .content(createBody("dup_phone_user", "13800001234"))).andExpect(status().isBadRequest());
+    }
+
+    @Test void adminPatchDistinguishesOmittedDatesFromExplicitlyClearedDates() throws Exception {
+        String admin=token(login("admin"));
+        var response=mvc.perform(post("/api/v1/admin/users").header("Authorization",admin).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"username\":\"clear_date_user\",\"password\":\"demo1234\",\"role\":\"STAFF\",\"phone\":\"13800001235\",\"birthDate\":\"1990-05-01\",\"hireDate\":\"2025-01-01\"}"))
+            .andExpect(status().isCreated()).andReturn().getResponse();
+        String path="/api/v1/admin/users/"+json.readTree(response.getContentAsString()).get("id").asLong();
+        mvc.perform(patch(path).header("Authorization",admin).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"displayName\":\"New title\"}")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.birthDate").value("1990-05-01")).andExpect(jsonPath("$.hireDate").value("2025-01-01"));
+        mvc.perform(patch(path).header("Authorization",admin).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"birthDate\":null,\"hireDate\":null}")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.birthDate").isEmpty()).andExpect(jsonPath("$.hireDate").isEmpty());
+    }
+
+    @Test void adminCanEditAccountWithUnchangedLegacyContactPhone() throws Exception {
+        db.update("update users set phone='010-12345678' where username='staff'");
+        var staff=login("staff");
+        String own=token(staff);
+        mvc.perform(put("/api/v1/users/me").header("Authorization",token(staff)).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"displayName\":\"Person\",\"phone\":\"010-12345678\"}")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.phone").value("010-12345678"));
+        mvc.perform(put("/api/v1/users/me").header("Authorization",own).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"displayName\":\"Personal edit\"}")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.phone").value("010-12345678"));
+        String path="/api/v1/admin/users/"+staff.get("userId").asLong();
+        String admin=token(login("admin"));
+        mvc.perform(patch(path).header("Authorization",admin).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"displayName\":\"Revised\",\"phone\":\"010-12345678\"}")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.phone").value("010-12345678")).andExpect(jsonPath("$.displayName").value("Revised"));
+        mvc.perform(patch(path).header("Authorization",admin).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"phone\":\"010-12345679\"}")).andExpect(status().isBadRequest());
+        mvc.perform(patch(path).header("Authorization",admin).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"phone\":\"13700001234\"}")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.phone").value("13700001234"));
     }
 
     @Test void idCardIsValidatedAndRejectsFutureBirthDate() throws Exception {

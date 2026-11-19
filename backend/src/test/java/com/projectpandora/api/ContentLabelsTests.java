@@ -73,4 +73,49 @@ String token(String name)throws Exception{return TaskPolicyTestSupport.token(mvc
  mvc.perform(post("/api/v1/logs").header("Authorization",token("founder")).contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isCreated());
  mvc.perform(get("/api/v1/content-labels").header("Authorization",token("founder"))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2)).andExpect(jsonPath("$[0].labels.length()").value(2)).andExpect(jsonPath("$[1].labels.length()").value(2));
 }
+@Test void initialReviewerReadsEveryLabelButCannotEditAndFounderCanEditReadableTask()throws Exception {
+ db.update("insert into work_labels(name,color,active) values('ApprovalA','#ABCDEF',true),('ApprovalB','#123456',true)");
+ var ids=db.queryForList("select id from work_labels where name in ('ApprovalA','ApprovalB') order by id",Long.class);
+ long staff=db.queryForObject("select id from users where username='staff'",Long.class);
+ var start=java.time.Instant.now().plusSeconds(60);
+ var created=mvc.perform(post("/api/v1/tasks").header("Authorization",token("team_lead"))
+     .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(java.util.Map.of(
+         "title","标签审核任务","assigneeId",staff,"startAt",start.toString(),"dueAt",start.plusSeconds(86400).toString(),"labelIds",ids))))
+     .andExpect(status().isCreated()).andReturn().getResponse();
+ long id=json.readTree(created.getContentAsString()).get("id").asLong();
+ String reviewer=token("leader");
+ mvc.perform(get("/api/v1/tasks/"+id).header("Authorization",reviewer)).andExpect(status().isOk());
+ mvc.perform(get("/api/v1/content-labels").header("Authorization",reviewer)).andExpect(status().isOk())
+     .andExpect(jsonPath("$[0].contentId").value(id)).andExpect(jsonPath("$[0].labels.length()").value(2));
+ mvc.perform(put("/api/v1/content-labels/task/"+id).header("Authorization",reviewer)
+     .contentType(MediaType.APPLICATION_JSON).content("{\"labelIds\":[]}")).andExpect(status().isForbidden());
+ mvc.perform(get("/api/v1/content-labels").header("Authorization",token("staff"))).andExpect(status().isOk())
+     .andExpect(jsonPath("$.length()").value(0));
+ mvc.perform(put("/api/v1/tasks/"+id+"/approval").header("Authorization",reviewer)
+     .contentType(MediaType.APPLICATION_JSON).content("{\"decision\":\"approved\"}")).andExpect(status().isOk());
+ mvc.perform(put("/api/v1/content-labels/task/"+id).header("Authorization",token("founder"))
+     .contentType(MediaType.APPLICATION_JSON).content("{\"labelIds\":[]}"))
+     .andExpect(status().isOk()).andExpect(jsonPath("$.labels.length()").value(0));
+ mvc.perform(put("/api/v1/content-labels/task/"+id).header("Authorization",reviewer)
+     .contentType(MediaType.APPLICATION_JSON).content("{\"labelIds\":[]}")).andExpect(status().isForbidden());
+}
+@Test void managersReadLabelledSubmittedLogsButNeverAnotherUsersDraftLabels()throws Exception {
+ db.update("insert into work_labels(name,color,active) values('VisibleLog','#ABCDEF',true)");
+ long label=db.queryForObject("select id from work_labels where name='VisibleLog'",Long.class);
+ String staff=token("staff");
+ var today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+ long submitted=0;
+ for(String state:java.util.List.of("submitted","draft")) {
+  var date=state.equals("submitted")?today:today.minusDays(1);
+  var response=mvc.perform(post("/api/v1/logs").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON)
+      .content(json.writeValueAsString(java.util.Map.of("logDate",date.toString(),"content",state,"status",state,"labelIds",java.util.List.of(label)))))
+      .andExpect(status().isCreated()).andReturn().getResponse();
+  if(state.equals("submitted"))submitted=json.readTree(response.getContentAsString()).get("id").asLong();
+ }
+ mvc.perform(get("/api/v1/content-labels").header("Authorization",staff)).andExpect(status().isOk())
+     .andExpect(jsonPath("$.length()").value(2));
+ mvc.perform(get("/api/v1/content-labels").header("Authorization",token("team_lead"))).andExpect(status().isOk())
+     .andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].contentId").value(submitted))
+     .andExpect(jsonPath("$[0].labels.length()").value(1));
+}
 }

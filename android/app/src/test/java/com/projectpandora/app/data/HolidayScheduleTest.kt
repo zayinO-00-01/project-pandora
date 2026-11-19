@@ -17,4 +17,14 @@ class HolidayScheduleTest {
 
     @Test(expected=IllegalArgumentException::class)
     fun wrongYearIsRejected() { parseHolidaySchedule(data,2028) }
+
+    @Test fun openApiExpandsOfficialHolidayAndPreservesMakeUpDays() {
+        val api="""{"Years":{"2026":[{"Name":"元旦","StartDate":"2026-01-01","EndDate":"2026-01-03",
+            "CompDays":["2026-01-04"],"URL":"https://www.gov.cn/notice.htm"}]}}"""
+        val dates=parseHolidayApi(api,2026)
+        assertEquals(4,dates.size)
+        assertEquals("元旦",dates[LocalDate.of(2026,1,2)])
+        assertEquals("调休上班",dates[LocalDate.of(2026,1,4)])
+        assertEquals(emptyMap<LocalDate,String>(),parseHolidayApi(api,2027))
+    }
 }

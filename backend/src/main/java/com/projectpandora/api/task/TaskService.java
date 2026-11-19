@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.projectpandora.api.common.ApiException;
 import com.projectpandora.api.notification.NotificationService;
 import com.projectpandora.api.security.AccessService;
+import com.projectpandora.api.security.UserPrincipal;
 import com.projectpandora.api.user.*;
 import java.time.Instant;
 import java.util.*;
@@ -38,24 +39,31 @@ public class TaskService {
     }
     public TaskResponse detail(Long id) {
         var me=access.assertBusiness();var task=activeTask(id);
-        if(normallyVisible(task) || ("pending".equals(task.getApprovalStatus()) && canReview(me.getId(),me.getRole(),task))
-                || (PENDING.contains(task.getReviewStatus()) && me.getId().equals(reviewerFor(task)))
-                || keywordReviews.findByTaskIdAndStatus(id,"pending").stream()
-                .anyMatch(review->me.getId().equals(currentReviewerId(review)))) return TaskResponse.from(task);
+        if(canReadDetail(task,me)) return TaskResponse.from(task);
         throw new ApiException(403,"无权查看该任务");
     }
-    private boolean normallyVisible(TaskEntity task) {
-        if(authorizedTasks().stream().anyMatch(item->item.id().equals(task.getId()))) return true;
-        // Member-task views also include an approved request to view one's current direct manager.
+    public Optional<TaskResponse> readableDetail(Long id) {
         var me=access.assertBusiness();
+        return tasks.findById(id).filter(task->!task.isDeleted() && canReadDetail(task,me)).map(TaskResponse::from);
+    }
+    private boolean canReadDetail(TaskEntity task,UserPrincipal me) {
+        return normallyVisible(task,me) || ("pending".equals(task.getApprovalStatus()) && canReview(me.getId(),me.getRole(),task))
+                || (PENDING.contains(task.getReviewStatus()) && me.getId().equals(reviewerFor(task)))
+                || keywordReviews.findByTaskIdAndStatus(task.getId(),"pending").stream()
+                .anyMatch(review->me.getId().equals(currentReviewerId(review)));
+    }
+    private boolean normallyVisible(TaskEntity task,UserPrincipal me) {
+        boolean participant=me.getId().equals(task.getCreator().getId()) || me.getId().equals(task.getAssignee().getId());
+        if(participant && initialVisible(task,me.getId(),me.getRole())) return true;
+        // Member-task views also include an approved request to view one's current direct manager.
         if(!initialVisible(task,me.getId(),me.getRole())) return false;
         try {access.assertCanViewUserLogs(task.getAssignee().getId());return true;}
         catch(ApiException e) {if(e.getStatus()==403) return false;throw e;}
     }
     private void assertNoteAccess(Long id) {
-        access.assertBusiness();var task=activeTask(id);
+        var me=access.assertBusiness();var task=activeTask(id);
         if(!"approved".equals(task.getApprovalStatus())) throw new ApiException(409,"任务审批通过后才能使用备注");
-        if(!normallyVisible(task)) throw new ApiException(403,"无权查看该任务备注");
+        if(!normallyVisible(task,me)) throw new ApiException(403,"无权查看该任务备注");
     }
     public TaskNoteResponse note(Long id) {
         var me=access.assertBusiness();assertNoteAccess(id);
@@ -113,7 +121,6 @@ public class TaskService {
     }
     @Transactional
     public TaskResponse create(CreateTaskRequest request) {
-        assertTaskTimes(request);
         organization.lock();var me=access.assertBusiness();
         var assignee=users.findById(request.assigneeId()).orElseThrow(()->new ApiException(404,"责任人不存在"));
         boolean self=me.getId().equals(assignee.getId());
@@ -121,6 +128,7 @@ public class TaskService {
         var creator=users.findById(me.getId()).orElseThrow(()->new ApiException(401,"账号不可用，请重新登录"));
         if(me.getRole()!=Role.FOUNDER && managerFor(creator)==null)
             throw new ApiException(400,"创建任务需要有效直属上级审批，请联系管理员配置直属上级");
+        assertTaskTimes(request);
         var task=new TaskEntity(request,creator,assignee);
         task.setLabel(labels.resolve(request.labelId(),null));
         if(me.getRole()!=Role.FOUNDER) task.requireApproval();
@@ -133,12 +141,47 @@ public class TaskService {
         return TaskResponse.from(task);
     }
     private void assertTaskTimes(CreateTaskRequest request) {
-        var today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
-        if(request.dueAt()==null || request.dueAt().atZone(java.time.ZoneId.of("Asia/Shanghai")).toLocalDate().isBefore(today))
-            throw new ApiException(400,"截止日期不能早于今天");
-        if(request.startAt()==null)throw new ApiException(400,"请选择开始时间");
-        if(request.startAt().isAfter(request.dueAt()))
-            throw new ApiException(400,"开始时间不能晚于截止时间");
+        assertSchedule(request.startAt(),request.dueAt());
+    }
+    private boolean scheduleChanged(TaskEntity task,Instant start,Instant due) {
+        return !Objects.equals(task.getStartAt(),start) || !Objects.equals(task.getDueAt(),due);
+    }
+    private void assertSchedule(Instant start,Instant due) {
+        if(start==null)throw new ApiException(400,"请选择开始时间");
+        if(due==null)throw new ApiException(400,"请选择截止时间");
+        if(start.isAfter(due))throw new ApiException(400,"截止时间不能早于开始时间");
+        if(due.isBefore(Instant.now()))
+            throw new ApiException(400,"截止时间不能早于当前时间");
+    }
+    public record ScheduleChange(@jakarta.validation.constraints.NotNull Instant dueAt,Instant startAt) {}
+    @Transactional
+    public TaskResponse reschedule(Long id,ScheduleChange change) {
+        organization.lock();var me=access.assertBusiness();var task=activeTask(id);
+        assertCanReschedule(task,me.getId(),me.getRole());
+        noPending(task);
+        if(task.getStartAt()!=null && change.startAt()!=null && !task.getStartAt().equals(change.startAt()))
+            throw new ApiException(400,"请到任务详情修改已有的开始时间");
+        Instant start=task.getStartAt()!=null?task.getStartAt():change.startAt();
+        assertSchedule(start,change.dueAt());
+        if(Objects.equals(start,task.getStartAt()) && change.dueAt().equals(task.getDueAt()))return TaskResponse.from(task);
+        if(me.getRole()==Role.FOUNDER){
+            applySchedule(task,new ScheduleChange(change.dueAt(),start));
+            logEvent(id,"reschedule_approved",me.getId(),"创始人直接修改截止时间");
+            new HashSet<>(List.of(task.getCreator().getId(),task.getAssignee().getId())).forEach(recipient->
+                notifyUser(recipient,me.getId(),"task","任务已改期",task.getTitle(),id));
+            return TaskResponse.from(tasks.saveAndFlush(task));
+        }
+        var applicant=users.findById(me.getId()).orElseThrow(()->new ApiException(401,"账号不可用，请重新登录"));
+        request(task,applicant,"RESCHEDULE",new ScheduleChange(change.dueAt(),start));
+        return TaskResponse.from(task);
+    }
+    private void assertCanReschedule(TaskEntity task,Long userId,Role role) {
+        if(role!=Role.FOUNDER && !task.getCreator().getId().equals(userId) && !task.getAssignee().getId().equals(userId))
+            throw new ApiException(403,"仅创建人、责任人和创始人可申请改期");
+        if(!"approved".equals(task.getApprovalStatus()))throw new ApiException(409,"任务审批通过后才能改期");
+    }
+    private void applySchedule(TaskEntity task,ScheduleChange input) {
+        task.applyDefinition(task.getTitle(),task.getDetail(),task.getPriority(),input.dueAt(),input.startAt());
     }
 
     private void notifyAssignment(TaskEntity task,Long actor) {
@@ -149,6 +192,7 @@ public class TaskService {
         organization.lock();var me=access.assertBusiness();var task=activeTask(id);
         if(!canReview(me.getId(),me.getRole(),task)) throw new ApiException(403,"仅创建人的当前直属上级可以审批任务");
         if(!"pending".equals(task.getApprovalStatus())) throw new ApiException(409,"任务已审批，不能重复操作");
+        if("approved".equals(request.decision()))assertSchedule(task.getStartAt(),task.getDueAt());
         task.review(request.decision(),request.note(),me.getId());
         logEvent(id,"approval_"+request.decision(),me.getId(),request.note());
         notifyUser(task.getCreator().getId(),me.getId(),"task_approval_"+request.decision(),"任务创建审批结果",
@@ -188,13 +232,14 @@ public class TaskService {
     }
     @Transactional
     public TaskResponse requestChange(Long id,CreateTaskRequest request) {
-        assertTaskTimes(request);
         organization.lock();var me=access.assertBusiness();var task=activeTask(id);
         boolean creator=task.getCreator().getId().equals(me.getId());
         if(!creator && me.getRole()!=Role.FOUNDER) throw new ApiException(403,"只有创建人或创始人可以修改任务");
         if(!creator && !"approved".equals(task.getApprovalStatus())) throw new ApiException(403,"未生效任务仅申请人可以编辑");
         if(!task.getAssignee().getId().equals(request.assigneeId())) throw new ApiException(400,"变更不能修改责任人");
         if("pending".equals(task.getApprovalStatus())) throw new ApiException(409,"请先撤回创建申请再编辑");
+        if(scheduleChanged(task,request.startAt(),request.dueAt()) ||
+                !"approved".equals(task.getApprovalStatus()))assertTaskTimes(request);
         noPending(task);labels.resolve(request.labelId(),task.getLabel());
         if(!"approved".equals(task.getApprovalStatus())) {
             if(me.getRole()!=Role.FOUNDER && managerFor(task.getCreator())==null) throw new ApiException(400,"创建任务需要有效直属上级审批");
@@ -359,9 +404,11 @@ public class TaskService {
         if(pending==null) return;
         try {
             var p=json.readValue(pending,TaskChangePayload.class);
+            if(scheduleChanged(task,p.startAt(),p.dueAt()))assertSchedule(p.startAt(),p.dueAt());
             task.applyDefinition(p.title(),p.detail(),p.priority(),p.dueAt(),p.startAt());
             task.setLabel(labels.resolve(p.labelId(),task.getLabel()));contentLabels.save("task",task.getId(),p.labelIds());
-        } catch(Exception e) { throw new ApiException(500,"待审变更数据损坏"); }
+        } catch(ApiException e) { throw e; }
+          catch(Exception e) { throw new ApiException(500,"待审变更数据损坏"); }
         task.setPendingChange(null);
     }
     private String payloadJson(CreateTaskRequest r) {
@@ -385,12 +432,12 @@ public class TaskService {
     private TaskEntity task(Long id){return tasks.findById(id).filter(t->!t.isDeleted()).orElseThrow(()->new ApiException(404,"任务不存在"));}
     private void noPending(TaskEntity task){if(PENDING.contains(task.getReviewStatus()) || keywordReviews.existsByTaskIdAndStatus(task.getId(),"pending"))throw new ApiException(409,"任务已有待审核变更，请先完成审核");}
     private void request(TaskEntity task,UserEntity applicant,String operation,Object payload){
-        if(!Set.of("KEYWORD_EDIT","KEYWORD_DELETE","PROGRESS").contains(operation)) throw new ApiException(400,"未知关键词操作");
+        if(!Set.of("KEYWORD_EDIT","KEYWORD_DELETE","PROGRESS","RESCHEDULE").contains(operation)) throw new ApiException(400,"未知任务审核操作");
         noPending(task);var manager=reviewer(applicant);var review=new TaskReview();review.taskId=task.getId();review.applicantId=applicant.getId();review.reviewerId=manager.getId();review.operation=operation;review.baseVersion=task.getVersion();
         try{review.payload=json.writeValueAsString(payload);}catch(Exception e){throw new ApiException(400,"变更内容无效");}
         keywordReviews.saveAndFlush(review);logEvent(task.getId(),"review_requested",applicant.getId(),operationLabel(operation));notifications.send(manager.getId(),"任务待审核",applicant.getUsername()+" 提交了"+operationLabel(operation)+"："+task.getTitle(),"task-review",task.getId());
     }
-    private String operationLabel(String operation){return switch(operation){case "CREATE"->"创建任务";case "EDIT"->"编辑任务";case "DELETE"->"删除任务";case "KEYWORD_EDIT"->"修改他人关键词";case "KEYWORD_DELETE"->"删除他人关键词";default->"更新进度";};}
+    private String operationLabel(String operation){return switch(operation){case "CREATE"->"创建任务";case "EDIT"->"编辑任务";case "DELETE"->"删除任务";case "KEYWORD_EDIT"->"修改他人关键词";case "KEYWORD_DELETE"->"删除他人关键词";case "RESCHEDULE"->"任务改期";default->"更新进度";};}
     private void participant(TaskEntity task,UserEntity me){
         if(!"approved".equals(task.getApprovalStatus()))throw new ApiException(409,"任务需先获批才能协作制定关键词");
         if(me.getRole()!=Role.FOUNDER && !task.getCreator().getId().equals(me.getId()) && !task.getAssignee().getId().equals(me.getId()))throw new ApiException(403,"仅任务创建人和执行人可协作制定关键词");
@@ -482,6 +529,13 @@ public class TaskService {
                     if(!task.getAssignee().getId().equals(review.applicantId) || !"approved".equals(task.getApprovalStatus())) throw new ApiException(409,"任务责任或审批状态已变化");
                     if(task.getVersion()!=review.baseVersion) throw new ApiException(409,"任务已变化，请撤回后重新提交进度");
                     applyProgress(task,json.readValue(review.payload,ProgressRequest.class),me.getId());
+                }
+                case "RESCHEDULE" -> {
+                    assertCanReschedule(task,applicant.getId(),applicant.getRole());
+                    if(task.getVersion()!=review.baseVersion) throw new ApiException(409,"任务已变化，请撤回后重新提交改期");
+                    var change=json.readValue(review.payload,ScheduleChange.class);
+                    assertSchedule(change.startAt(),change.dueAt());
+                    applySchedule(task,change);
                 }
                 case "KEYWORD_EDIT", "KEYWORD_DELETE" -> {participant(task,applicant);var input=json.readValue(review.payload,KeywordChange.class);if(input.remove()!=review.operation.equals("KEYWORD_DELETE"))throw new ApiException(400,"关键词操作不匹配");applyKeyword(task,input);}
                 default -> throw new ApiException(400,"未知变更类型");

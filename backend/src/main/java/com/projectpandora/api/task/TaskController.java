@@ -59,6 +59,10 @@ public class TaskController {
     public TaskResponse requestChange(@PathVariable Long id, @Valid @RequestBody CreateTaskRequest request) {
         return tasks.requestChange(id, request);
     }
+    @PutMapping("/{id}/due-date")
+    public TaskResponse reschedule(@PathVariable Long id, @Valid @RequestBody TaskService.ScheduleChange request) {
+        return tasks.reschedule(id, request);
+    }
     @PostMapping("/{id}/approve")
     public TaskResponse approve(@PathVariable Long id, @RequestBody(required=false) ReviewRequest request) {
         return tasks.approve(id, request);

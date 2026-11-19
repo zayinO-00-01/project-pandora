@@ -277,7 +277,7 @@ paths:
           $ref: '#/components/responses/Error409'
       security:
       - bearer: []
-      description: 仅作者可在createdAt≤当前时间<createdAt+24小时内修改（含历史/跨日和已提交日志）。日期范围固定，updatedAt不延长窗口；submitted不能退回draft，超时403。
+      description: 仅作者可在createdAt≤当前时间<createdAt+24小时内修改（含历史/跨日和已提交日志）。日期范围固定，updatedAt不延长窗口；submitted不能退回draft，超时403。传入baseRevision且版本过期时返回409。
       parameters:
       - in: path
         name: id
@@ -512,8 +512,8 @@ paths:
           $ref: '#/components/responses/Error403'
   /tasks/{id}/approval:
     put:
-      summary: 当前直属上级审批自主任务
-      description: 由创建者当前有效直属上级批准或拒绝；非创始人创建均需初审。组织变更后原上级失权，当前有效上级可审批。
+      summary: 当前直属上级审批任务创建
+      description: 由创建者当前有效直属上级批准或拒绝；非创始人创建均需初审。批准时重新校验任务时间，截止已过时可拒绝，但不能批准。组织变更后原上级失权，当前有效上级可审批。
       security:
       - bearer: []
       parameters:
@@ -544,6 +544,46 @@ paths:
           $ref: '#/components/responses/Error403'
         '404':
           $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+  /tasks/{id}/due-date:
+    parameters:
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: integer
+        format: int64
+    put:
+      summary: 改期或申请改期
+      description: 创建人及责任人可改期，由操作人当前直属上级审核；创始人直接生效。只修改截止时间，历史任务尚无开始时间时须一起补填。原截止时间保留至审批通过。
+      security:
+      - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dueAt]
+              properties:
+                dueAt:
+                  type: string
+                  format: date-time
+                startAt:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: 改期已生效或已经提交审核
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '403':
+          $ref: '#/components/responses/Error403'
         '409':
           $ref: '#/components/responses/Error409'
   /tasks/{id}/progress:
@@ -846,6 +886,7 @@ paths:
           $ref: '#/components/responses/Error403'
     post:
       summary: 创建本人的每日事项
+      description: 同一账号带同一requestId重试时返回原事项；已删除的原事项不会因重试重新创建。
       security:
       - bearer: []
       requestBody:
@@ -865,6 +906,8 @@ paths:
           $ref: '#/components/responses/Error400'
         '403':
           $ref: '#/components/responses/Error403'
+        '409':
+          $ref: '#/components/responses/Error409'
   /personal-todos/{id}:
     parameters:
     - in: path
@@ -875,6 +918,7 @@ paths:
         format: uuid
     put:
       summary: 修改本人事项的内容、日期和完成状态
+      description: 带base时只修改相对于原快照发生变化的字段；其他设备修改同一字段且值不同返回409。省略base兼容旧版客户端。
       security:
       - bearer: []
       requestBody:
@@ -894,6 +938,8 @@ paths:
           $ref: '#/components/responses/Error400'
         '404':
           $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
     delete:
       summary: 删除本人事项
       description: ID不存在或属于他人时均返回404。
@@ -921,8 +967,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Profile'
     put:
-      summary: 修改本人的姓名与个人联系方式
-      description: 仅业务账号；身份证、生日、性别、入职日期、角色和组织关系由管理员维护。未填写的可选个人字段会清空。
+      summary: 修改本人的姓名、紧急联系方式与联系地址
+      description: 仅业务账号；账号手机号、身份证、生日、性别、入职日期、角色和组织关系由管理员维护。未填写的紧急联系方式和地址会清空。
       security:
       - bearer: []
       requestBody:
@@ -952,7 +998,7 @@ paths:
         format: int64
     put:
       summary: 创建人申请内容变更或创始人直接编辑
-      description: 创建人可提出变更，非创始人由当前直属上级审批，生效前保留旧定义；创始人可直接修改他人任务。责任人固定不通过此操作更换。被拒绝或撤回的创建申请可经编辑重新送审。
+      description: 创建人可提出变更，非创始人由当前直属上级审批，生效前保留旧定义；创始人可直接修改他人任务。责任人固定不通过此操作更换。可保留原有逾期或未填写的时间只改内容；改时间或重新送审时起止均必填。
       security:
       - bearer: []
       requestBody:
@@ -1131,6 +1177,67 @@ paths:
       responses:
         '200':
           description: 已停用
+  /content-labels:
+    get:
+      summary: 读取有权查看的内容的全部标签
+      description: 任务标签与任务详情读取权限一致；其他人的日志仅在已提交且有权查看时返回标签。
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContentLabels'
+        '403':
+          $ref: '#/components/responses/Error403'
+  /content-labels/{kind}/{id}:
+    put:
+      summary: 独立保存内容标签，无需审批
+      description: 任务创建人和责任人须有读取权限；创始人可以维护可读的已通过任务标签。本人日志可独立修改分类，其他人的日志为只读。个人事项由本人维护，公司事项标签由创始人维护。
+      security:
+      - bearer: []
+      parameters:
+      - in: path
+        name: kind
+        required: true
+        schema:
+          type: string
+          enum: [task, log, personal, company]
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [labelIds]
+              properties:
+                labelIds:
+                  type: array
+                  maxItems: 12
+                  items:
+                    type: integer
+                    format: int64
+      responses:
+        '200':
+          description: 保存后的标签
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentLabels'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '403':
+          $ref: '#/components/responses/Error403'
   /notifications:
     get:
       summary: 本人站内通知和未读数量
@@ -1766,6 +1873,7 @@ components:
         phone:
           type: string
           nullable: true
+          description: 更新时填写有效且唯一的11位手机号。留空、未提供或与当前值相同时保持原值。
         idCard:
           type: string
           nullable: true
@@ -1773,6 +1881,7 @@ components:
           type: string
           format: date
           nullable: true
+          description: 未提供时保持原值，显式为null时清除。
         gender:
           type: string
           enum:
@@ -1784,6 +1893,7 @@ components:
           type: string
           format: date
           nullable: true
+          description: 未提供时保持原值，显式为null时清除。
         emergencyContact:
           type: string
           nullable: true
@@ -1960,6 +2070,22 @@ components:
           maxItems: 12
           items: {type: integer, format: int64}
           description: 省略时保留已有标签；空数组清除。
+        requestId:
+          type: string
+          format: uuid
+          description: POST的本机创建请求编号；超时重试沿用同一编号。
+        base:
+          type: object
+          description: PUT前客户端读取的原快照，用于合并独立修改和识别同一字段冲突。
+          required: [title, date, completed, labelIds]
+          properties:
+            title: {type: string, minLength: 1, maxLength: 200}
+            date: {type: string, format: date}
+            completed: {type: boolean}
+            labelIds:
+              type: array
+              maxItems: 12
+              items: {type: integer, format: int64}
     PersonalTodo:
       allOf:
       - $ref: '#/components/schemas/PersonalTodoInput'
@@ -1983,15 +2109,17 @@ components:
           maxLength: 64
         phone:
           type: string
+          nullable: true
           maxLength: 20
-          description: 可留空，支持手机或固定电话；非空至少3位数字，可包含加号、括号、空格、连字符。
+          deprecated: true
+          description: 兼容旧客户端。不要发送此字段；缺省、null或与当前值相同保持原值，更改返回403。
         emergencyContact:
           type: string
           maxLength: 64
         emergencyPhone:
           type: string
           maxLength: 20
-          description: 格式要求同phone。
+          description: 可留空；非空至少3位数字，可包含加号、括号、空格、连字符。
         address:
           type: string
           maxLength: 255
@@ -2012,6 +2140,11 @@ components:
           - draft
           - submitted
           description: POST omitted defaults submitted; PUT omitted retains status
+        baseRevision:
+          type: integer
+          format: int64
+          minimum: 0
+          description: PUT时客户端开始编辑所依据的版本；若记录已更新，返回409。
         labelId:
           type: integer
           format: int64
@@ -2053,6 +2186,9 @@ components:
         updatedAt:
           type: string
           format: date-time
+        revision:
+          type: integer
+          format: int64
         label:
           $ref: '#/components/schemas/Label'
           nullable: true
@@ -2125,9 +2261,10 @@ components:
       allOf:
       - $ref: '#/components/schemas/TaskInput'
       - type: object
-        required: [startAt]
+        required: [startAt, dueAt]
         properties:
           startAt: {type: string, format: date-time}
+          dueAt: {type: string, format: date-time}
     TaskInput:
       type: object
       properties:
@@ -2152,11 +2289,13 @@ components:
         dueAt:
           type: string
           format: date-time
-          description: 必填；创建时按上海日期不得早于今天，且不得早于开始时间。
+          nullable: true
+          description: 创建或改期时必填；不得早于当前时间和开始时间。仅编辑内容时原值不变。
         startAt:
           type: string
           format: date-time
-          description: 必填；可以早于或晚于今天，但不得晚于截止时间。历史任务修改时须补填。
+          nullable: true
+          description: 创建或改期时必填；可以早于或晚于今天，但不得晚于截止时间。
         labelId:
           type: integer
           format: int64
@@ -2165,8 +2304,6 @@ components:
       required:
       - title
       - assigneeId
-      - dueAt
-      - startAt
     Task:
       type: object
       properties:
@@ -2529,6 +2666,20 @@ components:
           pattern: ^#[0-9A-Fa-f]{6}$
         active:
           type: boolean
+    ContentLabels:
+      type: object
+      required: [kind, contentId, labels]
+      properties:
+        kind:
+          type: string
+          enum: [task, log, personal, company]
+        contentId:
+          type: integer
+          format: int64
+        labels:
+          type: array
+          items:
+            $ref: '#/components/schemas/Label'
     KeywordReview:
       type: object
       properties:

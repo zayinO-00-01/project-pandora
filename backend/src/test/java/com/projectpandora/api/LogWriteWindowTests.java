@@ -90,6 +90,17 @@ class LogWriteWindowTests {
             .andExpect(status().isBadRequest());
         assertThat(e.getLogDate()).isEqualTo(today());
     }
+    @Test void staleEditorCannotOverwriteAChangeAlreadySavedOnAnotherDevice() throws Exception {
+        var date=today();var e=seed(date,"draft");var auth=token(staff());var path="/api/v1/logs/"+e.getId();
+        var first=json.createObjectNode().put("logDate",date.toString()).put("content","saved on B").put("status","submitted").put("baseRevision",0);
+        var stale=first.deepCopy().put("content","stale input on A");
+        mvc.perform(put(path).header("Authorization",auth).contentType(MediaType.APPLICATION_JSON).content(first.toString()))
+            .andExpect(status().isOk());
+        mvc.perform(put(path).header("Authorization",auth).contentType(MediaType.APPLICATION_JSON).content(stale.toString()))
+            .andExpect(status().isConflict());
+        mvc.perform(get("/api/v1/logs").param("date",date.toString()).header("Authorization",auth))
+            .andExpect(jsonPath("$[0].content").value("saved on B")).andExpect(jsonPath("$[0].status").value("submitted"));
+    }
     @Test void serverDefaultTimezoneCannotChangeTheShanghaiBoundary() throws Exception {
         var original=java.util.TimeZone.getDefault();
         try {
