@@ -63,7 +63,12 @@ import java.time.LocalDate
         }
         val scope=rememberCoroutineScope()
         val startDrag by rememberUpdatedState<(Float)->Boolean> { direction->
-            val canResize=mode!="day" && (if(direction>0)currentSize!="expanded" else currentSize!="week")
+            val layout=listState.layoutInfo
+            val calendarVisible=layout.visibleItemsInfo.any {
+                it.key=="company-calendar" && it.offset<layout.viewportEndOffset &&
+                    it.offset+it.size>layout.viewportStartOffset
+            }
+            val canResize=calendarVisible && mode!="day" && (if(direction>0)currentSize!="expanded" else currentSize!="week")
             if(canResize) {
                 heightTarget=height
                 distance=0f
@@ -120,7 +125,7 @@ import java.time.LocalDate
                 }
             }
         }.padding(horizontal=16.dp),state=listState,verticalArrangement=Arrangement.spacedBy(4.dp),contentPadding=PaddingValues(bottom=32.dp)) {
-            item {
+            item(key="company-calendar") {
                 CalendarDragLayer(itemDrag) {
                 WorkspaceCalendar(selected,onDate={model.selectDate(it.toString())},mode=mode,
                     onMode={expanded=false;model.calendarMode(it)},gridHeight=height.dp,
