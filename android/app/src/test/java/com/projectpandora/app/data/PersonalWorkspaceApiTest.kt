@@ -43,13 +43,21 @@ class PersonalWorkspaceApiTest {
             server.start()
             val api=ApiClient(server.url("/").toString())
             val me=Session(api.server,"token",7,"STAFF","员工","staff")
-            server.enqueue(MockResponse().setBody("""{"id":7,"username":"staff","role":"STAFF","displayName":"新姓名"}"""))
+            val body="""{"id":7,"username":"staff","role":"STAFF","displayName":"新姓名","phone":"13900007654","managerName":"团队长"}"""
+            server.enqueue(MockResponse().setBody(body))
             val profile=api.updateOwnProfile(me,OwnProfileInput("新姓名","家人","010-12345678","地址"))
             assertEquals("新姓名",profile.displayName)
             val request=server.takeRequest()
             assertEquals("PUT",request.method);assertEquals("/api/v1/users/me",request.path)
             val fields=Gson().fromJson(request.body.readUtf8(),com.google.gson.JsonObject::class.java)
-            assertEquals(setOf("displayName","emergencyContact","emergencyPhone","address"),fields.keySet())
+            assertEquals(setOf("displayName","emergencyContact","emergencyPhone","address","phone"),fields.keySet())
+            assertTrue(fields["phone"].isJsonNull)
+            server.enqueue(MockResponse().setBody(body))
+            val updated=api.updateOwnProfile(me,OwnProfileInput("新姓名","家人","010-12345678","地址",phone="13900007654"))
+            val changed=Gson().fromJson(server.takeRequest().body.readUtf8(),com.google.gson.JsonObject::class.java)
+            assertEquals("13900007654",changed["phone"].asString)
+            assertEquals("13900007654",updated.phone)
+            assertEquals("团队长",updated.managerName)
         }
     }
 }

@@ -198,8 +198,7 @@ import java.time.format.DateTimeFormatter
         Text("可选系统头像，或从相册上传方形照片（会自动压缩）。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }},confirmButton={ControlTextButton(onClick={avatarPicker=false}) {Text("关闭")}})
     if(leaving)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={leaving=false},title={Text(if(state.developmentPreview)"退出开发预览？" else "退出当前账号？")},text={Text(if(state.developmentPreview)"预览没有登录业务账号，也未向服务器提交数据。" else "工作记录已保存在当前服务。未提交输入会保留在这台设备，再次登录原账号可继续。")},confirmButton={ControlTextButton(onClick={leaving=false;model.logout()}) {Text("退出登录")}},dismissButton={ControlTextButton(onClick={leaving=false}) {Text("取消")}})
-    Column(Modifier.fillMaxSize()) {
-    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal=16.dp).padding(top=8.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=16.dp).padding(top=8.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         val profile=state.profile
         val avatarImage=remember(state.myProfile?.avatarData,state.profile?.avatarImage){decodeAvatarImage(state.myProfile?.avatarData ?: state.profile?.avatarImage)}
         ProfileSection(null) {
@@ -225,10 +224,10 @@ import java.time.format.DateTimeFormatter
         if(state.profileLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
         state.profileError?.let {Hint(it,true,onRetry=model::refresh)}
         if(showProfileDetails)state.profile?.let {profile->
-            listOf("姓名" to profile.displayName,"账号手机号" to profile.phone,"身份证号" to profile.idCard,
+            listOf("姓名" to profile.displayName,"账号手机号" to profile.phone,
                 "出生日期" to profile.birthDate,"性别" to profile.gender,"入职日期" to profile.hireDate,
                 "紧急联系人" to profile.emergencyContact,"紧急联系电话" to profile.emergencyPhone,"联系地址" to profile.address,
-                "直属上级编号" to profile.managerId?.toString()).forEach {(label,value)->
+                "直属上级编号" to profile.managerId?.toString(),"直属上级姓名" to (profile.managerName?.takeIf {it.isNotBlank()} ?: "未设置")).forEach {(label,value)->
                 Row(Modifier.fillMaxWidth().padding(vertical=6.dp),horizontalArrangement=Arrangement.spacedBy(16.dp)) {
                     Text(label,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.width(100.dp))
                     Text(value?.takeIf {it.isNotBlank()} ?: "未填写",style=MaterialTheme.typography.bodyMedium,modifier=Modifier.weight(1f))
@@ -259,12 +258,9 @@ import java.time.format.DateTimeFormatter
             Text("版本 ${com.projectpandora.app.BuildConfig.VERSION_NAME}（${com.projectpandora.app.BuildConfig.VERSION_CODE}）",
                 color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.bodySmall)
         }
-    }
-    Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(horizontal=16.dp,vertical=6.dp)) {
         ControlOutlinedButton(onClick={leaving=true},enabled=!state.saving,modifier=Modifier.fillMaxWidth()) {
             Text(if(state.developmentPreview)"退出预览" else "退出登录")
         }
-    }
     }
 }
 

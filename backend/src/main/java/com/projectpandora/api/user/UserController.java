@@ -42,9 +42,12 @@ public class UserController {
         organization.lock();
         var principal=access.assertBusiness();
         var user=users.findById(principal.getId()).orElseThrow(()->new ApiException(404,"用户不存在"));
-        // Older clients include phone even when the number has not changed.
-        if (request.phone()!=null && !Objects.equals(optionalText(request.phone()),optionalText(user.getPhone())))
-            throw new ApiException(403,"账号手机号需联系管理员修改");
+        if(request.phone()!=null && !Objects.equals(optionalText(request.phone()),optionalText(user.getPhone()))) {
+            String phone=ProfileRules.normalizePhone(request.phone());
+            users.findByPhone(phone).filter(other->!other.getId().equals(user.getId()))
+                .ifPresent(other->{throw new ApiException(400,"手机号已被使用");});
+            user.setPhone(phone);
+        }
         String emergencyPhone=optionalPhone(request.emergencyPhone());
         user.setDisplayName(request.displayName().trim());
         user.setEmergencyContact(optionalText(request.emergencyContact()));
@@ -109,11 +112,11 @@ public class UserController {
     public record ChangePasswordResult(boolean ok) {}
     public record AvatarRequest(@NotBlank @Size(max=200000) String avatar) {}
     public record ProfileResponse(Long id,String username,String role,String displayName,Long managerId,String managerName,
-        String avatar,String avatarImage,String phone,String idCard,LocalDate birthDate,String gender,LocalDate hireDate,
+        String avatar,String avatarImage,String phone,LocalDate birthDate,String gender,LocalDate hireDate,
         String emergencyContact,String emergencyPhone,String address) {
         static ProfileResponse from(UserEntity u,String managerName) {
             return new ProfileResponse(u.getId(),u.getUsername(),u.getRole().name(),u.getDisplayName(),u.getManagerId(),managerName,
-                u.getAvatar(),u.getAvatarImage(),u.getPhone(),u.getIdCard(),u.getBirthDate(),u.getGender(),u.getHireDate(),
+                u.getAvatar(),u.getAvatarImage(),u.getPhone(),u.getBirthDate(),u.getGender(),u.getHireDate(),
                 u.getEmergencyContact(),u.getEmergencyPhone(),u.getAddress());
         }
     }
