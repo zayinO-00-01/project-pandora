@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.projectpandora.api.MidtermAcceptanceTests
+-------------------------------------------------------------------------------
+Tests run: 120, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.105 s -- in com.projectpandora.api.MidtermAcceptanceTests

@@ -1,0 +1,207 @@
+12:38:31.140 [main] INFO org.flywaydb.core.FlywayExecutor -- Database: jdbc:h2:mem:reset_648a6fb6-bde6-49e6-b27b-3b9905f49790 (H2 2.2)
+12:38:31.157 [main] WARN org.flywaydb.core.internal.database.base.Database -- Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+12:38:31.220 [main] INFO org.flywaydb.core.internal.schemahistory.JdbcTableSchemaHistory -- Schema history table "public"."flyway_schema_history" does not exist yet
+12:38:31.223 [main] INFO org.flywaydb.core.internal.command.DbValidate -- Successfully validated 25 migrations (execution time 00:00.052s)
+12:38:31.230 [main] INFO org.flywaydb.core.internal.schemahistory.JdbcTableSchemaHistory -- Creating Schema History table "public"."flyway_schema_history" ...
+12:38:31.268 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Current version of schema "public": << Empty Schema >>
+12:38:31.272 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "1 - init"
+12:38:31.294 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "2 - seed demo users"
+12:38:31.305 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "3 - dispatch tasks"
+12:38:31.316 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "4 - view requests"
+12:38:31.324 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "5 - roles disabled"
+12:38:31.327 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "6 - task status optional progress"
+12:38:31.351 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "7 - user profile"
+12:38:31.372 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "8 - company notices"
+12:38:31.376 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "9 - personal priorities"
+12:38:31.386 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "10 - self task approval"
+12:38:31.394 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "11 - user avatar"
+12:38:31.394 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "12 - user avatar image"
+12:38:31.408 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "13 - task review"
+12:38:31.424 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "14 - notifications"
+12:38:31.439 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "15 - log date range"
+12:38:31.439 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "16 - self profile"
+12:38:31.450 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "17 - work labels keyword reviews"
+12:38:31.460 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "18 - task keywords"
+12:38:31.460 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "19 - task notes and notification reference"
+12:38:31.460 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "20 - task start at"
+12:38:31.471 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "21 - content label sets"
+12:38:31.475 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "22 - personal todos"
+12:38:31.480 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "23 - personal todo labels"
+12:38:31.484 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "24 - safe log and todo updates"
+12:38:31.488 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "26 - company notice publish lock"
+12:38:31.490 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Successfully applied 25 migrations to schema "public", now at version v26 (execution time 00:00.120s)
+MODE=APPLY DATE=2026-11-20 DATABASE=H2
+EXISTING_AFFECTED_ROWS={task_notes=0, task_reviews=0, task_keywords=0, task_events=0, notifications=0, personal_todo_labels=0, personal_todo_requests=0, personal_todos=0, personal_priorities=0, personal_priority_lists=0, content_label_sets=0, work_logs=0, dispatch_tasks=0}
+PLAN: active business members=4; tasks=48; logs=28; todos=32; priorities=20
+PROFILES: fill blank fields for all accounts; preserve existing values and login/organization columns
+COMMITTED: blank profile fields filled; account IDs, login names, password hashes, organization, labels, company notices and view grants unchanged
+BACKUP=C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{3d1f5ad6-cc99-4f5d-b306-26f191f983a5}\Temp\pandora-reset-test-16874168263374022991\pandora-before-demo-reset-2026-11-20T04-38-31.546736600Z-09d95fee-1d2c-4add-9e81-bd6083034f1c.sql
+MODE=PREVIEW DATE=2026-11-20 DATABASE=H2
+EXISTING_AFFECTED_ROWS={task_notes=8, task_reviews=1, task_keywords=96, task_events=48, notifications=45, personal_todo_labels=32, personal_todo_requests=1, personal_todos=32, personal_priorities=20, personal_priority_lists=4, content_label_sets=96, work_logs=29, dispatch_tasks=48}
+PLAN: active business members=4; tasks=48; logs=28; todos=32; priorities=20
+PROFILES: fill blank fields for all accounts; preserve existing values and login/organization columns
+PASS 1: preview changes no rows
+MODE=APPLY DATE=2026-11-20 DATABASE=H2
+EXISTING_AFFECTED_ROWS={task_notes=8, task_reviews=1, task_keywords=96, task_events=48, notifications=45, personal_todo_labels=32, personal_todo_requests=1, personal_todos=32, personal_priorities=20, personal_priority_lists=4, content_label_sets=96, work_logs=29, dispatch_tasks=48}
+PLAN: active business members=4; tasks=48; logs=28; todos=32; priorities=20
+PROFILES: fill blank fields for all accounts; preserve existing values and login/organization columns
+COMMITTED: blank profile fields filled; account IDs, login names, password hashes, organization, labels, company notices and view grants unchanged
+BACKUP=C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{3d1f5ad6-cc99-4f5d-b306-26f191f983a5}\Temp\pandora-reset-test-16874168263374022991\pandora-before-demo-reset-2026-11-20T04-38-31.651827900Z-a005fc6a-51fb-47a8-8378-4f5fb83eca99.sql
+PASS 2: apply exact per-member counts
+PASS 3: accounts, hashes, organization and retained tables unchanged
+PASS 4: profile 1 display_name populated
+PASS 5: profile 1 phone populated
+PASS 6: profile 1 id_card populated
+PASS 7: profile 1 birth_date populated
+PASS 8: profile 1 gender populated
+PASS 9: profile 1 hire_date populated
+PASS 10: profile 1 emergency_contact populated
+PASS 11: profile 1 emergency_phone populated
+PASS 12: profile 1 address populated
+PASS 13: profile 1 avatar populated
+PASS 14: profile 2 display_name populated
+PASS 15: profile 2 phone populated
+PASS 16: profile 2 id_card populated
+PASS 17: profile 2 birth_date populated
+PASS 18: profile 2 gender populated
+PASS 19: profile 2 hire_date populated
+PASS 20: profile 2 emergency_contact populated
+PASS 21: profile 2 emergency_phone populated
+PASS 22: profile 2 address populated
+PASS 23: profile 2 avatar populated
+PASS 24: profile 3 display_name populated
+PASS 25: profile 3 phone populated
+PASS 26: profile 3 id_card populated
+PASS 27: profile 3 birth_date populated
+PASS 28: profile 3 gender populated
+PASS 29: profile 3 hire_date populated
+PASS 30: profile 3 emergency_contact populated
+PASS 31: profile 3 emergency_phone populated
+PASS 32: profile 3 address populated
+PASS 33: profile 3 avatar populated
+PASS 34: profile 4 display_name populated
+PASS 35: profile 4 phone populated
+PASS 36: profile 4 id_card populated
+PASS 37: profile 4 birth_date populated
+PASS 38: profile 4 gender populated
+PASS 39: profile 4 hire_date populated
+PASS 40: profile 4 emergency_contact populated
+PASS 41: profile 4 emergency_phone populated
+PASS 42: profile 4 address populated
+PASS 43: profile 4 avatar populated
+PASS 44: profile 5 display_name populated
+PASS 45: profile 5 phone populated
+PASS 46: profile 5 id_card populated
+PASS 47: profile 5 birth_date populated
+PASS 48: profile 5 gender populated
+PASS 49: profile 5 hire_date populated
+PASS 50: profile 5 emergency_contact populated
+PASS 51: profile 5 emergency_phone populated
+PASS 52: profile 5 address populated
+PASS 53: profile 5 avatar populated
+PASS 54: profile 6 display_name populated
+PASS 55: profile 6 phone populated
+PASS 56: profile 6 id_card populated
+PASS 57: profile 6 birth_date populated
+PASS 58: profile 6 gender populated
+PASS 59: profile 6 hire_date populated
+PASS 60: profile 6 emergency_contact populated
+PASS 61: profile 6 emergency_phone populated
+PASS 62: profile 6 address populated
+PASS 63: profile 6 avatar populated
+PASS 64: existing profile values retained
+PASS 65: task notifications generated (rejected tasks have none)
+PASS 66: unrelated notification retained
+PASS 67: generated phones avoid existing unique values
+PASS 68: generated todo labels reference existing dictionary
+PASS 69: company content labels retained
+PASS 70: generated task multi-label sets are populated
+PASS 71: backup restores all affected rows and original profile fields
+MODE=APPLY DATE=2026-11-20 DATABASE=H2
+EXISTING_AFFECTED_ROWS={task_notes=8, task_reviews=1, task_keywords=96, task_events=48, notifications=45, personal_todo_labels=32, personal_todo_requests=1, personal_todos=32, personal_priorities=20, personal_priority_lists=4, content_label_sets=96, work_logs=29, dispatch_tasks=48}
+PLAN: active business members=4; tasks=48; logs=28; todos=32; priorities=20
+PROFILES: fill blank fields for all accounts; preserve existing values and login/organization columns
+COMMITTED: blank profile fields filled; account IDs, login names, password hashes, organization, labels, company notices and view grants unchanged
+BACKUP=C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{3d1f5ad6-cc99-4f5d-b306-26f191f983a5}\Temp\pandora-reset-test-16874168263374022991\pandora-before-demo-reset-2026-11-20T04-38-31.765485100Z-f61218d0-0ce3-45d3-9e1f-7770b3a53569.sql
+MODE=APPLY DATE=2026-11-20 DATABASE=H2
+EXISTING_AFFECTED_ROWS={task_notes=8, task_reviews=0, task_keywords=96, task_events=48, notifications=45, personal_todo_labels=32, personal_todo_requests=0, personal_todos=32, personal_priorities=20, personal_priority_lists=4, content_label_sets=96, work_logs=28, dispatch_tasks=48}
+PLAN: active business members=4; tasks=48; logs=28; todos=32; priorities=20
+PROFILES: fill blank fields for all accounts; preserve existing values and login/organization columns
+COMMITTED: blank profile fields filled; account IDs, login names, password hashes, organization, labels, company notices and view grants unchanged
+BACKUP=C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{3d1f5ad6-cc99-4f5d-b306-26f191f983a5}\Temp\pandora-reset-test-16874168263374022991\pandora-before-demo-reset-2026-11-20T04-38-31.829131Z-ba4ea90b-f01e-4f54-9281-b2b0e6dffbc6.sql
+PASS 72: repeated reset does not accumulate rows or change account columns
+MODE=APPLY DATE=2026-11-20 DATABASE=H2
+EXISTING_AFFECTED_ROWS={task_notes=8, task_reviews=0, task_keywords=96, task_events=48, notifications=45, personal_todo_labels=32, personal_todo_requests=0, personal_todos=32, personal_priorities=20, personal_priority_lists=4, content_label_sets=96, work_logs=28, dispatch_tasks=48}
+PLAN: active business members=4; tasks=48; logs=28; todos=32; priorities=20
+PROFILES: fill blank fields for all accounts; preserve existing values and login/organization columns
+ROLLED BACK: no reset was committed
+PASS 73: failure after deletes rolls back the whole transaction
+12:38:31.935 [main] INFO org.flywaydb.core.FlywayExecutor -- Database: jdbc:h2:mem:reset_b1e90084-e41e-40e3-bc03-480a327683b1 (H2 2.2)
+12:38:31.935 [main] WARN org.flywaydb.core.internal.database.base.Database -- Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+12:38:31.957 [main] INFO org.flywaydb.core.internal.schemahistory.JdbcTableSchemaHistory -- Schema history table "public"."flyway_schema_history" does not exist yet
+12:38:31.957 [main] INFO org.flywaydb.core.internal.command.DbValidate -- Successfully validated 25 migrations (execution time 00:00.029s)
+12:38:31.957 [main] INFO org.flywaydb.core.internal.schemahistory.JdbcTableSchemaHistory -- Creating Schema History table "public"."flyway_schema_history" ...
+12:38:31.957 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Current version of schema "public": << Empty Schema >>
+12:38:31.972 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "1 - init"
+12:38:31.974 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "2 - seed demo users"
+12:38:31.974 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "3 - dispatch tasks"
+12:38:31.981 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "4 - view requests"
+12:38:31.985 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "5 - roles disabled"
+12:38:31.988 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "6 - task status optional progress"
+12:38:31.992 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "7 - user profile"
+12:38:31.999 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "8 - company notices"
+12:38:31.999 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "9 - personal priorities"
+12:38:31.999 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "10 - self task approval"
+12:38:32.015 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "11 - user avatar"
+12:38:32.018 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "12 - user avatar image"
+12:38:32.021 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "13 - task review"
+12:38:32.032 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "14 - notifications"
+12:38:32.032 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "15 - log date range"
+12:38:32.038 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "16 - self profile"
+12:38:32.038 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "17 - work labels keyword reviews"
+12:38:32.050 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "18 - task keywords"
+12:38:32.053 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "19 - task notes and notification reference"
+12:38:32.056 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "20 - task start at"
+12:38:32.060 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "21 - content label sets"
+12:38:32.060 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "22 - personal todos"
+12:38:32.065 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "23 - personal todo labels"
+12:38:32.068 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "24 - safe log and todo updates"
+12:38:32.068 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "26 - company notice publish lock"
+12:38:32.068 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Successfully applied 25 migrations to schema "public", now at version v26 (execution time 00:00.036s)
+ROLLED BACK: no reset was committed
+PASS 74: no active business members refuses reset without deletion
+12:38:32.090 [main] INFO org.flywaydb.core.FlywayExecutor -- Database: jdbc:h2:mem:reset_d2ffccf0-6491-46dd-8695-ff182184998f (H2 2.2)
+12:38:32.090 [main] WARN org.flywaydb.core.internal.database.base.Database -- Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+12:38:32.123 [main] INFO org.flywaydb.core.internal.schemahistory.JdbcTableSchemaHistory -- Schema history table "public"."flyway_schema_history" does not exist yet
+12:38:32.123 [main] INFO org.flywaydb.core.internal.command.DbValidate -- Successfully validated 25 migrations (execution time 00:00.028s)
+12:38:32.124 [main] INFO org.flywaydb.core.internal.schemahistory.JdbcTableSchemaHistory -- Creating Schema History table "public"."flyway_schema_history" ...
+12:38:32.125 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Current version of schema "public": << Empty Schema >>
+12:38:32.127 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "1 - init"
+12:38:32.127 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "2 - seed demo users"
+12:38:32.127 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "3 - dispatch tasks"
+12:38:32.138 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "4 - view requests"
+12:38:32.141 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "5 - roles disabled"
+12:38:32.145 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "6 - task status optional progress"
+12:38:32.150 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "7 - user profile"
+12:38:32.157 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "8 - company notices"
+12:38:32.157 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "9 - personal priorities"
+12:38:32.157 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "10 - self task approval"
+12:38:32.169 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "11 - user avatar"
+12:38:32.174 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "12 - user avatar image"
+12:38:32.174 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "13 - task review"
+12:38:32.193 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "14 - notifications"
+12:38:32.193 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "15 - log date range"
+12:38:32.193 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "16 - self profile"
+12:38:32.201 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "17 - work labels keyword reviews"
+12:38:32.211 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "18 - task keywords"
+12:38:32.215 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "19 - task notes and notification reference"
+12:38:32.217 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "20 - task start at"
+12:38:32.221 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "21 - content label sets"
+12:38:32.224 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "22 - personal todos"
+12:38:32.224 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "23 - personal todo labels"
+12:38:32.224 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "24 - safe log and todo updates"
+12:38:32.232 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Migrating schema "public" to version "26 - company notice publish lock"
+12:38:32.234 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Successfully applied 25 migrations to schema "public", now at version v26 (execution time 00:00.038s)
+ROLLED BACK: no reset was committed
+PASS 75: outdated schema refuses reset without deletion
+ALL 75 CHECKS PASSED; disposable backups: C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{3d1f5ad6-cc99-4f5d-b306-26f191f983a5}\Temp\pandora-reset-test-16874168263374022991

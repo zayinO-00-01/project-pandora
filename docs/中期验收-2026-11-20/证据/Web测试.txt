@@ -1,0 +1,26 @@
+✔ manager choices follow business hierarchy and exclude disabled accounts and self (1.7093ms)
+✔ recovery preserves account form only for the same administrator and server without caching passwords (0.5772ms)
+✔ switching A to B to A ignores the first A response and its loading completion (1.5662ms)
+✔ blank notes are submitted to clear the existing private note (1.1855ms)
+✔ a save completing after selection changes leaves the new note intact (0.2091ms)
+✔ logout invalidates pending responses and stale authorization errors cannot expire a new session (0.2086ms)
+✔ a failed initial load cannot overwrite an unseen note, and can be retried (0.2406ms)
+✔ a superseded list cannot replace the latest list or clear its loading indicator (3.7053ms)
+✔ an old list authorization failure cannot expire a newly logged in administrator (7.4091ms)
+✔ an old save cannot overwrite a new session form or release its save indicator (0.8726ms)
+✔ an old toggle authorization failure cannot expire the new session or clear its busy state (0.4988ms)
+✔ repeated toggles are serialized and a pre-mutation list cannot roll back a successful toggle (0.9644ms)
+✔ selecting the current notice again preserves unsaved form changes (0.3047ms)
+✔ note saving blocks notice selection and logout without discarding its input (0.3586ms)
+✔ toggling the selected notice syncs only its enabled field and keeps unsaved text (0.2011ms)
+✔ legacy nullable profiles can be opened and saved without inventing a phone (0.6412ms)
+✔ new users require a valid phone and edits reject malformed nonempty phones (0.2179ms)
+✔ editing unrelated account details does not validate or submit the unchanged legacy contact number (0.0992ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 534.4795

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CreateTaskRequest.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pandora-api</a> &gt; <a href="index.source.html" class="el_package">com.projectpandora.api.task</a> &gt; <span class="el_source">CreateTaskRequest.java</span></div><h1>CreateTaskRequest.java</h1><pre class="source lang-java linenums">package com.projectpandora.api.task;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import java.time.Instant;
+
+public record CreateTaskRequest(
+        @NotBlank(message = &quot;任务标题不能为空&quot;) @Size(max = 128, message = &quot;任务标题不能超过128字&quot;) String title,
+        @Size(max = 5000, message = &quot;任务详情不能超过5000字&quot;) String detail,
+        @Pattern(regexp = &quot;low|normal|high&quot;, message = &quot;优先级必须为 low、normal 或 high&quot;) String priority,
+        @NotNull(message = &quot;请选择责任人&quot;) Long assigneeId,
+        Instant dueAt, Long labelId, Instant startAt, java.util.List&lt;Long&gt; labelIds) {
+    @jakarta.validation.constraints.AssertTrue(message = &quot;开始时间不能晚于截止时间&quot;)
+<span class="fc bfc" id="L16" title="All 6 branches covered.">    public boolean isTimeRangeValid() { return startAt == null || dueAt == null || !startAt.isAfter(dueAt); }</span>
+<span class="fc" id="L17">    public CreateTaskRequest {</span>
+<span class="fc bfc" id="L18" title="All 2 branches covered.">        title = title == null ? null : title.trim();</span>
+<span class="fc bfc" id="L19" title="All 2 branches covered.">        detail = detail == null ? &quot;&quot; : detail;</span>
+<span class="fc bfc" id="L20" title="All 2 branches covered.">        priority = priority == null ? &quot;normal&quot; : priority;</span>
+<span class="fc" id="L21">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

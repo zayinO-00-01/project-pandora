@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.projectpandora.api.PersonalPriorityTests
+-------------------------------------------------------------------------------
+Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.555 s -- in com.projectpandora.api.PersonalPriorityTests

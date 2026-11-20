@@ -36,6 +36,9 @@ htmlcov/
 
 # 本地演示生成文件
 .tools/
+/demo-backups/
+**/pandora-before-demo-reset-*.sql
+**/pandora-before-demo-reset-*.sql.sha256
 backend/src/main/resources/static/
 
 # Local packages and historical design evidence (keep source assets tracked)

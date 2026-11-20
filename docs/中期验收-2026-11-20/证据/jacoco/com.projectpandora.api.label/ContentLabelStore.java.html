@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ContentLabelStore.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pandora-api</a> &gt; <a href="index.source.html" class="el_package">com.projectpandora.api.label</a> &gt; <span class="el_source">ContentLabelStore.java</span></div><h1>ContentLabelStore.java</h1><pre class="source lang-java linenums">package com.projectpandora.api.label;
+import java.util.*;
+import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.projectpandora.api.common.ApiException;
+@Service public class ContentLabelStore {
+ private final JdbcTemplate db;private final LabelRepository labels;private final ObjectMapper json;
+<span class="fc" id="L9"> public ContentLabelStore(JdbcTemplate db,LabelRepository labels,ObjectMapper json){this.db=db;this.labels=labels;this.json=json;}</span>
+ public void save(String kind,Long id,List&lt;Long&gt; values) {
+<span class="fc bfc" id="L11" title="All 2 branches covered.">  if(values==null)return;</span>
+<span class="pc bpc" id="L12" title="2 of 4 branches missed.">  if(values.size()&gt;12 || values.contains(null))throw new ApiException(400,&quot;最多选择12个有效标签&quot;);</span>
+<span class="fc" id="L13">  var ids=values.stream().distinct().toList();</span>
+<span class="fc" id="L14">  var previous=existingIds(kind,id);</span>
+<span class="fc bfc" id="L15" title="All 2 branches covered.">  for(Long value:ids)</span>
+<span class="fc bfc" id="L16" title="All 6 branches covered.">   if(labels.findById(value).filter(label-&gt;label.isActive() || previous.contains(value)).isEmpty())</span>
+<span class="fc" id="L17">    throw new ApiException(400,&quot;标签不存在或已停用&quot;);</span>
+  try {
+<span class="fc" id="L19">   String text=json.writeValueAsString(ids);</span>
+<span class="fc" id="L20">   db.update(&quot;delete from content_label_sets where kind=? and content_id=?&quot;,kind,id);</span>
+<span class="fc" id="L21">   db.update(&quot;insert into content_label_sets(kind,content_id,label_ids) values(?,?,?)&quot;,kind,id,text);</span>
+<span class="pc" id="L22">  } catch(com.fasterxml.jackson.core.JsonProcessingException e) {throw new ApiException(500,&quot;标签保存失败&quot;);}</span>
+<span class="fc" id="L23"> }</span>
+ private Set&lt;Long&gt; existingIds(String kind,Long id) {
+<span class="fc" id="L25">  var records=db.queryForList(&quot;select label_ids from content_label_sets where kind=? and content_id=?&quot;,String.class,kind,id);</span>
+<span class="fc bfc" id="L26" title="All 2 branches covered.">  if(!records.isEmpty()) {</span>
+<span class="fc" id="L27">   try {return new HashSet&lt;&gt;(Arrays.asList(json.readValue(records.get(0),Long[].class)));}</span>
+<span class="nc" id="L28">   catch(com.fasterxml.jackson.core.JsonProcessingException e) {throw new ApiException(500,&quot;标签记录读取失败&quot;);}</span>
+  }
+  // Records created before multi-label support keep their existing single label.
+<span class="pc bpc" id="L31" title="1 of 3 branches missed.">  String table=switch(kind) {case &quot;task&quot;-&gt;&quot;dispatch_tasks&quot;;case &quot;log&quot;-&gt;&quot;work_logs&quot;;default-&gt;null;};</span>
+<span class="pc bpc" id="L32" title="1 of 2 branches missed.">  if(table==null)return Set.of();</span>
+<span class="fc" id="L33">  return new HashSet&lt;&gt;(db.queryForList(&quot;select label_id from &quot;+table+&quot; where id=? and label_id is not null&quot;,Long.class,id));</span>
+ }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

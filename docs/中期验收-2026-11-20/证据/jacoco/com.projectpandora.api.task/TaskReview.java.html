@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TaskReview.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pandora-api</a> &gt; <a href="index.source.html" class="el_package">com.projectpandora.api.task</a> &gt; <span class="el_source">TaskReview.java</span></div><h1>TaskReview.java</h1><pre class="source lang-java linenums">package com.projectpandora.api.task;
+import jakarta.persistence.*;
+import java.time.Instant;
+@Entity @Table(name=&quot;task_reviews&quot;)
+<span class="fc" id="L5">public class TaskReview {</span>
+    @Id @GeneratedValue(strategy=GenerationType.IDENTITY) public Long id;
+    @Column(name=&quot;task_id&quot;,nullable=false) public Long taskId;
+    @Column(name=&quot;applicant_id&quot;,nullable=false) public Long applicantId;
+    @Column(name=&quot;reviewer_id&quot;,nullable=false) public Long reviewerId;
+    @Column(nullable=false,length=16) public String operation;
+    @Column(nullable=false,columnDefinition=&quot;TEXT&quot;) public String payload;
+<span class="fc" id="L12">    @Column(nullable=false,length=16) public String status=&quot;pending&quot;;</span>
+    @Column(name=&quot;base_version&quot;,nullable=false) public long baseVersion;
+<span class="fc" id="L14">    @Column(name=&quot;created_at&quot;,nullable=false) public Instant createdAt=Instant.now();</span>
+    @Column(name=&quot;decided_at&quot;) public Instant decidedAt;
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

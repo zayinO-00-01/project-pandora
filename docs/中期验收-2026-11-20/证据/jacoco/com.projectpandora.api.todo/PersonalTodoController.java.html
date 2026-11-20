@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PersonalTodoController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pandora-api</a> &gt; <a href="index.source.html" class="el_package">com.projectpandora.api.todo</a> &gt; <span class="el_source">PersonalTodoController.java</span></div><h1>PersonalTodoController.java</h1><pre class="source lang-java linenums">package com.projectpandora.api.todo;
+import com.projectpandora.api.security.AccessService;
+import com.projectpandora.api.common.ApiException;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDate;
+import java.util.*;
+import com.projectpandora.api.label.LabelResponse;
+import com.projectpandora.api.label.LabelRepository;
+import com.projectpandora.api.label.WorkLabel;
+@RestController @RequestMapping(&quot;/api/v1/personal-todos&quot;) @Transactional
+public class PersonalTodoController {
+ private final JdbcTemplate db;private final AccessService access;private final LabelRepository labels;
+ private final com.projectpandora.api.user.UserRepository users;
+<span class="fc" id="L18"> public PersonalTodoController(JdbcTemplate db,AccessService access,LabelRepository labels,com.projectpandora.api.user.UserRepository users){</span>
+<span class="fc" id="L19">    this.db=db;this.access=access;this.labels=labels;this.users=users;</span>
+<span class="fc" id="L20"> }</span>
+<span class="fc" id="L21"> public record Todo(String id,String title,LocalDate date,boolean completed,List&lt;LabelResponse&gt; labels){}</span>
+<span class="fc" id="L22"> public record Snapshot(@NotBlank @Size(max=200) String title,@NotNull LocalDate date,boolean completed,@NotNull @Size(max=12) List&lt;@NotNull Long&gt; labelIds){}</span>
+<span class="fc" id="L23"> public record Input(@NotBlank @Size(max=200) String title,@NotNull LocalDate date,boolean completed,</span>
+    @Size(max=12) List&lt;@NotNull Long&gt; labelIds,@Valid Snapshot base,
+    @Pattern(regexp=&quot;[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}&quot;) String requestId){}
+ private long lockOwner(){
+<span class="fc" id="L27">    long owner=access.assertBusiness().getId();</span>
+<span class="pc" id="L28">    users.lockById(owner).orElseThrow(()-&gt;new ApiException(401,&quot;账号不可用&quot;));</span>
+<span class="fc" id="L29">    return owner;</span>
+ }
+ private List&lt;LabelResponse&gt; tags(String id){
+<span class="fc" id="L32">    return tags(id,false);</span>
+ }
+ private List&lt;LabelResponse&gt; tags(String id,boolean lock){
+<span class="fc bfc" id="L35" title="All 2 branches covered.">    return db.queryForList(&quot;select label_id from personal_todo_labels where todo_id=? order by sort_order&quot;+(lock?&quot; for update&quot;:&quot;&quot;),Long.class,id)</span>
+<span class="fc" id="L36">        .stream().map(label-&gt;labels.findById(label).orElseThrow()).map(LabelResponse::from).toList();</span>
+ }
+ private void saveTags(String id,List&lt;Long&gt; ids){
+<span class="fc bfc" id="L39" title="All 2 branches covered.">    if(ids==null)return;</span>
+<span class="fc" id="L40">    var previous=tags(id,true).stream().map(LabelResponse::id).toList();</span>
+<span class="fc" id="L41">    var unique=ids.stream().distinct().toList();</span>
+<span class="fc bfc" id="L42" title="All 2 branches covered.">    if(previous.equals(unique))return;</span>
+<span class="pc bpc" id="L43" title="1 of 6 branches missed.">    for(Long label:unique)if(!previous.contains(label) &amp;&amp; labels.findById(label).filter(WorkLabel::isActive).isEmpty())</span>
+<span class="fc" id="L44">        throw new ApiException(400,&quot;标签不存在或已停用，请重新选择&quot;);</span>
+<span class="fc" id="L45">    db.update(&quot;delete from personal_todo_labels where todo_id=?&quot;,id);</span>
+<span class="fc bfc" id="L46" title="All 2 branches covered.">    for(int i=0;i&lt;unique.size();i++)db.update(&quot;insert into personal_todo_labels(todo_id,label_id,sort_order) values(?,?,?)&quot;,id,unique.get(i),i);</span>
+<span class="fc" id="L47"> }</span>
+<span class="fc" id="L48"> private Todo get(String id,long owner){return db.query(&quot;select id,title,todo_date,completed from personal_todos where id=? and owner_id=? for update&quot;,(r,n)-&gt;new Todo(r.getString(1),r.getString(2),r.getDate(3).toLocalDate(),r.getBoolean(4),tags(r.getString(1),true)),id,owner).stream().findFirst().orElseThrow(()-&gt;new ApiException(404,&quot;事项不存在&quot;));}</span>
+<span class="fc" id="L49"> @GetMapping public List&lt;Todo&gt; list(){long owner=access.assertBusiness().getId();return db.query(&quot;select id,title,todo_date,completed from personal_todos where owner_id=? order by todo_date,id&quot;,(r,n)-&gt;new Todo(r.getString(1),r.getString(2),r.getDate(3).toLocalDate(),r.getBoolean(4),tags(r.getString(1))),owner);}</span>
+ @PostMapping @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
+ public Todo create(@Valid @RequestBody Input input){
+<span class="fc" id="L52">    long owner=lockOwner();</span>
+<span class="fc bfc" id="L53" title="All 2 branches covered.">    if(input.requestId()!=null) {</span>
+<span class="fc" id="L54">        var saved=db.queryForList(&quot;select todo_id from personal_todo_requests where owner_id=? and request_id=? for update&quot;,String.class,owner,input.requestId());</span>
+<span class="fc bfc" id="L55" title="All 2 branches covered.">        if(!saved.isEmpty()) {</span>
+<span class="fc" id="L56">            try {return get(saved.get(0),owner);}</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">            catch(ApiException e) {if(e.getStatus()!=404)throw e;throw new ApiException(409,&quot;这条事项已创建过，后来被删除。要重新创建，请关闭后重新添加。&quot;);}</span>
+        }
+    }
+<span class="fc" id="L60">    String id=UUID.randomUUID().toString();</span>
+<span class="fc" id="L61">    db.update(&quot;insert into personal_todos(id,owner_id,title,todo_date,completed) values(?,?,?,?,?)&quot;,id,owner,input.title().trim(),input.date(),input.completed());</span>
+<span class="fc" id="L62">    saveTags(id,input.labelIds());</span>
+<span class="fc bfc" id="L63" title="All 2 branches covered.">    if(input.requestId()!=null)db.update(&quot;insert into personal_todo_requests(owner_id,request_id,todo_id) values(?,?,?)&quot;,owner,input.requestId(),id);</span>
+<span class="fc" id="L64">    return get(id,owner);</span>
+ }
+ @PutMapping(&quot;/{id}&quot;) public Todo update(@PathVariable String id,@Valid @RequestBody Input input){
+<span class="fc" id="L67">    long owner=lockOwner();</span>
+<span class="fc" id="L68">    var latest=get(id,owner);</span>
+<span class="fc" id="L69">    String title=input.title().trim();</span>
+<span class="fc" id="L70">    LocalDate date=input.date();</span>
+<span class="fc" id="L71">    boolean completed=input.completed();</span>
+<span class="fc" id="L72">    var chosen=input.labelIds();</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">    if(input.base()!=null){</span>
+<span class="fc" id="L74">        var base=input.base();</span>
+<span class="fc" id="L75">        title=merge(base.title().trim(),title,latest.title());</span>
+<span class="fc" id="L76">        date=merge(base.date(),date,latest.date());</span>
+<span class="fc" id="L77">        completed=merge(base.completed(),completed,latest.completed());</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        if(chosen!=null) chosen=merge(base.labelIds(),chosen,latest.labels().stream().map(LabelResponse::id).toList());</span>
+    }
+<span class="fc" id="L80">    db.update(&quot;update personal_todos set title=?,todo_date=?,completed=? where id=? and owner_id=?&quot;,title,date,completed,id,owner);</span>
+<span class="fc" id="L81">    saveTags(id,chosen);</span>
+<span class="fc" id="L82">    return get(id,owner);</span>
+ }
+ private static &lt;T&gt; T merge(T original,T proposed,T latest){
+<span class="fc bfc" id="L85" title="All 2 branches covered.">    if(Objects.equals(original,proposed))return latest;</span>
+<span class="pc bpc" id="L86" title="1 of 4 branches missed.">    if(Objects.equals(original,latest) || Objects.equals(proposed,latest))return proposed;</span>
+<span class="fc" id="L87">    throw new ApiException(409,&quot;这项内容已在其他设备修改，请对比后再保存。&quot;);</span>
+ }
+<span class="fc" id="L89"> @DeleteMapping(&quot;/{id}&quot;) public Todo delete(@PathVariable String id){long owner=lockOwner();var item=get(id,owner);db.update(&quot;delete from personal_todos where id=? and owner_id=?&quot;,id,owner);return item;}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

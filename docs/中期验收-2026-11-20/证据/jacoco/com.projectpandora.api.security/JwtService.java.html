@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JwtService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pandora-api</a> &gt; <a href="index.source.html" class="el_package">com.projectpandora.api.security</a> &gt; <span class="el_source">JwtService.java</span></div><h1>JwtService.java</h1><pre class="source lang-java linenums">package com.projectpandora.api.security;
+
+import com.projectpandora.api.user.Role;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
+import javax.crypto.SecretKey;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+@Component
+public class JwtService {
+
+    private final SecretKey key;
+    private final long expireHours;
+
+    public JwtService(
+            @Value(&quot;${pandora.jwt.secret}&quot;) String secret,
+<span class="fc" id="L23">            @Value(&quot;${pandora.jwt.expire-hours}&quot;) long expireHours) {</span>
+<span class="fc" id="L24">        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));</span>
+<span class="fc" id="L25">        this.expireHours = expireHours;</span>
+<span class="fc" id="L26">    }</span>
+
+    public String createToken(Long userId, String username, Role role) {
+<span class="fc" id="L29">        return createToken(userId,username,role,0);</span>
+    }
+
+    public String createToken(Long userId,String username,Role role,int version) {
+<span class="fc" id="L33">        Instant now = Instant.now();</span>
+<span class="fc" id="L34">        return Jwts.builder()</span>
+<span class="fc" id="L35">                .subject(String.valueOf(userId))</span>
+<span class="fc" id="L36">                .claim(&quot;username&quot;, username)</span>
+<span class="fc" id="L37">                .claim(&quot;role&quot;, role.name())</span>
+<span class="fc" id="L38">                .claim(&quot;ver&quot;,version)</span>
+<span class="fc" id="L39">                .issuedAt(Date.from(now))</span>
+<span class="fc" id="L40">                .expiration(Date.from(now.plus(expireHours, ChronoUnit.HOURS)))</span>
+<span class="fc" id="L41">                .signWith(key)</span>
+<span class="fc" id="L42">                .compact();</span>
+    }
+
+    public Claims parse(String token) {
+<span class="fc" id="L46">        return Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

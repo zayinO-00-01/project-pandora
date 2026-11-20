@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DirectoryController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pandora-api</a> &gt; <a href="index.source.html" class="el_package">com.projectpandora.api.user</a> &gt; <span class="el_source">DirectoryController.java</span></div><h1>DirectoryController.java</h1><pre class="source lang-java linenums">package com.projectpandora.api.user;
+
+import com.projectpandora.api.security.AccessService;
+import java.util.*;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping(&quot;/api/v1/directory&quot;)
+public class DirectoryController {
+    private final UserRepository users;
+    private final AccessService access;
+<span class="fc" id="L12">    public DirectoryController(UserRepository users,AccessService access) {this.users=users;this.access=access;}</span>
+<span class="fc" id="L13">    public record Contact(Long id,String username,String displayName,String role,Long managerId,String managerName,String phone,String avatar,String avatarData) {}</span>
+    @GetMapping
+    public List&lt;Contact&gt; list() {
+<span class="fc" id="L16">        access.assertBusiness();</span>
+<span class="fc" id="L17">        var active=users.findAll().stream().filter(access::isActiveBusiness).toList();</span>
+<span class="fc" id="L18">        Map&lt;Long,String&gt; names=new HashMap&lt;&gt;();</span>
+<span class="pc bpc" id="L19" title="1 of 2 branches missed.">        active.forEach(u-&gt;names.put(u.getId(),u.getDisplayName()==null?u.getUsername():u.getDisplayName()));</span>
+<span class="fc" id="L20">        return active.stream().sorted(Comparator.comparingInt((UserEntity u)-&gt;AccessService.rank(u.getRole())).reversed().thenComparing(UserEntity::getId))</span>
+<span class="fc" id="L21">            .map(u-&gt;new Contact(u.getId(),u.getUsername(),u.getDisplayName(),u.getRole().name(),u.getManagerId(),names.get(u.getManagerId()),u.getPhone(),u.getAvatar(),u.getAvatarData())).toList();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

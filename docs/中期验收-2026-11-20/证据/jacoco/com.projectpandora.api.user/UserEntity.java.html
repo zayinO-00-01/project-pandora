@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UserEntity.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pandora-api</a> &gt; <a href="index.source.html" class="el_package">com.projectpandora.api.user</a> &gt; <span class="el_source">UserEntity.java</span></div><h1>UserEntity.java</h1><pre class="source lang-java linenums">package com.projectpandora.api.user;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import java.time.Instant;
+import java.time.LocalDate;
+
+@Entity
+@Table(name = &quot;users&quot;)
+<span class="fc" id="L16">public class UserEntity {</span>
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true, length = 64)
+    private String username;
+
+    @Column(name = &quot;password_hash&quot;, nullable = false)
+    private String passwordHash;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    private Role role;
+
+    @Column(name = &quot;display_name&quot;, length = 64)
+    private String displayName;
+
+    @Column(name = &quot;manager_id&quot;)
+    private Long managerId;
+
+<span class="fc" id="L38">    @Column(nullable = false)</span>
+<span class="fc" id="L39">    private Boolean disabled = false;</span>
+
+<span class="fc" id="L41">    @Column(name = &quot;created_at&quot;, nullable = false)</span>
+<span class="fc" id="L42">    private Instant createdAt = Instant.now();</span>
+
+    @Column(length = 20)
+    private String phone;
+
+    @Column(name = &quot;id_card&quot;, length = 20)
+    private String idCard;
+
+    @Column(name = &quot;birth_date&quot;)
+    private LocalDate birthDate;
+
+    @Column(length = 16)
+    private String gender;
+
+    @Column(name = &quot;hire_date&quot;)
+    private LocalDate hireDate;
+
+    @Column(name = &quot;emergency_contact&quot;, length = 64)
+    private String emergencyContact;
+
+    @Column(name = &quot;emergency_phone&quot;, length = 20)
+    private String emergencyPhone;
+
+    @Column(length = 255)
+    private String address;
+
+    @Column(length = 16)
+    private String avatar;
+
+    @Column(name = &quot;avatar_image&quot;, length = 200000)
+    private String avatarImage;
+
+    public String getAvatar() {
+<span class="fc" id="L75">        return avatar;</span>
+    }
+
+    public void setAvatar(String avatar) {
+<span class="fc" id="L79">        this.avatar = avatar;</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        if(avatar!=null) this.avatarData=null;</span>
+<span class="fc" id="L81">    }</span>
+
+    public String getAvatarImage() {
+<span class="fc" id="L84">        return avatarImage;</span>
+    }
+
+    public void setAvatarImage(String avatarImage) {
+<span class="fc" id="L88">        this.avatarImage = avatarImage;</span>
+<span class="fc" id="L89">        this.avatarData=avatarImage;</span>
+<span class="fc" id="L90">    }</span>
+    @Column(name=&quot;avatar_data&quot;,columnDefinition=&quot;TEXT&quot;)
+    private String avatarData;
+<span class="fc" id="L93">    @Column(name=&quot;token_version&quot;,nullable=false)</span>
+    private int tokenVersion=0;
+<span class="fc bfc" id="L95" title="All 2 branches covered.">    public String getAvatarData() {return avatarData==null?avatarImage:avatarData;}</span>
+<span class="fc" id="L96">    public void setAvatarData(String value) {avatarData=value;avatarImage=value;avatar=null;}</span>
+<span class="fc" id="L97">    public int getTokenVersion() {return tokenVersion;}</span>
+<span class="fc" id="L98">    public void revokeSessions() {tokenVersion++;}</span>
+
+    public Long getId() {
+<span class="fc" id="L101">        return id;</span>
+    }
+
+    public String getUsername() {
+<span class="fc" id="L105">        return username;</span>
+    }
+
+    public void setUsername(String username) {
+<span class="fc" id="L109">        this.username = username;</span>
+<span class="fc" id="L110">    }</span>
+
+    public String getPasswordHash() {
+<span class="fc" id="L113">        return passwordHash;</span>
+    }
+
+    public void setPasswordHash(String passwordHash) {
+<span class="fc" id="L117">        this.passwordHash = passwordHash;</span>
+<span class="fc" id="L118">    }</span>
+
+    public Role getRole() {
+<span class="fc" id="L121">        return role;</span>
+    }
+
+    public void setRole(Role role) {
+<span class="fc" id="L125">        this.role = role;</span>
+<span class="fc" id="L126">    }</span>
+
+    public String getDisplayName() {
+<span class="fc" id="L129">        return displayName;</span>
+    }
+
+    public void setDisplayName(String displayName) {
+<span class="fc" id="L133">        this.displayName = displayName;</span>
+<span class="fc" id="L134">    }</span>
+
+    public Long getManagerId() {
+<span class="fc" id="L137">        return managerId;</span>
+    }
+
+    public void setManagerId(Long managerId) {
+<span class="fc" id="L141">        this.managerId = managerId;</span>
+<span class="fc" id="L142">    }</span>
+
+    public Boolean getDisabled() {
+<span class="nc" id="L145">        return disabled;</span>
+    }
+
+    public void setDisabled(Boolean disabled) {
+<span class="fc" id="L149">        this.disabled = disabled;</span>
+<span class="fc" id="L150">    }</span>
+
+    public boolean isDisabled() {
+<span class="fc" id="L153">        return Boolean.TRUE.equals(disabled);</span>
+    }
+
+    public Instant getCreatedAt() {
+<span class="nc" id="L157">        return createdAt;</span>
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+<span class="fc" id="L161">        this.createdAt = createdAt;</span>
+<span class="fc" id="L162">    }</span>
+
+    public String getPhone() {
+<span class="fc" id="L165">        return phone;</span>
+    }
+
+    public void setPhone(String phone) {
+<span class="fc" id="L169">        this.phone = phone;</span>
+<span class="fc" id="L170">    }</span>
+
+    public String getIdCard() {
+<span class="fc" id="L173">        return idCard;</span>
+    }
+
+    public void setIdCard(String idCard) {
+<span class="fc" id="L177">        this.idCard = idCard;</span>
+<span class="fc" id="L178">    }</span>
+
+    public LocalDate getBirthDate() {
+<span class="fc" id="L181">        return birthDate;</span>
+    }
+
+    public void setBirthDate(LocalDate birthDate) {
+<span class="fc" id="L185">        this.birthDate = birthDate;</span>
+<span class="fc" id="L186">    }</span>
+
+    public String getGender() {
+<span class="fc" id="L189">        return gender;</span>
+    }
+
+    public void setGender(String gender) {
+<span class="fc" id="L193">        this.gender = gender;</span>
+<span class="fc" id="L194">    }</span>
+
+    public LocalDate getHireDate() {
+<span class="fc" id="L197">        return hireDate;</span>
+    }
+
+    public void setHireDate(LocalDate hireDate) {
+<span class="fc" id="L201">        this.hireDate = hireDate;</span>
+<span class="fc" id="L202">    }</span>
+
+    public String getEmergencyContact() {
+<span class="fc" id="L205">        return emergencyContact;</span>
+    }
+
+    public void setEmergencyContact(String emergencyContact) {
+<span class="fc" id="L209">        this.emergencyContact = emergencyContact;</span>
+<span class="fc" id="L210">    }</span>
+
+    public String getEmergencyPhone() {
+<span class="fc" id="L213">        return emergencyPhone;</span>
+    }
+
+    public void setEmergencyPhone(String emergencyPhone) {
+<span class="fc" id="L217">        this.emergencyPhone = emergencyPhone;</span>
+<span class="fc" id="L218">    }</span>
+
+    public String getAddress() {
+<span class="fc" id="L221">        return address;</span>
+    }
+
+    public void setAddress(String address) {
+<span class="fc" id="L225">        this.address = address;</span>
+<span class="fc" id="L226">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

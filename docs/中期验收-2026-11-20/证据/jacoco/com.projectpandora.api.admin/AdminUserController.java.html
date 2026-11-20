@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AdminUserController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pandora-api</a> &gt; <a href="index.source.html" class="el_package">com.projectpandora.api.admin</a> &gt; <span class="el_source">AdminUserController.java</span></div><h1>AdminUserController.java</h1><pre class="source lang-java linenums">package com.projectpandora.api.admin;
+
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.projectpandora.api.common.ApiException;
+import com.projectpandora.api.security.AccessService;
+import com.projectpandora.api.user.*;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.*;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping(&quot;/api/v1/admin/users&quot;)
+public class AdminUserController {
+    private final UserRepository users;
+    private final PasswordEncoder passwords;
+    private final AccessService access;
+    private final OrganizationGuard organization;
+    private final ViewRequestRepository requests;
+    public AdminUserController(UserRepository users,PasswordEncoder passwords,AccessService access,
+<span class="fc" id="L26">            OrganizationGuard organization,ViewRequestRepository requests) {</span>
+<span class="fc" id="L27">        this.users=users;this.passwords=passwords;this.access=access;this.organization=organization;this.requests=requests;</span>
+<span class="fc" id="L28">    }</span>
+    @GetMapping
+    public List&lt;AdminUserResponse&gt; list() {
+<span class="fc" id="L31">        access.assertAdmin();return users.findAll().stream().sorted(Comparator.comparing(UserEntity::getId)).map(AdminUserResponse::from).toList();</span>
+    }
+    @PostMapping
+    @Transactional
+    public ResponseEntity&lt;AdminUserResponse&gt; create(@Valid @RequestBody CreateUserRequest request) {
+<span class="fc" id="L36">        access.assertAdmin();organization.lock();access.assertAdmin();</span>
+<span class="fc" id="L37">        String username=request.username().trim();</span>
+<span class="pc bpc" id="L38" title="2 of 4 branches missed.">        if(username.length()&lt;3 || username.length()&gt;64) throw new ApiException(400,&quot;用户名须为3至64字&quot;);</span>
+<span class="fc bfc" id="L39" title="All 2 branches covered.">        if(users.findByUsername(username).isPresent()) throw new ApiException(400,&quot;用户名已存在&quot;);</span>
+<span class="fc" id="L40">        String phone=ProfileRules.normalizePhone(request.phone());</span>
+<span class="fc bfc" id="L41" title="All 2 branches covered.">        if(users.findByPhone(phone).isPresent()) throw new ApiException(400,&quot;手机号已被使用&quot;);</span>
+<span class="fc" id="L42">        String idCard=ProfileRules.normalizeIdCard(request.idCard());</span>
+<span class="pc bpc" id="L43" title="1 of 4 branches missed.">        if(idCard!=null &amp;&amp; users.findByIdCard(idCard).isPresent()) throw new ApiException(400,&quot;身份证号已被使用&quot;);</span>
+<span class="fc" id="L44">        assertAssignableManager(request.managerId());</span>
+<span class="fc" id="L45">        UserEntity user=new UserEntity();user.setUsername(username);user.setPasswordHash(passwords.encode(request.password()));</span>
+<span class="pc bpc" id="L46" title="1 of 4 branches missed.">        user.setRole(request.role());user.setDisplayName(request.displayName()==null || request.displayName().isBlank() ? username : request.displayName().trim());</span>
+<span class="fc" id="L47">        user.setManagerId(request.managerId());user.setDisabled(Boolean.TRUE.equals(request.disabled()));user.setCreatedAt(Instant.now());</span>
+<span class="fc" id="L48">        applyProfile(user,phone,idCard,request.birthDate(),request.gender(),request.hireDate(),</span>
+<span class="fc" id="L49">            request.emergencyContact(),request.emergencyPhone(),request.address());</span>
+<span class="fc" id="L50">        var all=new ArrayList&lt;&gt;(users.findAll());all.add(user);validateHierarchy(all);</span>
+<span class="fc" id="L51">        return ResponseEntity.status(201).body(AdminUserResponse.from(users.saveAndFlush(user)));</span>
+    }
+    @PatchMapping(&quot;/{id}&quot;)
+    @Transactional
+    public AdminUserResponse update(@PathVariable Long id,@Valid @RequestBody UpdateUserRequest request) {
+<span class="fc" id="L56">        access.assertAdmin();organization.lock();access.assertAdmin();</span>
+<span class="pc" id="L57">        var user=users.findById(id).orElseThrow(()-&gt;new ApiException(404,&quot;用户不存在&quot;));</span>
+<span class="fc" id="L58">        Role oldRole=user.getRole();Long oldManager=user.getManagerId();boolean oldDisabled=user.isDisabled();</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if(request.role!=null) user.setRole(request.role);</span>
+<span class="fc bfc" id="L60" title="All 2 branches covered.">        if(request.displayName!=null) user.setDisplayName(request.displayName.trim());</span>
+<span class="pc bpc" id="L61" title="1 of 4 branches missed.">        if(request.managerId!=null || Boolean.TRUE.equals(request.clearManager)) {</span>
+<span class="pc bpc" id="L62" title="1 of 2 branches missed.">            Long manager=Boolean.TRUE.equals(request.clearManager) ? null : request.managerId;</span>
+<span class="fc" id="L63">            assertAssignableManager(manager);user.setManagerId(manager);</span>
+        }
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        if(request.disabled!=null) user.setDisabled(request.disabled);</span>
+<span class="pc bpc" id="L66" title="3 of 4 branches missed.">        if(request.password!=null &amp;&amp; !request.password.isBlank()) {user.setPasswordHash(passwords.encode(request.password));user.revokeSessions();}</span>
+<span class="fc" id="L67">        applyProfileUpdate(user,request);</span>
+<span class="fc" id="L68">        validateHierarchy(users.findAll());</span>
+<span class="fc bfc" id="L69" title="All 6 branches covered.">        if(oldRole!=user.getRole() || !Objects.equals(oldManager,user.getManagerId()) || oldDisabled!=user.isDisabled()) {</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">            for(var r:requests.findByRequesterIdOrTargetIdOrderByUpdatedAtDesc(id,id)) {</span>
+<span class="fc bfc" id="L71" title="All 4 branches covered.">                if(&quot;pending&quot;.equals(r.status) || &quot;approved&quot;.equals(r.status)) {</span>
+<span class="fc" id="L72">                    r.status=&quot;revoked&quot;;r.updatedAt=Instant.now();requests.save(r);</span>
+                }
+<span class="fc" id="L74">            }</span>
+        }
+<span class="fc" id="L76">        return AdminUserResponse.from(users.saveAndFlush(user));</span>
+    }
+    private void assertAssignableManager(Long id) {
+<span class="fc bfc" id="L79" title="All 2 branches covered.">        if(id==null) return;</span>
+<span class="pc" id="L80">        var manager=users.findById(id).orElseThrow(()-&gt;new ApiException(400,&quot;上级用户不存在&quot;));</span>
+<span class="pc bpc" id="L81" title="1 of 4 branches missed.">        if(manager.isDisabled() || !AccessService.isLeader(manager.getRole())) throw new ApiException(400,&quot;上级必须是启用的业务领导&quot;);</span>
+<span class="fc" id="L82">    }</span>
+    private void validateHierarchy(List&lt;UserEntity&gt; all) {
+<span class="fc bfc" id="L84" title="All 2 branches covered.">        Map&lt;Long,UserEntity&gt; byId=new HashMap&lt;&gt;();all.forEach(u-&gt;{if(u.getId()!=null) byId.put(u.getId(),u);});</span>
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        for(var user:all) {</span>
+<span class="fc" id="L86">            Long managerId=user.getManagerId();</span>
+<span class="fc bfc" id="L87" title="All 2 branches covered.">            if(managerId==null) continue;</span>
+<span class="fc" id="L88">            var manager=byId.get(managerId);</span>
+<span class="pc bpc" id="L89" title="2 of 6 branches missed.">            if(user.getRole()==Role.ADMIN || user.getRole()==Role.FOUNDER || manager==null</span>
+<span class="pc bpc" id="L90" title="1 of 4 branches missed.">                || !AccessService.isLeader(manager.getRole()) || AccessService.rank(manager.getRole())&lt;=AccessService.rank(user.getRole()))</span>
+<span class="fc" id="L91">                throw new ApiException(400,&quot;角色与上下级层级不匹配&quot;);</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">            Set&lt;Long&gt; seen=new HashSet&lt;&gt;();if(user.getId()!=null) seen.add(user.getId());</span>
+<span class="fc" id="L93">            Long current=managerId;</span>
+<span class="fc bfc" id="L94" title="All 2 branches covered.">            while(current!=null) {</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">                if(!seen.add(current)) throw new ApiException(400,&quot;上下级不能形成循环&quot;);</span>
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">                var ancestor=byId.get(current);current=ancestor==null ? null : ancestor.getManagerId();</span>
+<span class="fc" id="L97">            }</span>
+<span class="fc" id="L98">        }</span>
+<span class="fc" id="L99">    }</span>
+    private void applyProfile(UserEntity user,String phone,String idCard,LocalDate birthDate,String gender,
+            LocalDate hireDate,String emergencyContact,String emergencyPhone,String address) {
+<span class="fc" id="L102">        user.setPhone(phone);</span>
+<span class="fc" id="L103">        user.setIdCard(idCard);</span>
+<span class="fc" id="L104">        user.setBirthDate(ProfileRules.validateBirthDate(birthDate));</span>
+<span class="fc" id="L105">        user.setGender(ProfileRules.normalizeGender(gender));</span>
+<span class="fc" id="L106">        user.setHireDate(hireDate);</span>
+<span class="fc" id="L107">        user.setEmergencyContact(trimToNull(emergencyContact));</span>
+<span class="fc" id="L108">        user.setEmergencyPhone(trimToNull(emergencyPhone));</span>
+<span class="fc" id="L109">        user.setAddress(trimToNull(address));</span>
+<span class="fc" id="L110">    }</span>
+    private void applyProfileUpdate(UserEntity user,UpdateUserRequest r) {
+<span class="pc bpc" id="L112" title="1 of 6 branches missed.">        if(r.phone!=null &amp;&amp; !r.phone.isBlank() &amp;&amp; !r.phone.trim().equals(trimToNull(user.getPhone()))) {</span>
+<span class="fc" id="L113">            String phone=ProfileRules.normalizePhone(r.phone);</span>
+<span class="pc bnc" id="L114" title="All 2 branches missed.">            users.findByPhone(phone).filter(other-&gt;!other.getId().equals(user.getId()))</span>
+<span class="pc" id="L115">                .ifPresent(other-&gt;{throw new ApiException(400,&quot;手机号已被使用&quot;);});</span>
+<span class="fc" id="L116">            user.setPhone(phone);</span>
+        }
+<span class="pc bpc" id="L118" title="1 of 2 branches missed.">        if(r.idCard!=null) {</span>
+<span class="nc" id="L119">            String idCard=ProfileRules.normalizeIdCard(r.idCard);</span>
+<span class="nc bnc" id="L120" title="All 4 branches missed.">            if(idCard!=null) users.findByIdCard(idCard).filter(other-&gt;!other.getId().equals(user.getId()))</span>
+<span class="nc" id="L121">                .ifPresent(other-&gt;{throw new ApiException(400,&quot;身份证号已被使用&quot;);});</span>
+<span class="nc" id="L122">            user.setIdCard(idCard);</span>
+        }
+<span class="fc bfc" id="L124" title="All 2 branches covered.">        if(r.birthDatePresent) user.setBirthDate(ProfileRules.validateBirthDate(r.birthDate));</span>
+<span class="pc bpc" id="L125" title="1 of 2 branches missed.">        if(r.gender!=null) user.setGender(ProfileRules.normalizeGender(r.gender));</span>
+<span class="fc bfc" id="L126" title="All 2 branches covered.">        if(r.hireDatePresent) user.setHireDate(r.hireDate);</span>
+<span class="pc bpc" id="L127" title="1 of 2 branches missed.">        if(r.emergencyContact!=null) user.setEmergencyContact(trimToNull(r.emergencyContact));</span>
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">        if(r.emergencyPhone!=null) user.setEmergencyPhone(trimToNull(r.emergencyPhone));</span>
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">        if(r.address!=null) user.setAddress(trimToNull(r.address));</span>
+<span class="fc" id="L130">    }</span>
+    private static String trimToNull(String value) {
+<span class="pc bpc" id="L132" title="1 of 4 branches missed.">        if(value==null) return null;String trimmed=value.trim();return trimmed.isEmpty() ? null : trimmed;</span>
+    }
+<span class="fc" id="L134">    public record CreateUserRequest(@NotBlank @Size(min=3,max=64) String username,</span>
+        @NotBlank @Size(min=6,max=72) String password,@NotNull Role role,@Size(max=64) String displayName,Long managerId,Boolean disabled,
+        String phone,String idCard,LocalDate birthDate,String gender,LocalDate hireDate,
+        String emergencyContact,String emergencyPhone,String address) {}
+<span class="fc" id="L138">    public static class UpdateUserRequest {</span>
+        public Role role;
+        @Size(max=64) public String displayName;
+        public Long managerId;
+        public Boolean clearManager,disabled;
+        @Size(min=6,max=72) public String password;
+        public String phone,idCard,gender,emergencyContact,emergencyPhone,address;
+        private LocalDate birthDate,hireDate;
+        private boolean birthDatePresent,hireDatePresent;
+
+        @JsonSetter(&quot;birthDate&quot;)
+<span class="fc" id="L149">        public void setBirthDate(LocalDate value) {birthDate=value;birthDatePresent=true;}</span>
+
+        @JsonSetter(&quot;hireDate&quot;)
+<span class="fc" id="L152">        public void setHireDate(LocalDate value) {hireDate=value;hireDatePresent=true;}</span>
+    }
+<span class="fc" id="L154">    public record AdminUserResponse(Long id,String username,String role,String displayName,Long managerId,boolean disabled,</span>
+        String phone,String idCard,LocalDate birthDate,String gender,LocalDate hireDate,
+        String emergencyContact,String emergencyPhone,String address) {
+        static AdminUserResponse from(UserEntity u) {
+<span class="fc" id="L158">            return new AdminUserResponse(u.getId(),u.getUsername(),u.getRole().name(),u.getDisplayName(),u.getManagerId(),u.isDisabled(),</span>
+<span class="fc" id="L159">                u.getPhone(),u.getIdCard(),u.getBirthDate(),u.getGender(),u.getHireDate(),</span>
+<span class="fc" id="L160">                u.getEmergencyContact(),u.getEmergencyPhone(),u.getAddress());</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
