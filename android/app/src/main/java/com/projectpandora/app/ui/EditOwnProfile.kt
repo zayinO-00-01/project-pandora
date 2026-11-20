@@ -16,7 +16,6 @@ import com.projectpandora.app.data.OwnProfileInput
 import com.projectpandora.app.data.Profile
 
 @Composable internal fun EditOwnProfile(profile: Profile,state: AppState,model: PandoraViewModel,onClose: ()->Unit) {
-    var name by rememberSaveable {mutableStateOf(profile.displayName.orEmpty())}
     val originalPhone=rememberSaveable {profile.phone.orEmpty().trim()}
     var phone by rememberSaveable {mutableStateOf(originalPhone)}
     val changingPhone=phone.trim()!=originalPhone
@@ -26,7 +25,8 @@ import com.projectpandora.app.data.Profile
     var address by rememberSaveable {mutableStateOf(profile.address.orEmpty())}
     AlertDialog(onDismissRequest={if(!state.saving)onClose()},title={Text("编辑本人档案")},text={
         Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(name,{name=it.take(64)},label={Text("姓名")},singleLine=true,enabled=!state.saving)
+            OutlinedTextField(profile.displayName?.takeIf {it.isNotBlank()} ?: "未填写",{},label={Text("姓名")},
+                supportingText={Text("由管理员维护")},singleLine=true,readOnly=true)
             OutlinedTextField(phone,{phone=it.take(20)},label={Text("账号手机号")},
                 keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Phone),isError=invalidPhone,
                 supportingText=if(invalidPhone) {{Text("请输入有效的 11 位手机号")}} else null,
@@ -36,5 +36,5 @@ import com.projectpandora.app.data.Profile
             OutlinedTextField(address,{address=it.take(255)},label={Text("联系地址")},enabled=!state.saving)
             state.profileError?.let {Hint(it,true)}
         }
-    },confirmButton={ControlTextButton(onClick={model.updateOwnProfile(OwnProfileInput(name.trim(),contact.trim(),emergencyPhone.trim(),address.trim(),phone.trim().takeIf {changingPhone}),onClose)},enabled=!state.saving && name.isNotBlank() && !invalidPhone) {Text("保存")}},dismissButton={ControlTextButton(onClick=onClose,enabled=!state.saving) {Text("取消")}})
+    },confirmButton={ControlTextButton(onClick={model.updateOwnProfile(OwnProfileInput(contact.trim(),emergencyPhone.trim(),address.trim(),phone.trim().takeIf {changingPhone}),onClose)},enabled=!state.saving && !invalidPhone) {Text("保存")}},dismissButton={ControlTextButton(onClick=onClose,enabled=!state.saving) {Text("取消")}})
 }

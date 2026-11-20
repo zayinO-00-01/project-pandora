@@ -86,7 +86,16 @@ import java.time.format.DateTimeFormatter
     Box(Modifier.fillMaxSize()) {
     WorkspaceBackground(Modifier.matchParentSize())
     Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(MaterialTheme.colorScheme.background))
-    Scaffold(containerColor=Color.Transparent,contentColor=MaterialTheme.colorScheme.onBackground,topBar={Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)).padding(top=12.dp,bottom=6.dp),contentAlignment=Alignment.TopCenter) {TopAppBar(modifier=Modifier.widthIn(max=600.dp).fillMaxWidth(),expandedHeight=headerHeight,windowInsets=WindowInsets(0,0,0,0),navigationIcon={if(state.screen!="profile")Box(contentAlignment=Alignment.TopEnd){IconButton(onClick={feedback();model.loadNotifications();model.screen("inbox")},enabled=!state.saving){Icon(painterResource(R.drawable.console_bell),contentDescription="消息",modifier=Modifier.size(21.dp))};if(state.unreadCount>0)Badge(modifier=Modifier.align(Alignment.TopEnd).offset(x=6.dp,y=(-6).dp)){Text(if(state.unreadCount>99)"99+" else state.unreadCount.toString())}}},title={Column(Modifier.padding(start=8.dp).semantics {if(homeHeader && readFailures.isNotEmpty())contentDescription="同步失败"}.clickable(enabled=homeHeader && readFailures.isNotEmpty()) {syncDetails=true},verticalArrangement=Arrangement.spacedBy(2.dp)) {
+    Scaffold(containerColor=Color.Transparent,contentColor=MaterialTheme.colorScheme.onBackground,topBar={Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)).padding(top=12.dp,bottom=6.dp),contentAlignment=Alignment.TopCenter) {TopAppBar(modifier=Modifier.widthIn(max=600.dp).fillMaxWidth(),expandedHeight=headerHeight,windowInsets=WindowInsets(0,0,0,0),navigationIcon={
+        if(state.screen!="profile")IconButton(onClick={feedback();model.loadNotifications();model.screen("inbox")},enabled=!state.saving,modifier=Modifier.size(width=56.dp,height=48.dp)) {
+            Box(Modifier.fillMaxSize()) {
+                Icon(painterResource(R.drawable.console_bell),contentDescription="消息",modifier=Modifier.align(Alignment.CenterStart).padding(start=9.dp).size(21.dp))
+                if(state.unreadCount>0)Badge(modifier=Modifier.align(Alignment.TopEnd).padding(top=3.dp,end=2.dp)) {
+                    Text(if(state.unreadCount>99)"99+" else state.unreadCount.toString(),maxLines=1)
+                }
+            }
+        }
+    },title={Column(Modifier.padding(start=8.dp).semantics {if(homeHeader && readFailures.isNotEmpty())contentDescription="同步失败"}.clickable(enabled=homeHeader && readFailures.isNotEmpty()) {syncDetails=true},verticalArrangement=Arrangement.spacedBy(2.dp)) {
         Text(pageTitle,style=MaterialTheme.typography.headlineSmall,fontFamily=ConsoleDisplay,fontWeight=androidx.compose.ui.text.font.FontWeight.SemiBold)
         if(homeHeader)Text("${today().monthValue}月${today().dayOfMonth}日 · ${listOf("周一","周二","周三","周四","周五","周六","周日")[today().dayOfWeek.value-1]}${if(readFailures.isNotEmpty())"" else if(state.developmentPreview)" · 未连接" else if(state.loading)" · 同步中" else " · 已同步"}",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2)
         if(homeHeader && readFailures.isNotEmpty())Text("同步失败 · ${if(retained)"上次内容" else "查看原因"} ›",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.error,maxLines=2)

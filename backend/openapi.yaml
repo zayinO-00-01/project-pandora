@@ -967,8 +967,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Profile'
     put:
-      summary: 修改本人的姓名、手机号、紧急联系方式与联系地址
-      description: 仅业务账号；身份证、生日、性别、入职日期、角色和组织关系由管理员维护。未填写的紧急联系方式和地址会清空。
+      summary: 修改本人的手机号、紧急联系方式与联系地址
+      description: 仅业务账号；姓名、身份证、生日、性别、入职日期、角色和组织关系由管理员维护。未填写的紧急联系方式和地址会清空。
       security:
       - bearer: []
       requestBody:
@@ -2098,12 +2098,12 @@ components:
               $ref: "#/components/schemas/WorkLabel"
     OwnProfileInput:
       type: object
-      required: [displayName]
       properties:
         displayName:
           type: string
-          minLength: 1
+          nullable: true
           maxLength: 64
+          description: 旧客户端回传的现有姓名，仅用于兼容校验，不能修改。
         phone:
           type: string
           nullable: true

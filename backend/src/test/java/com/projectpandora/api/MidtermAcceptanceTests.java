@@ -296,9 +296,15 @@ class MidtermAcceptanceTests {
                 if (v != 2) assertThat(r.path("labels").size()).isEqualTo(ids.size());
             }
             case "UserController.updateOwnProfile" -> {
-                String name = v == 0 ? "验收成员" : "名".repeat(v == 1 ? 64 : 65);
-                var r = call("PUT", "/api/v1/users/me", "staff", Map.of("displayName", name, "address", "验收地址"), v == 2 ? 400 : 200);
-                if (v != 2) assertThat(r.path("displayName").asText()).isEqualTo(name);
+                String name = call("GET", "/api/v1/users/me", "staff", null, 200).path("displayName").asText();
+                var body = json.createObjectNode().put("address", "验收地址");
+                if (v == 1) body.put("displayName", name);
+                if (v == 2) body.put("displayName", name + "改");
+                var r = call("PUT", "/api/v1/users/me", "staff", body, v == 2 ? 403 : 200);
+                if (v != 2) {
+                    assertThat(r.path("displayName").asText()).isEqualTo(name);
+                    assertThat(r.path("address").asText()).isEqualTo("验收地址");
+                }
             }
             case "UserController.changePassword", "ProfileController.password" -> {
                 boolean legacy = c.operation().startsWith("User"); int min = legacy ? 6 : 8;

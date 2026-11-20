@@ -151,14 +151,21 @@ import androidx.compose.ui.semantics.contentDescription
             item {OutlinedTextField(value=editor.content,onValueChange={if(it.length<=5000)model.changeEditor(content=it)},readOnly=readOnly,label={Text(if(editorState=="changed")"本机内容" else "工作记录")},placeholder={Text("今天完成了什么？遇到哪些问题？下一步准备做什么？")},enabled=!state.saving,modifier=Modifier.fillMaxWidth().heightIn(min=260.dp),minLines=9,supportingText={Text("${editor.content.length} / 5000")})}
             state.editorError?.let {item {Hint(it,true)}}
         }
-        Row(Modifier.fillMaxWidth().padding(vertical=12.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            ControlTextButton(onClick=model::closeLogEditor,enabled=!state.saving) {Text("返回")}
-            if(!readOnly || source?.content!=editor.content || editorState=="changed")
-                ControlTextButton(onClick={discard=true},enabled=!state.saving) {Text("放弃修改")}
+        val showDiscard=!readOnly || source?.content!=editor.content || editorState=="changed"
+        val submitted=editor.status=="submitted" || source?.status=="submitted"
+        val actionPadding=PaddingValues(horizontal=4.dp,vertical=8.dp)
+        Row(Modifier.fillMaxWidth().padding(vertical=12.dp),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+            ControlOutlinedButton(onClick=model::closeLogEditor,enabled=!state.saving,modifier=Modifier.weight(0.7f),contentPadding=actionPadding) {LogActionLabel("返回")}
+            if(showDiscard)ControlOutlinedButton(onClick={discard=true},enabled=!state.saving,modifier=Modifier.weight(1.15f),contentPadding=actionPadding) {LogActionLabel("放弃修改")}
             if(!readOnly) {
-                if(editor.status!="submitted" && source?.status!="submitted")ControlOutlinedButton(onClick={model.save("draft")},enabled=!state.saving) {Text("存草稿")}
-                ControlButton(onClick={model.save("submitted")},enabled=!state.saving && !state.checkingIntegrity,modifier=Modifier.weight(1f)) {Text(if(state.saving)"保存中…" else if(editor.status=="submitted" || source?.status=="submitted")"保存修改" else "提交日志")}
+                if(!submitted)ControlOutlinedButton(onClick={model.save("draft")},enabled=!state.saving,modifier=Modifier.weight(1f),contentPadding=actionPadding) {LogActionLabel("存草稿")}
+                ControlButton(onClick={model.save("submitted")},enabled=!state.saving && !state.checkingIntegrity,modifier=Modifier.weight(1.2f),contentPadding=actionPadding) {LogActionLabel(if(state.saving)"保存中…" else if(submitted)"保存修改" else "提交日志")}
             }
         }
     }
+}
+
+
+@Composable private fun LogActionLabel(text: String) {
+    Text(text,style=MaterialTheme.typography.labelLarge,maxLines=1,softWrap=false,overflow=TextOverflow.Ellipsis)
 }
