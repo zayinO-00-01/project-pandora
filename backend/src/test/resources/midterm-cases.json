@@ -700,24 +700,24 @@
     "operation": "UserController.updateOwnProfile",
     "variant": 0,
     "category": "正常",
-    "input": "业务成员修改显示名及地址",
-    "expected": "200，返回新显示名"
+    "input": "业务成员修改地址",
+    "expected": "200，保存地址并保留管理员设定的姓名"
   },
   {
     "id": "A30-B",
     "operation": "UserController.updateOwnProfile",
     "variant": 1,
     "category": "边界或状态边界",
-    "input": "显示名64字",
-    "expected": "200，完整保存64字"
+    "input": "旧客户端回传当前姓名并修改地址",
+    "expected": "200，兼容旧客户端且姓名不变"
   },
   {
     "id": "A30-X",
     "operation": "UserController.updateOwnProfile",
     "variant": 2,
     "category": "异常",
-    "input": "显示名65字",
-    "expected": "400，拒绝超长输入"
+    "input": "业务成员尝试改名",
+    "expected": "403，只有管理员可以改名"
   },
   {
     "id": "A31-N",

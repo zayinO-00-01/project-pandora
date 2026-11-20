@@ -108,10 +108,10 @@ class ProfileAndNoticeTests {
         var staff=login("staff");
         String own=token(staff);
         mvc.perform(put("/api/v1/users/me").header("Authorization",token(staff)).contentType(MediaType.APPLICATION_JSON)
-            .content("{\"displayName\":\"Person\",\"phone\":\"010-12345678\"}")).andExpect(status().isOk())
+            .content("{\"phone\":\"010-12345678\"}")).andExpect(status().isOk())
             .andExpect(jsonPath("$.phone").value("010-12345678"));
         mvc.perform(put("/api/v1/users/me").header("Authorization",own).contentType(MediaType.APPLICATION_JSON)
-            .content("{\"displayName\":\"Personal edit\"}")).andExpect(status().isOk())
+            .content("{\"address\":\"Personal edit\"}")).andExpect(status().isOk())
             .andExpect(jsonPath("$.phone").value("010-12345678"));
         String path="/api/v1/admin/users/"+staff.get("userId").asLong();
         String admin=token(login("admin"));

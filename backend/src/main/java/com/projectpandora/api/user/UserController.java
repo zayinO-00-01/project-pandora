@@ -42,6 +42,9 @@ public class UserController {
         organization.lock();
         var principal=access.assertBusiness();
         var user=users.findById(principal.getId()).orElseThrow(()->new ApiException(404,"用户不存在"));
+        // Older clients echo the display name; only the admin endpoint may write it.
+        if(request.displayName()!=null && !Objects.equals(optionalText(request.displayName()),optionalText(user.getDisplayName())))
+            throw new ApiException(403,"姓名由管理员维护，请刷新资料后再保存");
         // Legacy clients echo the current phone when editing other fields.
         if(request.phone()!=null && !Objects.equals(optionalText(request.phone()),optionalText(user.getPhone())))
             throw new ApiException(403,"手机号已变化，请刷新资料后再保存");
@@ -52,7 +55,6 @@ public class UserController {
             user.setPhone(phone);
         }
         String emergencyPhone=optionalPhone(request.emergencyPhone());
-        user.setDisplayName(request.displayName().trim());
         user.setEmergencyContact(optionalText(request.emergencyContact()));
         user.setEmergencyPhone(emergencyPhone);
         user.setAddress(optionalText(request.address()));
@@ -68,7 +70,7 @@ public class UserController {
             throw new ApiException(400,"请输入有效联系电话");
         return phone;
     }
-    public record OwnProfileRequest(@NotBlank @Size(max=64) String displayName,@Size(max=20) String phone,@Size(max=20) String newPhone,
+    public record OwnProfileRequest(@Size(max=64) String displayName,@Size(max=20) String phone,@Size(max=20) String newPhone,
         @Size(max=64) String emergencyContact,@Size(max=20) String emergencyPhone,@Size(max=255) String address) {}
     @PutMapping("/me/password")
     @Transactional
