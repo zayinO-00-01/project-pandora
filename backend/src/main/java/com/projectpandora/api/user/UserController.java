@@ -42,9 +42,15 @@ public class UserController {
         organization.lock();
         var principal=access.assertBusiness();
         var user=users.findById(principal.getId()).orElseThrow(()->new ApiException(404,"用户不存在"));
-        // Older clients include phone even when the number has not changed.
-        if (request.phone()!=null && !Objects.equals(optionalText(request.phone()),optionalText(user.getPhone())))
-            throw new ApiException(403,"账号手机号需联系管理员修改");
+        // Legacy clients echo the current phone when editing other fields.
+        if(request.phone()!=null && !Objects.equals(optionalText(request.phone()),optionalText(user.getPhone())))
+            throw new ApiException(403,"手机号已变化，请刷新资料后再保存");
+        if(request.newPhone()!=null) {
+            String phone=ProfileRules.normalizePhone(request.newPhone());
+            users.findByPhone(phone).filter(other->!other.getId().equals(user.getId()))
+                .ifPresent(other->{throw new ApiException(400,"手机号已被使用");});
+            user.setPhone(phone);
+        }
         String emergencyPhone=optionalPhone(request.emergencyPhone());
         user.setDisplayName(request.displayName().trim());
         user.setEmergencyContact(optionalText(request.emergencyContact()));
@@ -62,7 +68,7 @@ public class UserController {
             throw new ApiException(400,"请输入有效联系电话");
         return phone;
     }
-    public record OwnProfileRequest(@NotBlank @Size(max=64) String displayName,@Size(max=20) String phone,
+    public record OwnProfileRequest(@NotBlank @Size(max=64) String displayName,@Size(max=20) String phone,@Size(max=20) String newPhone,
         @Size(max=64) String emergencyContact,@Size(max=20) String emergencyPhone,@Size(max=255) String address) {}
     @PutMapping("/me/password")
     @Transactional
@@ -109,11 +115,11 @@ public class UserController {
     public record ChangePasswordResult(boolean ok) {}
     public record AvatarRequest(@NotBlank @Size(max=200000) String avatar) {}
     public record ProfileResponse(Long id,String username,String role,String displayName,Long managerId,String managerName,
-        String avatar,String avatarImage,String phone,String idCard,LocalDate birthDate,String gender,LocalDate hireDate,
+        String avatar,String avatarImage,String phone,LocalDate birthDate,String gender,LocalDate hireDate,
         String emergencyContact,String emergencyPhone,String address) {
         static ProfileResponse from(UserEntity u,String managerName) {
             return new ProfileResponse(u.getId(),u.getUsername(),u.getRole().name(),u.getDisplayName(),u.getManagerId(),managerName,
-                u.getAvatar(),u.getAvatarImage(),u.getPhone(),u.getIdCard(),u.getBirthDate(),u.getGender(),u.getHireDate(),
+                u.getAvatar(),u.getAvatarImage(),u.getPhone(),u.getBirthDate(),u.getGender(),u.getHireDate(),
                 u.getEmergencyContact(),u.getEmergencyPhone(),u.getAddress());
         }
     }

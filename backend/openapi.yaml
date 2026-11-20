@@ -956,7 +956,7 @@ paths:
           $ref: '#/components/responses/Error404'
   /users/me:
     get:
-      summary: 本人完整档案（含敏感字段）
+      summary: 本人档案（不含身份证号）
       security:
       - bearer: []
       responses:
@@ -967,8 +967,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Profile'
     put:
-      summary: 修改本人的姓名、紧急联系方式与联系地址
-      description: 仅业务账号；账号手机号、身份证、生日、性别、入职日期、角色和组织关系由管理员维护。未填写的紧急联系方式和地址会清空。
+      summary: 修改本人的姓名、手机号、紧急联系方式与联系地址
+      description: 仅业务账号；身份证、生日、性别、入职日期、角色和组织关系由管理员维护。未填写的紧急联系方式和地址会清空。
       security:
       - bearer: []
       requestBody:
@@ -979,7 +979,7 @@ paths:
               $ref: '#/components/schemas/OwnProfileInput'
       responses:
         '200':
-          description: 保存后的本人完整档案
+          description: 保存后的本人档案
           content:
             application/json:
               schema:
@@ -1958,9 +1958,6 @@ components:
         phone:
           type: string
           nullable: true
-        idCard:
-          type: string
-          nullable: true
         birthDate:
           type: string
           format: date
@@ -2111,8 +2108,12 @@ components:
           type: string
           nullable: true
           maxLength: 20
-          deprecated: true
-          description: 兼容旧客户端。不要发送此字段；缺省、null或与当前值相同保持原值，更改返回403。
+          description: 旧客户端回传的现有手机号，仅用于校验，不会写入。
+        newPhone:
+          type: string
+          nullable: true
+          maxLength: 20
+          description: 缺省或 null 时保持原值。更换时须为有效且未被其他账号使用的 11 位手机号。
         emergencyContact:
           type: string
           maxLength: 64

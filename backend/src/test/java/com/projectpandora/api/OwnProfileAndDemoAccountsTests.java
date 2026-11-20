@@ -32,7 +32,8 @@ class OwnProfileAndDemoAccountsTests {
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).get("id").asLong();
         String admin=TaskPolicyTestSupport.token(mvc,json,"admin");
         mvc.perform(patch("/api/v1/admin/users/"+staffId).header("Authorization",admin).contentType(MediaType.APPLICATION_JSON)
-            .content("{\"phone\":\"13800007654\"}")).andExpect(status().isOk());
+            .content("{\"phone\":\"13800007654\",\"idCard\":\"11010519491231002X\"}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.idCard").value("11010519491231002X"));
         String request=json.writeValueAsString(Map.of("displayName","示例姓名",
             "emergencyContact","示例联系人","emergencyPhone","010-12345678","address","示例地址","role","FOUNDER"));
         mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(request))
@@ -43,11 +44,23 @@ class OwnProfileAndDemoAccountsTests {
             .andExpect(status().isOk()).andExpect(jsonPath("$.phone").value("13800007654"));
         mvc.perform(get("/api/v1/users/me").header("Authorization",colleague))
             .andExpect(status().isOk()).andExpect(jsonPath("$.displayName").value("演示员工小陈"));
-        for (String phone : java.util.List.of("13900007654","")) {
+        long colleagueId=json.readTree(mvc.perform(get("/api/v1/users/me").header("Authorization",colleague))
+            .andReturn().getResponse().getContentAsString()).get("id").asLong();
+        mvc.perform(patch("/api/v1/admin/users/"+colleagueId).header("Authorization",admin).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"phone\":\"13900007655\"}")).andExpect(status().isOk());
+        mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("displayName","示例姓名","newPhone"," 13900007654 ","managerId",colleagueId))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.phone").value("13900007654"))
+            .andExpect(jsonPath("$.managerName").value("团队长")).andExpect(jsonPath("$.idCard").doesNotHaveJsonPath());
+        mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("displayName","旧表单","phone","13800007654"))))
+            .andExpect(status().isForbidden());
+        for (String phone : java.util.List.of("13900007655","010-12345678","")) {
             mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("displayName","无效修改","phone",phone)))).andExpect(status().isForbidden());
+                .content(json.writeValueAsString(Map.of("displayName","无效修改","newPhone",phone)))).andExpect(status().isBadRequest());
         }
         mvc.perform(get("/api/v1/users/me").header("Authorization",staff))
-            .andExpect(jsonPath("$.displayName").value("示例姓名")).andExpect(jsonPath("$.phone").value("13800007654"));
+            .andExpect(status().isOk()).andExpect(jsonPath("$.displayName").value("示例姓名"))
+            .andExpect(jsonPath("$.phone").value("13900007654")).andExpect(jsonPath("$.idCard").doesNotHaveJsonPath());
     }
 }
