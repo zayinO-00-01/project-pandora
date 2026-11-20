@@ -42,8 +42,11 @@ public class UserController {
         organization.lock();
         var principal=access.assertBusiness();
         var user=users.findById(principal.getId()).orElseThrow(()->new ApiException(404,"用户不存在"));
-        if(request.phone()!=null && !Objects.equals(optionalText(request.phone()),optionalText(user.getPhone()))) {
-            String phone=ProfileRules.normalizePhone(request.phone());
+        // Legacy clients echo the current phone when editing other fields.
+        if(request.phone()!=null && !Objects.equals(optionalText(request.phone()),optionalText(user.getPhone())))
+            throw new ApiException(403,"手机号已变化，请刷新资料后再保存");
+        if(request.newPhone()!=null) {
+            String phone=ProfileRules.normalizePhone(request.newPhone());
             users.findByPhone(phone).filter(other->!other.getId().equals(user.getId()))
                 .ifPresent(other->{throw new ApiException(400,"手机号已被使用");});
             user.setPhone(phone);
@@ -65,7 +68,7 @@ public class UserController {
             throw new ApiException(400,"请输入有效联系电话");
         return phone;
     }
-    public record OwnProfileRequest(@NotBlank @Size(max=64) String displayName,@Size(max=20) String phone,
+    public record OwnProfileRequest(@NotBlank @Size(max=64) String displayName,@Size(max=20) String phone,@Size(max=20) String newPhone,
         @Size(max=64) String emergencyContact,@Size(max=20) String emergencyPhone,@Size(max=255) String address) {}
     @PutMapping("/me/password")
     @Transactional

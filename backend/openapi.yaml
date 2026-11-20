@@ -2108,6 +2108,11 @@ components:
           type: string
           nullable: true
           maxLength: 20
+          description: 旧客户端回传的现有手机号，仅用于校验，不会写入。
+        newPhone:
+          type: string
+          nullable: true
+          maxLength: 20
           description: 缺省或 null 时保持原值。更换时须为有效且未被其他账号使用的 11 位手机号。
         emergencyContact:
           type: string

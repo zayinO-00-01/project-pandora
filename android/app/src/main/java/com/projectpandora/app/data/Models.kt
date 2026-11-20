@@ -63,4 +63,4 @@ data class ContentLabels(val kind: String,val contentId: Long,val labels: List<W
 
 data class DailyTodo(val id: String,val title: String,val date: String,val completed: Boolean=false,val labels: List<WorkLabel>?=null,val labelIds: List<Long>?=null)
 
-data class OwnProfileInput(val displayName: String,val emergencyContact: String,val emergencyPhone: String,val address: String,val phone: String? = null)
+data class OwnProfileInput(val displayName: String,val emergencyContact: String,val emergencyPhone: String,val address: String,val newPhone: String? = null)

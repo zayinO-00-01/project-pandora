@@ -49,12 +49,15 @@ class OwnProfileAndDemoAccountsTests {
         mvc.perform(patch("/api/v1/admin/users/"+colleagueId).header("Authorization",admin).contentType(MediaType.APPLICATION_JSON)
             .content("{\"phone\":\"13900007655\"}")).andExpect(status().isOk());
         mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("displayName","示例姓名","phone"," 13900007654 ","managerId",colleagueId))))
+            .content(json.writeValueAsString(Map.of("displayName","示例姓名","newPhone"," 13900007654 ","managerId",colleagueId))))
             .andExpect(status().isOk()).andExpect(jsonPath("$.phone").value("13900007654"))
             .andExpect(jsonPath("$.managerName").value("团队长")).andExpect(jsonPath("$.idCard").doesNotHaveJsonPath());
+        mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("displayName","旧表单","phone","13800007654"))))
+            .andExpect(status().isForbidden());
         for (String phone : java.util.List.of("13900007655","010-12345678","")) {
             mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("displayName","无效修改","phone",phone)))).andExpect(status().isBadRequest());
+                .content(json.writeValueAsString(Map.of("displayName","无效修改","newPhone",phone)))).andExpect(status().isBadRequest());
         }
         mvc.perform(get("/api/v1/users/me").header("Authorization",staff))
             .andExpect(status().isOk()).andExpect(jsonPath("$.displayName").value("示例姓名"))
