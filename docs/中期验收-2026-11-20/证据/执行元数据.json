@@ -1,0 +1,48 @@
+{
+  "date": "2026-11-20",
+  "timezone": "Asia/Shanghai",
+  "commit": "c0982b07be8a049b4bb9a053cdc5e32913543b24",
+  "backend": {
+    "tests": 288,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "suites": 30,
+  "coverage": {
+    "INSTRUCTION": {
+      "covered": 10917,
+      "missed": 1074
+    },
+    "BRANCH": {
+      "covered": 783,
+      "missed": 216
+    },
+    "LINE": {
+      "covered": 1507,
+      "missed": 83
+    },
+    "COMPLEXITY": {
+      "covered": 879,
+      "missed": 263
+    },
+    "METHOD": {
+      "covered": 559,
+      "missed": 70
+    },
+    "CLASS": {
+      "covered": 113,
+      "missed": 0
+    }
+  },
+  "java": "Oracle JDK 21.0.6（编译release 17）",
+  "maven": "3.9.10",
+  "node": "24.14.0",
+  "webTests": 18,
+  "sourceHashes": {
+    "midterm-cases.json": "d9623809b6e45060866b3e2cbe134fd2dfaeb6a55dd8ef304a3546c06a807a41",
+    "MidtermAcceptanceTests.java": "3b097dcc4eb3573f67d8e28e63cb5a931bd8be106a7ad2b5ed9e67952f182161",
+    "Run-MidtermTests.ps1": "50ff4dccedf1b37e8b6be0b5cea8291aa1b15aa4da852c92bbc97aca150c12d6"
+  },
+  "note": "生产代码对应上述main提交；另有本次新增验收测试。人工设备版本未提供，不能据此证明线上服务与本地代码完全一致。"
+}

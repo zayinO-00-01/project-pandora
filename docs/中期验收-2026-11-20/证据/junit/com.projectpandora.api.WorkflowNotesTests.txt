@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.projectpandora.api.WorkflowNotesTests
+-------------------------------------------------------------------------------
+Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.014 s -- in com.projectpandora.api.WorkflowNotesTests

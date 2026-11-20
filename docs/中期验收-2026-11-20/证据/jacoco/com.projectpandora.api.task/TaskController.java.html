@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TaskController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pandora-api</a> &gt; <a href="index.source.html" class="el_package">com.projectpandora.api.task</a> &gt; <span class="el_source">TaskController.java</span></div><h1>TaskController.java</h1><pre class="source lang-java linenums">package com.projectpandora.api.task;
+
+import jakarta.validation.Valid;
+import java.util.List;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping(&quot;/api/v1/tasks&quot;)
+public class TaskController {
+    private final TaskService tasks;
+<span class="fc" id="L20">    public TaskController(TaskService tasks) { this.tasks = tasks; }</span>
+    @GetMapping(&quot;/{id}&quot;)
+<span class="fc" id="L22">    public TaskResponse detail(@PathVariable Long id) { return tasks.detail(id); }</span>
+    @GetMapping(&quot;/{id}/note&quot;)
+<span class="fc" id="L24">    public TaskNoteResponse note(@PathVariable Long id) { return tasks.note(id); }</span>
+<span class="fc" id="L25">    public record NoteInput(@jakarta.validation.constraints.NotNull @jakarta.validation.constraints.Size(max=2000) String content) {}</span>
+    @PutMapping(&quot;/{id}/note&quot;)
+<span class="fc" id="L27">    public TaskNoteResponse saveNote(@PathVariable Long id,@Valid @RequestBody NoteInput input) { return tasks.saveNote(id,input.content()); }</span>
+    @GetMapping
+<span class="fc" id="L29">    public List&lt;TaskResponse&gt; list(@org.springframework.web.bind.annotation.RequestParam(required=false) Long userId) { return tasks.list(userId); }</span>
+    @GetMapping(&quot;/pending-approvals&quot;)
+<span class="fc" id="L31">    public List&lt;TaskResponse&gt; pendingApprovals() { return tasks.pendingApprovals(); }</span>
+    @PutMapping(&quot;/{id}/approval&quot;)
+    public TaskResponse review(@PathVariable Long id, @Valid @RequestBody TaskApprovalRequest request) {
+<span class="fc" id="L34">        return tasks.review(id, request);</span>
+    }
+    @PostMapping(&quot;/{id}/withdraw&quot;)
+<span class="fc" id="L37">    public TaskResponse withdraw(@PathVariable Long id) {return tasks.withdraw(id);}</span>
+    @GetMapping(&quot;/reviews&quot;)
+<span class="fc" id="L39">    public List&lt;TaskResponse&gt; reviews() { return tasks.reviews(); }</span>
+<span class="fc" id="L40">    public record BatchInput(@jakarta.validation.constraints.NotEmpty @jakarta.validation.constraints.Size(max=100) List&lt;@Valid CreateTaskRequest&gt; tasks) {}</span>
+    @PostMapping(&quot;/batch&quot;)
+<span class="fc" id="L42">    public ResponseEntity&lt;List&lt;TaskResponse&gt;&gt; createBatch(@Valid @RequestBody BatchInput input) {return ResponseEntity.status(201).body(tasks.createBatch(input.tasks()));}</span>
+    @PostMapping
+    public ResponseEntity&lt;TaskResponse&gt; create(@Valid @RequestBody CreateTaskRequest request) {
+<span class="fc" id="L45">        return ResponseEntity.status(201).body(tasks.create(request));</span>
+    }
+<span class="fc" id="L47">    public record KeywordInput(@jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max=24) String text) {}</span>
+    @PostMapping(&quot;/{id}/keywords&quot;)
+<span class="fc" id="L49">    public java.util.Map&lt;String,String&gt; addKeyword(@PathVariable Long id,@Valid @RequestBody KeywordInput input){return java.util.Map.of(&quot;message&quot;,tasks.addKeyword(id,input.text()));}</span>
+    @PutMapping(&quot;/{id}/keywords/{keywordId}&quot;)
+<span class="fc" id="L51">    public java.util.Map&lt;String,String&gt; editKeyword(@PathVariable Long id,@PathVariable Long keywordId,@Valid @RequestBody KeywordInput input){return java.util.Map.of(&quot;message&quot;,tasks.changeKeyword(id,keywordId,input.text(),false));}</span>
+    @org.springframework.web.bind.annotation.DeleteMapping(&quot;/{id}/keywords/{keywordId}&quot;)
+<span class="fc" id="L53">    public java.util.Map&lt;String,String&gt; deleteKeyword(@PathVariable Long id,@PathVariable Long keywordId){return java.util.Map.of(&quot;message&quot;,tasks.changeKeyword(id,keywordId,&quot;&quot;,true));}</span>
+    @PutMapping(&quot;/{id}/progress&quot;)
+    public TaskResponse updateProgress(@PathVariable Long id, @Valid @RequestBody ProgressRequest request) {
+<span class="fc" id="L56">        return tasks.updateProgress(id, request);</span>
+    }
+    @PutMapping(&quot;/{id}&quot;)
+    public TaskResponse requestChange(@PathVariable Long id, @Valid @RequestBody CreateTaskRequest request) {
+<span class="fc" id="L60">        return tasks.requestChange(id, request);</span>
+    }
+    @PutMapping(&quot;/{id}/due-date&quot;)
+    public TaskResponse reschedule(@PathVariable Long id, @Valid @RequestBody TaskService.ScheduleChange request) {
+<span class="fc" id="L64">        return tasks.reschedule(id, request);</span>
+    }
+    @PostMapping(&quot;/{id}/approve&quot;)
+    public TaskResponse approve(@PathVariable Long id, @RequestBody(required=false) ReviewRequest request) {
+<span class="fc" id="L68">        return tasks.approve(id, request);</span>
+    }
+    @PostMapping(&quot;/{id}/reject&quot;)
+    public TaskResponse reject(@PathVariable Long id, @Valid @RequestBody ReviewRequest request) {
+<span class="fc" id="L72">        return tasks.reject(id, request);</span>
+    }
+    @DeleteMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;Void&gt; delete(@PathVariable Long id) {
+<span class="fc" id="L76">        tasks.delete(id);</span>
+<span class="fc" id="L77">        return ResponseEntity.noContent().build();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

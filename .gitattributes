@@ -1,0 +1,5 @@
+# Linux entry points must remain executable by bash on Windows checkouts too.
+scripts/*.sh text eol=lf
+# Preserve original evidence bytes and the source snapshots named in SHA-256 metadata.
+"docs/中期验收-2026-11-20/证据/**" -text
+"docs/中期验收-2026-11-20/测试源码/**" -text

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProgressRequest.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pandora-api</a> &gt; <a href="index.source.html" class="el_package">com.projectpandora.api.task</a> &gt; <span class="el_source">ProgressRequest.java</span></div><h1>ProgressRequest.java</h1><pre class="source lang-java linenums">package com.projectpandora.api.task;
+
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import com.projectpandora.api.common.ApiException;
+import jakarta.validation.constraints.Size;
+import java.io.IOException;
+
+public record ProgressRequest(
+        @Min(value = 0, message = &quot;百分比不能小于0&quot;) @Max(value = 100, message = &quot;百分比不能超过100&quot;)
+        @JsonDeserialize(using = ProgressRequest.StrictIntegerDeserializer.class) Integer progress,
+        @NotBlank(message = &quot;进度说明不能为空&quot;) @Size(max = 2000, message = &quot;进度说明不能超过2000字&quot;) String progressNote,
+        @Pattern(regexp = &quot;todo|doing|done&quot;, message = &quot;请选择待开始、进行中或已完成&quot;) String status) {
+<span class="fc" id="L22">    public ProgressRequest {</span>
+<span class="fc bfc" id="L23" title="All 2 branches covered.">        progressNote = progressNote == null ? null : progressNote.trim();</span>
+<span class="fc bfc" id="L24" title="All 2 branches covered.">        status = status == null ? null : status.trim();</span>
+<span class="fc" id="L25">    }</span>
+
+    public String resolvedStatus() {
+        // Transitional compatibility for already-installed percentage-only APKs.
+<span class="fc" id="L29">        String state = status;</span>
+<span class="fc bfc" id="L30" title="All 2 branches covered.">        if (state == null) {</span>
+<span class="fc bfc" id="L31" title="All 2 branches covered.">            if (progress == null) throw new ApiException(400, &quot;请选择工作状态&quot;);</span>
+<span class="fc bfc" id="L32" title="All 4 branches covered.">            state = progress == 0 ? &quot;todo&quot; : progress == 100 ? &quot;done&quot; : &quot;doing&quot;;</span>
+        }
+<span class="fc bfc" id="L34" title="All 6 branches covered.">        if (progress != null &amp;&amp; ((state.equals(&quot;todo&quot;) &amp;&amp; progress != 0)</span>
+<span class="fc bfc" id="L35" title="All 4 branches covered.">                || (state.equals(&quot;done&quot;) &amp;&amp; progress != 100)</span>
+<span class="fc bfc" id="L36" title="All 4 branches covered.">                || (state.equals(&quot;doing&quot;) &amp;&amp; progress == 100)))</span>
+<span class="fc" id="L37">            throw new ApiException(400, &quot;百分比与工作状态不一致，可以清空百分比后提交&quot;);</span>
+<span class="fc" id="L38">        return state;</span>
+    }
+
+<span class="fc" id="L41">    public static class StrictIntegerDeserializer extends JsonDeserializer&lt;Integer&gt; {</span>
+        @Override
+        public Integer deserialize(JsonParser parser, DeserializationContext context) throws IOException {
+<span class="fc bfc" id="L44" title="All 2 branches covered.">            if (!parser.hasToken(JsonToken.VALUE_NUMBER_INT))</span>
+<span class="fc" id="L45">                throw JsonMappingException.from(parser, &quot;进度必须为0到100之间的整数&quot;);</span>
+<span class="fc" id="L46">            return parser.getIntValue();</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

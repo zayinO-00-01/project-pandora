@@ -1,0 +1,563 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TaskService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pandora-api</a> &gt; <a href="index.source.html" class="el_package">com.projectpandora.api.task</a> &gt; <span class="el_source">TaskService.java</span></div><h1>TaskService.java</h1><pre class="source lang-java linenums">package com.projectpandora.api.task;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.projectpandora.api.common.ApiException;
+import com.projectpandora.api.notification.NotificationService;
+import com.projectpandora.api.security.AccessService;
+import com.projectpandora.api.security.UserPrincipal;
+import com.projectpandora.api.user.*;
+import java.time.Instant;
+import java.util.*;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@Transactional(readOnly=true)
+public class TaskService {
+<span class="fc" id="L19">    private static final List&lt;String&gt; PENDING = List.of(&quot;pending_done&quot;,&quot;pending_change&quot;,&quot;pending_delete&quot;);</span>
+    private final TaskRepository tasks;
+    private final com.projectpandora.api.label.ContentLabelStore contentLabels;
+    private final UserRepository users;
+    private final AccessService access;
+    private final OrganizationGuard organization;
+    private final TaskEventRepository events;
+    private final NotificationService notifications;
+    private final ObjectMapper json;
+    private final com.projectpandora.api.label.LabelService labels;
+    private final TaskKeywordRepository keywords;
+    private final TaskReviewRepository keywordReviews;
+    private final TaskNoteRepository notes;
+    public TaskService(TaskRepository tasks,UserRepository users,AccessService access,OrganizationGuard organization,
+            TaskEventRepository events,NotificationService notifications,ObjectMapper json,
+<span class="fc" id="L34">            com.projectpandora.api.label.LabelService labels,TaskKeywordRepository keywords,TaskReviewRepository keywordReviews,TaskNoteRepository notes,com.projectpandora.api.label.ContentLabelStore contentLabels) {</span>
+<span class="fc" id="L35">        this.contentLabels=contentLabels;</span>
+<span class="fc" id="L36">        this.tasks=tasks;this.users=users;this.access=access;this.organization=organization;this.events=events;</span>
+<span class="fc" id="L37">        this.notifications=notifications;this.json=json;this.labels=labels;this.keywords=keywords;this.keywordReviews=keywordReviews;</span>
+<span class="fc" id="L38">        this.notes=notes;</span>
+<span class="fc" id="L39">    }</span>
+    public TaskResponse detail(Long id) {
+<span class="fc" id="L41">        var me=access.assertBusiness();var task=activeTask(id);</span>
+<span class="fc bfc" id="L42" title="All 2 branches covered.">        if(canReadDetail(task,me)) return TaskResponse.from(task);</span>
+<span class="fc" id="L43">        throw new ApiException(403,&quot;无权查看该任务&quot;);</span>
+    }
+    public Optional&lt;TaskResponse&gt; readableDetail(Long id) {
+<span class="fc" id="L46">        var me=access.assertBusiness();</span>
+<span class="pc bpc" id="L47" title="1 of 4 branches missed.">        return tasks.findById(id).filter(task-&gt;!task.isDeleted() &amp;&amp; canReadDetail(task,me)).map(TaskResponse::from);</span>
+    }
+    private boolean canReadDetail(TaskEntity task,UserPrincipal me) {
+<span class="fc bfc" id="L50" title="All 6 branches covered.">        return normallyVisible(task,me) || (&quot;pending&quot;.equals(task.getApprovalStatus()) &amp;&amp; canReview(me.getId(),me.getRole(),task))</span>
+<span class="pc bpc" id="L51" title="1 of 4 branches missed.">                || (PENDING.contains(task.getReviewStatus()) &amp;&amp; me.getId().equals(reviewerFor(task)))</span>
+<span class="fc" id="L52">                || keywordReviews.findByTaskIdAndStatus(task.getId(),&quot;pending&quot;).stream()</span>
+<span class="fc bfc" id="L53" title="All 2 branches covered.">                .anyMatch(review-&gt;me.getId().equals(currentReviewerId(review)));</span>
+    }
+    private boolean normallyVisible(TaskEntity task,UserPrincipal me) {
+<span class="fc bfc" id="L56" title="All 4 branches covered.">        boolean participant=me.getId().equals(task.getCreator().getId()) || me.getId().equals(task.getAssignee().getId());</span>
+<span class="fc bfc" id="L57" title="All 4 branches covered.">        if(participant &amp;&amp; initialVisible(task,me.getId(),me.getRole())) return true;</span>
+        // Member-task views also include an approved request to view one's current direct manager.
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if(!initialVisible(task,me.getId(),me.getRole())) return false;</span>
+<span class="fc" id="L60">        try {access.assertCanViewUserLogs(task.getAssignee().getId());return true;}</span>
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">        catch(ApiException e) {if(e.getStatus()==403) return false;throw e;}</span>
+    }
+    private void assertNoteAccess(Long id) {
+<span class="fc" id="L64">        var me=access.assertBusiness();var task=activeTask(id);</span>
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        if(!&quot;approved&quot;.equals(task.getApprovalStatus())) throw new ApiException(409,&quot;任务审批通过后才能使用备注&quot;);</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">        if(!normallyVisible(task,me)) throw new ApiException(403,&quot;无权查看该任务备注&quot;);</span>
+<span class="fc" id="L67">    }</span>
+    public TaskNoteResponse note(Long id) {
+<span class="fc" id="L69">        var me=access.assertBusiness();assertNoteAccess(id);</span>
+<span class="fc" id="L70">        return notes.findByTaskIdAndUserId(id,me.getId()).map(TaskNote::response).orElseGet(()-&gt;new TaskNoteResponse(id,&quot;&quot;,null));</span>
+    }
+    @Transactional
+    public TaskNoteResponse saveNote(Long id,String content) {
+        // Serialize first creation and permission checks with organization changes and task deletion.
+<span class="fc" id="L75">        organization.lock();var me=access.assertBusiness();assertNoteAccess(id);</span>
+<span class="pc bpc" id="L76" title="2 of 4 branches missed.">        if(content==null || content.length()&gt;2000) throw new ApiException(400,&quot;备注不能为空值且最多2000字&quot;);</span>
+<span class="fc" id="L77">        var note=notes.findByTaskIdAndUserId(id,me.getId()).orElseGet(()-&gt;new TaskNote(id,me.getId()));</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        note.update(content.isBlank()?&quot;&quot;:content);</span>
+<span class="fc" id="L79">        return notes.saveAndFlush(note).response();</span>
+    }
+    @Transactional
+    public List&lt;TaskResponse&gt; createBatch(List&lt;CreateTaskRequest&gt; requests) {
+<span class="pc bpc" id="L83" title="2 of 4 branches missed.">        if(requests.isEmpty() || requests.size()&gt;100)throw new ApiException(400,&quot;请选择1至100位责任人&quot;);</span>
+<span class="fc bfc" id="L84" title="All 2 branches covered.">        if(requests.stream().map(CreateTaskRequest::assigneeId).distinct().count()!=requests.size())throw new ApiException(400,&quot;责任人不能重复&quot;);</span>
+<span class="fc" id="L85">        return requests.stream().map(this::create).toList();</span>
+    }
+    public List&lt;TaskResponse&gt; list(Long userId) {
+<span class="fc" id="L88">        var me=access.assertBusiness();</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        if(userId!=null) {</span>
+<span class="fc" id="L90">            access.assertCanViewUserLogs(userId);</span>
+<span class="fc" id="L91">            return tasks.findByAssigneeIdOrderByCreatedAtDescIdDesc(userId,Pageable.unpaged()).stream()</span>
+<span class="pc bpc" id="L92" title="2 of 4 branches missed.">                .filter(t-&gt;!t.isDeleted() &amp;&amp; initialVisible(t,me.getId(),me.getRole())).map(TaskResponse::from).toList();</span>
+        }
+<span class="fc" id="L94">        return authorizedTasks();</span>
+    }
+    public List&lt;TaskResponse&gt; newest(int count) {
+<span class="fc" id="L97">        return authorizedTasks().stream().filter(t-&gt;&quot;approved&quot;.equals(t.approvalStatus())).limit(count).toList();</span>
+    }
+    private boolean initialVisible(TaskEntity task,Long viewerId,Role role) {
+<span class="fc bfc" id="L100" title="All 6 branches covered.">        return &quot;approved&quot;.equals(task.getApprovalStatus()) || task.getCreator().getId().equals(viewerId) || canReview(viewerId,role,task);</span>
+    }
+    private List&lt;TaskResponse&gt; authorizedTasks() {
+<span class="fc" id="L103">        var me=access.assertBusiness();</span>
+<span class="fc" id="L104">        return tasks.findOwnedOrCreated(me.getId(),Pageable.unpaged()).stream()</span>
+<span class="fc" id="L105">            .filter(t-&gt;initialVisible(t,me.getId(),me.getRole()))</span>
+<span class="fc" id="L106">            .map(TaskResponse::from).toList();</span>
+    }
+    public List&lt;TaskResponse&gt; pendingApprovals() {
+<span class="fc" id="L109">        var me=access.assertBusiness();</span>
+<span class="fc bfc" id="L110" title="All 2 branches covered.">        if(!AccessService.isLeader(me.getRole()))throw new ApiException(403,&quot;仅管理人员可查看审批列表&quot;);</span>
+<span class="fc" id="L111">        return tasks.findPendingTasksForManager(me.getId()).stream()</span>
+<span class="fc" id="L112">            .filter(task-&gt;canReview(me.getId(),me.getRole(),task)).map(TaskResponse::from).toList();</span>
+    }
+    /** Tasks whose pending review belongs to the current user. */
+    public List&lt;TaskResponse&gt; reviews() {
+<span class="fc" id="L116">        var me=access.assertBusiness();</span>
+<span class="fc bfc" id="L117" title="All 2 branches covered.">        if(!AccessService.isLeader(me.getRole()))throw new ApiException(403,&quot;仅管理人员可查看审批列表&quot;);</span>
+<span class="fc" id="L118">        return tasks.findByReviewStatusIn(PENDING).stream()</span>
+<span class="pc bpc" id="L119" title="1 of 4 branches missed.">            .filter(t-&gt;{Long r=reviewerFor(t);return r!=null &amp;&amp; r.equals(me.getId());})</span>
+<span class="fc" id="L120">            .map(TaskResponse::from).toList();</span>
+    }
+    @Transactional
+    public TaskResponse create(CreateTaskRequest request) {
+<span class="fc" id="L124">        organization.lock();var me=access.assertBusiness();</span>
+<span class="fc" id="L125">        var assignee=users.findById(request.assigneeId()).orElseThrow(()-&gt;new ApiException(404,&quot;责任人不存在&quot;));</span>
+<span class="fc" id="L126">        boolean self=me.getId().equals(assignee.getId());</span>
+<span class="fc" id="L127">        access.assertCanDispatch(assignee);</span>
+<span class="pc" id="L128">        var creator=users.findById(me.getId()).orElseThrow(()-&gt;new ApiException(401,&quot;账号不可用，请重新登录&quot;));</span>
+<span class="fc bfc" id="L129" title="All 4 branches covered.">        if(me.getRole()!=Role.FOUNDER &amp;&amp; managerFor(creator)==null)</span>
+<span class="fc" id="L130">            throw new ApiException(400,&quot;创建任务需要有效直属上级审批，请联系管理员配置直属上级&quot;);</span>
+<span class="fc" id="L131">        assertTaskTimes(request);</span>
+<span class="fc" id="L132">        var task=new TaskEntity(request,creator,assignee);</span>
+<span class="fc" id="L133">        task.setLabel(labels.resolve(request.labelId(),null));</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">        if(me.getRole()!=Role.FOUNDER) task.requireApproval();</span>
+<span class="fc" id="L135">        tasks.saveAndFlush(task);</span>
+<span class="fc" id="L136">        contentLabels.save(&quot;task&quot;,task.getId(),request.labelIds());</span>
+<span class="fc bfc" id="L137" title="All 2 branches covered.">        logEvent(task.getId(),&quot;created&quot;,me.getId(),self?&quot;自主创建任务&quot;:&quot;创建派发任务&quot;);</span>
+<span class="fc bfc" id="L138" title="All 2 branches covered.">        if(&quot;pending&quot;.equals(task.getApprovalStatus())) notifyUser(creator.getManagerId(),me.getId(),&quot;task_approval_pending&quot;,&quot;任务创建待你审批&quot;,</span>
+<span class="fc" id="L139">            displayName(creator)+&quot; 提交任务「&quot;+task.getTitle()+&quot;」，请审批。&quot;,task.getId());</span>
+<span class="fc" id="L140">        else notifyAssignment(task,me.getId());</span>
+<span class="fc" id="L141">        return TaskResponse.from(task);</span>
+    }
+    private void assertTaskTimes(CreateTaskRequest request) {
+<span class="fc" id="L144">        assertSchedule(request.startAt(),request.dueAt());</span>
+<span class="fc" id="L145">    }</span>
+    private boolean scheduleChanged(TaskEntity task,Instant start,Instant due) {
+<span class="fc bfc" id="L147" title="All 4 branches covered.">        return !Objects.equals(task.getStartAt(),start) || !Objects.equals(task.getDueAt(),due);</span>
+    }
+    private void assertSchedule(Instant start,Instant due) {
+<span class="fc bfc" id="L150" title="All 2 branches covered.">        if(start==null)throw new ApiException(400,&quot;请选择开始时间&quot;);</span>
+<span class="fc bfc" id="L151" title="All 2 branches covered.">        if(due==null)throw new ApiException(400,&quot;请选择截止时间&quot;);</span>
+<span class="fc bfc" id="L152" title="All 2 branches covered.">        if(start.isAfter(due))throw new ApiException(400,&quot;截止时间不能早于开始时间&quot;);</span>
+<span class="fc bfc" id="L153" title="All 2 branches covered.">        if(due.isBefore(Instant.now()))</span>
+<span class="fc" id="L154">            throw new ApiException(400,&quot;截止时间不能早于当前时间&quot;);</span>
+<span class="fc" id="L155">    }</span>
+<span class="fc" id="L156">    public record ScheduleChange(@jakarta.validation.constraints.NotNull Instant dueAt,Instant startAt) {}</span>
+    @Transactional
+    public TaskResponse reschedule(Long id,ScheduleChange change) {
+<span class="fc" id="L159">        organization.lock();var me=access.assertBusiness();var task=activeTask(id);</span>
+<span class="fc" id="L160">        assertCanReschedule(task,me.getId(),me.getRole());</span>
+<span class="fc" id="L161">        noPending(task);</span>
+<span class="pc bpc" id="L162" title="3 of 6 branches missed.">        if(task.getStartAt()!=null &amp;&amp; change.startAt()!=null &amp;&amp; !task.getStartAt().equals(change.startAt()))</span>
+<span class="nc" id="L163">            throw new ApiException(400,&quot;请到任务详情修改已有的开始时间&quot;);</span>
+<span class="fc bfc" id="L164" title="All 2 branches covered.">        Instant start=task.getStartAt()!=null?task.getStartAt():change.startAt();</span>
+<span class="fc" id="L165">        assertSchedule(start,change.dueAt());</span>
+<span class="pc bpc" id="L166" title="1 of 4 branches missed.">        if(Objects.equals(start,task.getStartAt()) &amp;&amp; change.dueAt().equals(task.getDueAt()))return TaskResponse.from(task);</span>
+<span class="fc bfc" id="L167" title="All 2 branches covered.">        if(me.getRole()==Role.FOUNDER){</span>
+<span class="fc" id="L168">            applySchedule(task,new ScheduleChange(change.dueAt(),start));</span>
+<span class="fc" id="L169">            logEvent(id,&quot;reschedule_approved&quot;,me.getId(),&quot;创始人直接修改截止时间&quot;);</span>
+<span class="fc" id="L170">            new HashSet&lt;&gt;(List.of(task.getCreator().getId(),task.getAssignee().getId())).forEach(recipient-&gt;</span>
+<span class="fc" id="L171">                notifyUser(recipient,me.getId(),&quot;task&quot;,&quot;任务已改期&quot;,task.getTitle(),id));</span>
+<span class="fc" id="L172">            return TaskResponse.from(tasks.saveAndFlush(task));</span>
+        }
+<span class="pc" id="L174">        var applicant=users.findById(me.getId()).orElseThrow(()-&gt;new ApiException(401,&quot;账号不可用，请重新登录&quot;));</span>
+<span class="fc" id="L175">        request(task,applicant,&quot;RESCHEDULE&quot;,new ScheduleChange(change.dueAt(),start));</span>
+<span class="fc" id="L176">        return TaskResponse.from(task);</span>
+    }
+    private void assertCanReschedule(TaskEntity task,Long userId,Role role) {
+<span class="pc bpc" id="L179" title="1 of 6 branches missed.">        if(role!=Role.FOUNDER &amp;&amp; !task.getCreator().getId().equals(userId) &amp;&amp; !task.getAssignee().getId().equals(userId))</span>
+<span class="fc" id="L180">            throw new ApiException(403,&quot;仅创建人、责任人和创始人可申请改期&quot;);</span>
+<span class="pc bpc" id="L181" title="1 of 2 branches missed.">        if(!&quot;approved&quot;.equals(task.getApprovalStatus()))throw new ApiException(409,&quot;任务审批通过后才能改期&quot;);</span>
+<span class="fc" id="L182">    }</span>
+    private void applySchedule(TaskEntity task,ScheduleChange input) {
+<span class="fc" id="L184">        task.applyDefinition(task.getTitle(),task.getDetail(),task.getPriority(),input.dueAt(),input.startAt());</span>
+<span class="fc" id="L185">    }</span>
+
+    private void notifyAssignment(TaskEntity task,Long actor) {
+<span class="fc" id="L188">        notifyUser(task.getAssignee().getId(),actor,&quot;task_assigned&quot;,&quot;收到新任务&quot;,&quot;「&quot;+task.getTitle()+&quot;」已分配给你，请查看。&quot;,task.getId());</span>
+<span class="fc" id="L189">    }</span>
+    @Transactional
+    public TaskResponse review(Long id,TaskApprovalRequest request) {
+<span class="fc" id="L192">        organization.lock();var me=access.assertBusiness();var task=activeTask(id);</span>
+<span class="fc bfc" id="L193" title="All 2 branches covered.">        if(!canReview(me.getId(),me.getRole(),task)) throw new ApiException(403,&quot;仅创建人的当前直属上级可以审批任务&quot;);</span>
+<span class="fc bfc" id="L194" title="All 2 branches covered.">        if(!&quot;pending&quot;.equals(task.getApprovalStatus())) throw new ApiException(409,&quot;任务已审批，不能重复操作&quot;);</span>
+<span class="fc bfc" id="L195" title="All 2 branches covered.">        if(&quot;approved&quot;.equals(request.decision()))assertSchedule(task.getStartAt(),task.getDueAt());</span>
+<span class="fc" id="L196">        task.review(request.decision(),request.note(),me.getId());</span>
+<span class="fc" id="L197">        logEvent(id,&quot;approval_&quot;+request.decision(),me.getId(),request.note());</span>
+<span class="fc" id="L198">        notifyUser(task.getCreator().getId(),me.getId(),&quot;task_approval_&quot;+request.decision(),&quot;任务创建审批结果&quot;,</span>
+<span class="fc bfc" id="L199" title="All 2 branches covered.">            &quot;「&quot;+task.getTitle()+&quot;」&quot;+(&quot;approved&quot;.equals(request.decision())?&quot;已通过审批&quot;:&quot;未通过审批&quot;)+&quot;。&quot;,id);</span>
+<span class="fc bfc" id="L200" title="All 2 branches covered.">        if(&quot;approved&quot;.equals(request.decision())) notifyAssignment(task,me.getId());</span>
+<span class="fc" id="L201">        return TaskResponse.from(tasks.saveAndFlush(task));</span>
+    }
+    private boolean canReview(Long reviewerId,Role reviewerRole,TaskEntity task) {
+<span class="fc" id="L204">        return validManager(reviewerId,reviewerRole,task.getCreator());</span>
+    }
+    private UserEntity managerFor(UserEntity applicant) {
+<span class="fc bfc" id="L207" title="All 2 branches covered.">        var manager=applicant.getManagerId()==null?null:users.findById(applicant.getManagerId()).orElse(null);</span>
+<span class="fc bfc" id="L208" title="All 6 branches covered.">        return manager!=null &amp;&amp; access.isActiveBusiness(manager) &amp;&amp; validManager(manager.getId(),manager.getRole(),applicant)?manager:null;</span>
+    }
+    private boolean validManager(Long reviewerId,Role reviewerRole,UserEntity author) {
+<span class="pc bpc" id="L211" title="2 of 6 branches missed.">        return access.isActiveBusiness(author) &amp;&amp; reviewerRole!=Role.ADMIN &amp;&amp; !reviewerId.equals(author.getId())</span>
+<span class="fc bfc" id="L212" title="All 4 branches covered.">            &amp;&amp; reviewerId.equals(author.getManagerId()) &amp;&amp; AccessService.rank(reviewerRole)&gt;AccessService.rank(author.getRole());</span>
+    }
+    @Transactional
+    public TaskResponse updateProgress(Long id,ProgressRequest request) {
+<span class="fc" id="L216">        organization.lock();var me=access.assertBusiness();var task=activeTask(id);</span>
+<span class="fc bfc" id="L217" title="All 2 branches covered.">        if(!task.getAssignee().getId().equals(me.getId())) throw new ApiException(403,&quot;只有责任人可以更新进度&quot;);</span>
+<span class="fc bfc" id="L218" title="All 2 branches covered.">        if(!&quot;approved&quot;.equals(task.getApprovalStatus())) throw new ApiException(409,&quot;任务审批通过后才能更新进度&quot;);</span>
+<span class="fc" id="L219">        noPending(task);</span>
+<span class="fc" id="L220">        String state=request.resolvedStatus();</span>
+<span class="fc bfc" id="L221" title="All 2 branches covered.">        if(me.getRole()==Role.FOUNDER) {</span>
+<span class="fc" id="L222">            applyProgress(task,new ProgressRequest(request.progress(),request.progressNote(),state),me.getId());</span>
+<span class="fc" id="L223">            logEvent(id,&quot;progress_approved&quot;,me.getId(),&quot;创始人本人更新进度&quot;);</span>
+<span class="fc" id="L224">            return TaskResponse.from(tasks.saveAndFlush(task));</span>
+        }
+<span class="fc" id="L226">        request(task,task.getAssignee(),&quot;PROGRESS&quot;,new ProgressRequest(request.progress(),request.progressNote(),state));</span>
+<span class="fc" id="L227">        return TaskResponse.from(task);</span>
+    }
+    private void applyProgress(TaskEntity task,ProgressRequest progress,Long reviewer) {
+<span class="fc" id="L230">        task.updateProgress(progress.resolvedStatus(),progress.progress(),progress.progressNote());</span>
+<span class="fc" id="L231">        task.setReviewStatus(&quot;none&quot;);task.setReviewReason(null);task.setReviewedBy(reviewer);task.setLifecycleReviewedAt(Instant.now());</span>
+<span class="fc" id="L232">    }</span>
+    @Transactional
+    public TaskResponse requestChange(Long id,CreateTaskRequest request) {
+<span class="fc" id="L235">        organization.lock();var me=access.assertBusiness();var task=activeTask(id);</span>
+<span class="fc" id="L236">        boolean creator=task.getCreator().getId().equals(me.getId());</span>
+<span class="pc bpc" id="L237" title="1 of 4 branches missed.">        if(!creator &amp;&amp; me.getRole()!=Role.FOUNDER) throw new ApiException(403,&quot;只有创建人或创始人可以修改任务&quot;);</span>
+<span class="pc bpc" id="L238" title="1 of 4 branches missed.">        if(!creator &amp;&amp; !&quot;approved&quot;.equals(task.getApprovalStatus())) throw new ApiException(403,&quot;未生效任务仅申请人可以编辑&quot;);</span>
+<span class="fc bfc" id="L239" title="All 2 branches covered.">        if(!task.getAssignee().getId().equals(request.assigneeId())) throw new ApiException(400,&quot;变更不能修改责任人&quot;);</span>
+<span class="pc bpc" id="L240" title="1 of 2 branches missed.">        if(&quot;pending&quot;.equals(task.getApprovalStatus())) throw new ApiException(409,&quot;请先撤回创建申请再编辑&quot;);</span>
+<span class="fc bfc" id="L241" title="All 2 branches covered.">        if(scheduleChanged(task,request.startAt(),request.dueAt()) ||</span>
+<span class="fc bfc" id="L242" title="All 2 branches covered.">                !&quot;approved&quot;.equals(task.getApprovalStatus()))assertTaskTimes(request);</span>
+<span class="fc" id="L243">        noPending(task);labels.resolve(request.labelId(),task.getLabel());</span>
+<span class="fc bfc" id="L244" title="All 2 branches covered.">        if(!&quot;approved&quot;.equals(task.getApprovalStatus())) {</span>
+<span class="pc bpc" id="L245" title="2 of 4 branches missed.">            if(me.getRole()!=Role.FOUNDER &amp;&amp; managerFor(task.getCreator())==null) throw new ApiException(400,&quot;创建任务需要有效直属上级审批&quot;);</span>
+<span class="fc" id="L246">            task.applyDefinition(request.title(),request.detail(),request.priority(),request.dueAt(),request.startAt());task.setLabel(labels.resolve(request.labelId(),task.getLabel()));contentLabels.save(&quot;task&quot;,task.getId(),request.labelIds());</span>
+<span class="pc bpc" id="L247" title="1 of 2 branches missed.">            if(me.getRole()==Role.FOUNDER) task.review(&quot;approved&quot;,&quot;创始人重新提交&quot;,me.getId());</span>
+<span class="fc" id="L248">            else {task.requireApproval();notifyUser(task.getCreator().getManagerId(),me.getId(),&quot;task_approval_pending&quot;,&quot;任务创建待你审批&quot;,task.getTitle(),id);}</span>
+<span class="fc" id="L249">            logEvent(id,&quot;approval_resubmitted&quot;,me.getId(),&quot;编辑后重新提交创建申请&quot;);</span>
+<span class="fc bfc" id="L250" title="All 2 branches covered.">        } else if(me.getRole()==Role.FOUNDER) {</span>
+<span class="fc" id="L251">            task.applyDefinition(request.title(),request.detail(),request.priority(),request.dueAt(),request.startAt());task.setLabel(labels.resolve(request.labelId(),task.getLabel()));contentLabels.save(&quot;task&quot;,task.getId(),request.labelIds());</span>
+<span class="fc" id="L252">            task.setReviewStatus(&quot;none&quot;);task.setReviewReason(null);task.setReviewedBy(me.getId());task.setLifecycleReviewedAt(Instant.now());</span>
+<span class="fc" id="L253">            logEvent(id,&quot;approved&quot;,me.getId(),&quot;创始人直接修改任务&quot;);</span>
+        } else {
+<span class="fc" id="L255">            var manager=reviewer(task.getCreator());</span>
+<span class="fc" id="L256">            task.setPendingChange(payloadJson(request));task.setReviewStatus(&quot;pending_change&quot;);task.setReviewReason(null);</span>
+<span class="fc" id="L257">            logEvent(id,&quot;review_requested&quot;,me.getId(),&quot;提交任务变更待直属上级审核&quot;);</span>
+<span class="fc" id="L258">            notifyUser(manager.getId(),me.getId(),&quot;change_pending&quot;,&quot;变更待你审核&quot;,displayName(task.getCreator())+&quot; 申请修改「&quot;+task.getTitle()+&quot;」，请审核。&quot;,id);</span>
+        }
+<span class="fc" id="L260">        return TaskResponse.from(tasks.saveAndFlush(task));</span>
+    }
+    @Transactional
+    public TaskResponse withdraw(Long id) {
+<span class="fc" id="L264">        organization.lock();var me=access.assertBusiness();var task=activeTask(id);</span>
+<span class="fc bfc" id="L265" title="All 2 branches covered.">        if(!task.getCreator().getId().equals(me.getId())) throw new ApiException(403,&quot;仅申请人可以撤回&quot;);</span>
+<span class="fc bfc" id="L266" title="All 2 branches covered.">        if(&quot;pending&quot;.equals(task.getApprovalStatus())) task.withdrawApproval();</span>
+<span class="fc bfc" id="L267" title="All 2 branches covered.">        else if(&quot;pending_change&quot;.equals(task.getReviewStatus())) {task.setPendingChange(null);task.setReviewStatus(&quot;none&quot;);task.setReviewReason(&quot;申请已撤回&quot;);}</span>
+<span class="fc" id="L268">        else throw new ApiException(409,&quot;没有可撤回的创建或内容变更申请&quot;);</span>
+<span class="fc" id="L269">        logEvent(id,&quot;canceled&quot;,me.getId(),&quot;申请人撤回任务申请&quot;);</span>
+<span class="fc" id="L270">        notifyUser(task.getCreator().getManagerId(),me.getId(),&quot;task_withdrawn&quot;,&quot;任务申请已撤回&quot;,task.getTitle(),id);</span>
+<span class="fc" id="L271">        return TaskResponse.from(tasks.saveAndFlush(task));</span>
+    }
+    @Transactional
+    public TaskResponse approve(Long id,ReviewRequest request) {
+<span class="fc" id="L275">        organization.lock();var me=access.assertBusiness();</span>
+<span class="fc" id="L276">        var task=activeTask(id);</span>
+<span class="fc" id="L277">        String rs=task.getReviewStatus();</span>
+<span class="fc bfc" id="L278" title="All 2 branches covered.">        if(!rs.startsWith(&quot;pending_&quot;)) throw new ApiException(400,&quot;当前没有待审事项&quot;);</span>
+<span class="fc" id="L279">        assertReviewer(task,me.getId());</span>
+<span class="fc bfc" id="L280" title="All 2 branches covered.">        String note=request==null?null:request.note();</span>
+<span class="pc bpc" id="L281" title="1 of 4 branches missed.">        switch(rs) {</span>
+<span class="fc" id="L282">            case &quot;pending_done&quot; -&gt; task.setReviewStatus(&quot;approved&quot;);</span>
+<span class="fc" id="L283">            case &quot;pending_change&quot; -&gt; {applyPendingChange(task);task.setReviewStatus(&quot;none&quot;);}</span>
+<span class="fc" id="L284">            case &quot;pending_delete&quot; -&gt; {softDelete(task,me.getId());task.setReviewStatus(&quot;approved&quot;);}</span>
+            default -&gt; {}
+        }
+<span class="fc" id="L287">        task.setReviewReason(note);task.setReviewedBy(me.getId());task.setLifecycleReviewedAt(Instant.now());</span>
+<span class="pc bpc" id="L288" title="1 of 4 branches missed.">        logEvent(id,&quot;approved&quot;,me.getId(),note==null||note.isBlank()?&quot;审核通过&quot;:note);</span>
+<span class="pc bpc" id="L289" title="1 of 4 branches missed.">        switch(rs) {</span>
+<span class="fc" id="L290">            case &quot;pending_done&quot; -&gt; notifyUser(task.getAssignee().getId(),me.getId(),&quot;done_approved&quot;,&quot;验收通过&quot;,</span>
+<span class="fc" id="L291">                &quot;你的任务「&quot;+task.getTitle()+&quot;」已通过验收。&quot;,task.getId());</span>
+<span class="fc" id="L292">            case &quot;pending_change&quot; -&gt; notifyUser(task.getCreator().getId(),me.getId(),&quot;change_approved&quot;,&quot;变更已通过&quot;,</span>
+<span class="fc" id="L293">                &quot;「&quot;+task.getTitle()+&quot;」的修改已通过。&quot;,task.getId());</span>
+<span class="fc" id="L294">            case &quot;pending_delete&quot; -&gt; notifyUser(task.getCreator().getId(),me.getId(),&quot;delete_approved&quot;,&quot;删除已通过&quot;,</span>
+<span class="fc" id="L295">                &quot;「&quot;+task.getTitle()+&quot;」的删除申请已通过。&quot;,task.getId());</span>
+            default -&gt; {}
+        }
+<span class="fc" id="L298">        return TaskResponse.from(tasks.saveAndFlush(task));</span>
+    }
+    @Transactional
+    public TaskResponse reject(Long id,ReviewRequest request) {
+<span class="fc" id="L302">        organization.lock();var me=access.assertBusiness();</span>
+<span class="pc bpc" id="L303" title="3 of 6 branches missed.">        if(request==null||request.note()==null||request.note().isBlank()) throw new ApiException(400,&quot;请填写驳回理由&quot;);</span>
+<span class="fc" id="L304">        var task=activeTask(id);</span>
+<span class="fc" id="L305">        String rs=task.getReviewStatus();</span>
+<span class="fc bfc" id="L306" title="All 2 branches covered.">        if(!rs.startsWith(&quot;pending_&quot;)) throw new ApiException(400,&quot;当前没有待审事项&quot;);</span>
+<span class="fc" id="L307">        assertReviewer(task,me.getId());</span>
+<span class="pc bpc" id="L308" title="2 of 4 branches missed.">        switch(rs) {</span>
+<span class="fc" id="L309">            case &quot;pending_done&quot; -&gt; {task.updateProgress(&quot;doing&quot;,null,request.note());task.setReviewStatus(&quot;rejected&quot;);}</span>
+<span class="fc" id="L310">            case &quot;pending_change&quot; -&gt; {task.setPendingChange(null);task.setReviewStatus(&quot;none&quot;);}</span>
+<span class="nc" id="L311">            case &quot;pending_delete&quot; -&gt; task.setReviewStatus(&quot;none&quot;);</span>
+            default -&gt; {}
+        }
+<span class="fc" id="L314">        task.setReviewReason(request.note());task.setReviewedBy(me.getId());task.setLifecycleReviewedAt(Instant.now());</span>
+<span class="fc" id="L315">        logEvent(id,&quot;rejected&quot;,me.getId(),request.note());</span>
+<span class="pc bpc" id="L316" title="2 of 4 branches missed.">        switch(rs) {</span>
+<span class="fc" id="L317">            case &quot;pending_done&quot; -&gt; notifyUser(task.getAssignee().getId(),me.getId(),&quot;done_rejected&quot;,&quot;验收被驳回&quot;,</span>
+<span class="fc" id="L318">                &quot;你的任务「&quot;+task.getTitle()+&quot;」被驳回：&quot;+request.note(),task.getId());</span>
+<span class="fc" id="L319">            case &quot;pending_change&quot; -&gt; notifyUser(task.getCreator().getId(),me.getId(),&quot;change_rejected&quot;,&quot;变更被驳回&quot;,</span>
+<span class="fc" id="L320">                &quot;「&quot;+task.getTitle()+&quot;」的修改被驳回：&quot;+request.note(),task.getId());</span>
+<span class="nc" id="L321">            case &quot;pending_delete&quot; -&gt; notifyUser(task.getCreator().getId(),me.getId(),&quot;delete_rejected&quot;,&quot;删除被驳回&quot;,</span>
+<span class="nc" id="L322">                &quot;「&quot;+task.getTitle()+&quot;」的删除申请被驳回：&quot;+request.note(),task.getId());</span>
+            default -&gt; {}
+        }
+<span class="fc" id="L325">        return TaskResponse.from(tasks.saveAndFlush(task));</span>
+    }
+    @Transactional
+    public void delete(Long id) {
+<span class="fc" id="L329">        organization.lock();var me=access.assertBusiness();</span>
+<span class="fc" id="L330">        var task=activeTask(id);</span>
+<span class="fc bfc" id="L331" title="All 2 branches covered.">        if(me.getRole()==Role.FOUNDER) {</span>
+<span class="fc" id="L332">            softDelete(task,me.getId());task.setReviewStatus(&quot;approved&quot;);</span>
+<span class="fc" id="L333">            logEvent(id,&quot;deleted&quot;,me.getId(),&quot;创始人删除任务&quot;);</span>
+<span class="fc bfc" id="L334" title="All 2 branches covered.">            if(&quot;approved&quot;.equals(task.getApprovalStatus())) notifyUser(task.getAssignee().getId(),me.getId(),&quot;task_deleted&quot;,&quot;任务已删除&quot;,</span>
+<span class="fc" id="L335">                &quot;任务「&quot;+task.getTitle()+&quot;」已被创始人删除。&quot;,task.getId());</span>
+<span class="fc" id="L336">            tasks.saveAndFlush(task);return;</span>
+        }
+<span class="fc bfc" id="L338" title="All 2 branches covered.">        if(!task.getCreator().getId().equals(me.getId())) throw new ApiException(403,&quot;只有派发人或创始人可以删除任务&quot;);</span>
+<span class="fc" id="L339">        noPending(task);</span>
+<span class="pc bpc" id="L340" title="1 of 4 branches missed.">        boolean untouched=&quot;none&quot;.equals(task.getReviewStatus()) &amp;&amp; &quot;todo&quot;.equals(task.getStatus())</span>
+<span class="pc bpc" id="L341" title="3 of 4 branches missed.">            &amp;&amp; (task.getProgress()==null || task.getProgress()==0)</span>
+<span class="pc bpc" id="L342" title="2 of 4 branches missed.">            &amp;&amp; (task.getProgressNote()==null || task.getProgressNote().isBlank());</span>
+<span class="fc bfc" id="L343" title="All 2 branches covered.">        if(untouched) {</span>
+<span class="fc" id="L344">            softDelete(task,me.getId());</span>
+<span class="fc" id="L345">            logEvent(id,&quot;deleted&quot;,me.getId(),&quot;删除未开始的任务&quot;);</span>
+<span class="fc bfc" id="L346" title="All 2 branches covered.">            if(&quot;approved&quot;.equals(task.getApprovalStatus())) notifyUser(task.getAssignee().getId(),me.getId(),&quot;task_deleted&quot;,&quot;任务已删除&quot;,</span>
+<span class="fc" id="L347">                &quot;任务「&quot;+task.getTitle()+&quot;」已被派发人删除。&quot;,task.getId());</span>
+<span class="fc" id="L348">            tasks.saveAndFlush(task);return;</span>
+        }
+<span class="fc" id="L350">        Long reviewer=superiorOf(task.getCreator());</span>
+<span class="pc bpc" id="L351" title="1 of 2 branches missed.">        if(reviewer==null) {</span>
+<span class="nc" id="L352">            softDelete(task,me.getId());task.setReviewStatus(&quot;approved&quot;);</span>
+<span class="nc" id="L353">            logEvent(id,&quot;deleted&quot;,me.getId(),&quot;无上级可审，自动删除&quot;);</span>
+<span class="nc bnc" id="L354" title="All 2 branches missed.">            if(&quot;approved&quot;.equals(task.getApprovalStatus())) notifyUser(task.getAssignee().getId(),me.getId(),&quot;task_deleted&quot;,&quot;任务已删除&quot;,</span>
+<span class="nc" id="L355">                &quot;任务「&quot;+task.getTitle()+&quot;」已被删除。&quot;,task.getId());</span>
+<span class="nc" id="L356">            tasks.saveAndFlush(task);return;</span>
+        }
+<span class="fc" id="L358">        task.setReviewStatus(&quot;pending_delete&quot;);task.setReviewReason(null);</span>
+<span class="fc" id="L359">        logEvent(id,&quot;review_requested&quot;,me.getId(),&quot;提交删除待上级审核&quot;);</span>
+<span class="fc" id="L360">        notifyUser(reviewer,me.getId(),&quot;delete_pending&quot;,&quot;删除待你审核&quot;,</span>
+<span class="fc" id="L361">            displayName(task.getCreator())+&quot; 申请删除「&quot;+task.getTitle()+&quot;」，请审核。&quot;,task.getId());</span>
+<span class="fc" id="L362">        tasks.saveAndFlush(task);</span>
+<span class="fc" id="L363">    }</span>
+    private TaskEntity activeTask(Long id) {
+<span class="fc" id="L365">        var task=tasks.findById(id).orElseThrow(()-&gt;new ApiException(404,&quot;任务不存在&quot;));</span>
+<span class="fc bfc" id="L366" title="All 2 branches covered.">        if(task.isDeleted()) throw new ApiException(404,&quot;任务不存在&quot;);</span>
+<span class="fc" id="L367">        return task;</span>
+    }
+    private Long completionReviewer(TaskEntity task) {
+<span class="pc bpc" id="L370" title="1 of 2 branches missed.">        var manager=managerFor(task.getAssignee());return manager==null?null:manager.getId();</span>
+    }
+    private Long reviewerFor(TaskEntity task) {
+<span class="pc bpc" id="L373" title="1 of 4 branches missed.">        return switch(task.getReviewStatus()) {</span>
+<span class="fc" id="L374">            case &quot;pending_done&quot; -&gt; completionReviewer(task);</span>
+<span class="pc bpc" id="L375" title="1 of 2 branches missed.">            case &quot;pending_change&quot; -&gt; {var manager=managerFor(task.getCreator());yield manager==null?null:manager.getId();}</span>
+<span class="fc" id="L376">            case &quot;pending_delete&quot; -&gt; superiorOf(task.getCreator());</span>
+<span class="nc" id="L377">            default -&gt; null;</span>
+        };
+    }
+    private void assertReviewer(TaskEntity task,Long meId) {
+<span class="pc bpc" id="L381" title="3 of 6 branches missed.">        if(&quot;pending_done&quot;.equals(task.getReviewStatus()) &amp;&amp; task.getAssignee().getId().equals(meId) &amp;&amp; access.currentUser().getRole()==Role.FOUNDER) return;</span>
+<span class="fc" id="L382">        Long reviewer=reviewerFor(task);</span>
+<span class="pc bpc" id="L383" title="1 of 2 branches missed.">        if(reviewer==null) throw new ApiException(403,&quot;当前没有有效审核人，请联系管理员配置直属上级&quot;);</span>
+<span class="pc bpc" id="L384" title="3 of 6 branches missed.">        if(!reviewer.equals(meId) &amp;&amp; !(&quot;pending_delete&quot;.equals(task.getReviewStatus()) &amp;&amp; access.currentUser().getRole()==Role.FOUNDER))</span>
+<span class="fc" id="L385">            throw new ApiException(403,&quot;无权审核该任务&quot;);</span>
+<span class="fc" id="L386">    }</span>
+    private Long superiorOf(UserEntity creator) {
+<span class="fc" id="L388">        Long mid=creator.getManagerId();</span>
+<span class="fc" id="L389">        Set&lt;Long&gt; seen=new HashSet&lt;&gt;();</span>
+<span class="pc bpc" id="L390" title="2 of 4 branches missed.">        while(mid!=null &amp;&amp; seen.add(mid)) {</span>
+<span class="fc" id="L391">            var m=users.findById(mid).orElse(null);</span>
+<span class="pc bpc" id="L392" title="1 of 2 branches missed.">            if(m==null) break;</span>
+<span class="pc bpc" id="L393" title="1 of 2 branches missed.">            if(access.isActiveBusiness(m)) return m.getId();</span>
+<span class="nc" id="L394">            mid=m.getManagerId();</span>
+<span class="nc" id="L395">        }</span>
+<span class="nc" id="L396">        return users.findAll().stream()</span>
+<span class="nc" id="L397">            .filter(access::isActiveBusiness)</span>
+<span class="nc bnc" id="L398" title="All 2 branches missed.">            .filter(u-&gt;u.getRole()==Role.FOUNDER)</span>
+<span class="nc bnc" id="L399" title="All 2 branches missed.">            .filter(u-&gt;!u.getId().equals(creator.getId()))</span>
+<span class="nc" id="L400">            .map(UserEntity::getId).findFirst().orElse(null);</span>
+    }
+    private void applyPendingChange(TaskEntity task) {
+<span class="fc" id="L403">        String pending=task.getPendingChange();</span>
+<span class="pc bpc" id="L404" title="1 of 2 branches missed.">        if(pending==null) return;</span>
+        try {
+<span class="fc" id="L406">            var p=json.readValue(pending,TaskChangePayload.class);</span>
+<span class="fc bfc" id="L407" title="All 2 branches covered.">            if(scheduleChanged(task,p.startAt(),p.dueAt()))assertSchedule(p.startAt(),p.dueAt());</span>
+<span class="fc" id="L408">            task.applyDefinition(p.title(),p.detail(),p.priority(),p.dueAt(),p.startAt());</span>
+<span class="fc" id="L409">            task.setLabel(labels.resolve(p.labelId(),task.getLabel()));contentLabels.save(&quot;task&quot;,task.getId(),p.labelIds());</span>
+<span class="nc" id="L410">        } catch(ApiException e) { throw e; }</span>
+<span class="pc" id="L411">          catch(Exception e) { throw new ApiException(500,&quot;待审变更数据损坏&quot;); }</span>
+<span class="fc" id="L412">        task.setPendingChange(null);</span>
+<span class="fc" id="L413">    }</span>
+    private String payloadJson(CreateTaskRequest r) {
+<span class="fc" id="L415">        try { return json.writeValueAsString(new TaskChangePayload(r.title(),r.detail(),r.priority(),r.dueAt(),r.labelId(),r.startAt(),r.labelIds())); }</span>
+<span class="nc" id="L416">        catch(Exception e) { throw new ApiException(500,&quot;无法保存变更&quot;); }</span>
+    }
+    private void logEvent(Long taskId,String type,Long actorId,String note) {
+<span class="fc" id="L419">        events.save(new TaskEventEntity(taskId,type,actorId,note));</span>
+<span class="fc" id="L420">    }</span>
+    private void notifyUser(Long recipient,Long actor,String type,String title,String body,Long taskId) {
+<span class="pc bpc" id="L422" title="1 of 4 branches missed.">        if(recipient==null || recipient.equals(actor)) return;</span>
+<span class="fc" id="L423">        notifications.notifyUser(recipient,type,title,body,taskId);</span>
+<span class="fc" id="L424">    }</span>
+    private static String displayName(UserEntity u) {
+<span class="pc bpc" id="L426" title="2 of 4 branches missed.">        return u.getDisplayName()==null||u.getDisplayName().isBlank()?u.getUsername():u.getDisplayName();</span>
+    }
+    private UserEntity reviewer(UserEntity applicant){
+<span class="pc bpc" id="L429" title="1 of 2 branches missed.">        if(applicant.getManagerId()==null)throw new ApiException(409,&quot;未配置直属上级，无法提交审核；请联系管理员设置审核上级&quot;);</span>
+<span class="pc" id="L430">        return users.findById(applicant.getManagerId()).filter(access::isActiveBusiness).filter(u-&gt;validManager(u.getId(),u.getRole(),applicant)).orElseThrow(()-&gt;new ApiException(409,&quot;直属上级不可用，请联系管理员&quot;));</span>
+    }
+<span class="pc bpc" id="L432" title="1 of 2 branches missed.">    private TaskEntity task(Long id){return tasks.findById(id).filter(t-&gt;!t.isDeleted()).orElseThrow(()-&gt;new ApiException(404,&quot;任务不存在&quot;));}</span>
+<span class="fc bfc" id="L433" title="All 4 branches covered.">    private void noPending(TaskEntity task){if(PENDING.contains(task.getReviewStatus()) || keywordReviews.existsByTaskIdAndStatus(task.getId(),&quot;pending&quot;))throw new ApiException(409,&quot;任务已有待审核变更，请先完成审核&quot;);}</span>
+    private void request(TaskEntity task,UserEntity applicant,String operation,Object payload){
+<span class="pc bpc" id="L435" title="1 of 2 branches missed.">        if(!Set.of(&quot;KEYWORD_EDIT&quot;,&quot;KEYWORD_DELETE&quot;,&quot;PROGRESS&quot;,&quot;RESCHEDULE&quot;).contains(operation)) throw new ApiException(400,&quot;未知任务审核操作&quot;);</span>
+<span class="fc" id="L436">        noPending(task);var manager=reviewer(applicant);var review=new TaskReview();review.taskId=task.getId();review.applicantId=applicant.getId();review.reviewerId=manager.getId();review.operation=operation;review.baseVersion=task.getVersion();</span>
+<span class="pc" id="L437">        try{review.payload=json.writeValueAsString(payload);}catch(Exception e){throw new ApiException(400,&quot;变更内容无效&quot;);}</span>
+<span class="fc" id="L438">        keywordReviews.saveAndFlush(review);logEvent(task.getId(),&quot;review_requested&quot;,applicant.getId(),operationLabel(operation));notifications.send(manager.getId(),&quot;任务待审核&quot;,applicant.getUsername()+&quot; 提交了&quot;+operationLabel(operation)+&quot;：&quot;+task.getTitle(),&quot;task-review&quot;,task.getId());</span>
+<span class="fc" id="L439">    }</span>
+<span class="pc bpc" id="L440" title="3 of 7 branches missed.">    private String operationLabel(String operation){return switch(operation){case &quot;CREATE&quot;-&gt;&quot;创建任务&quot;;case &quot;EDIT&quot;-&gt;&quot;编辑任务&quot;;case &quot;DELETE&quot;-&gt;&quot;删除任务&quot;;case &quot;KEYWORD_EDIT&quot;-&gt;&quot;修改他人关键词&quot;;case &quot;KEYWORD_DELETE&quot;-&gt;&quot;删除他人关键词&quot;;case &quot;RESCHEDULE&quot;-&gt;&quot;任务改期&quot;;default-&gt;&quot;更新进度&quot;;};}</span>
+    private void participant(TaskEntity task,UserEntity me){
+<span class="fc bfc" id="L442" title="All 2 branches covered.">        if(!&quot;approved&quot;.equals(task.getApprovalStatus()))throw new ApiException(409,&quot;任务需先获批才能协作制定关键词&quot;);</span>
+<span class="fc bfc" id="L443" title="All 6 branches covered.">        if(me.getRole()!=Role.FOUNDER &amp;&amp; !task.getCreator().getId().equals(me.getId()) &amp;&amp; !task.getAssignee().getId().equals(me.getId()))throw new ApiException(403,&quot;仅任务创建人和执行人可协作制定关键词&quot;);</span>
+<span class="fc" id="L444">    }</span>
+    private String keywordText(String input){
+<span class="pc bpc" id="L446" title="1 of 2 branches missed.">        var text=input==null?&quot;&quot;:input.strip();</span>
+<span class="pc bpc" id="L447" title="2 of 6 branches missed.">        if(text.isEmpty() || text.length()&gt;24 || text.codePoints().anyMatch(Character::isISOControl))throw new ApiException(400,&quot;关键词需为1至24个字，不能包含换行或控制字符&quot;);</span>
+<span class="fc" id="L448">        return text;</span>
+    }
+    private void uniqueKeyword(TaskEntity task,String text,Long except){
+<span class="fc bfc" id="L451" title="All 6 branches covered.">        if(task.getKeywords().stream().anyMatch(k-&gt;!k.getId().equals(except) &amp;&amp; k.getText().equalsIgnoreCase(text)))throw new ApiException(409,&quot;此任务已有相同关键词&quot;);</span>
+<span class="fc" id="L452">    }</span>
+    @Transactional public String addKeyword(Long id,String input){
+<span class="fc" id="L454">        organization.lock();var me=users.findById(access.assertBusiness().getId()).orElseThrow();var task=task(id);participant(task,me);noPending(task);</span>
+<span class="fc" id="L455">        var text=keywordText(input);uniqueKeyword(task,text,null);</span>
+<span class="fc bfc" id="L456" title="All 2 branches covered.">        if(task.getKeywords().size()&gt;=12)throw new ApiException(400,&quot;每个任务最多12个关键词&quot;);</span>
+<span class="fc" id="L457">        var keyword=keywords.saveAndFlush(new TaskKeyword(id,me.getId(),text));task.getKeywords().add(keyword);task.keywordsChanged();tasks.saveAndFlush(task);</span>
+<span class="fc" id="L458">        keywordNotice(task,me,&quot;新增关键词：&quot;+text);return &quot;关键词已添加&quot;;</span>
+    }
+<span class="fc" id="L460">    public record KeywordChange(Long keywordId,String keywordBefore,String keywordText,boolean remove) {}</span>
+    @Transactional public String changeKeyword(Long id,Long keywordId,String input,boolean remove){
+<span class="fc" id="L462">        organization.lock();var me=users.findById(access.assertBusiness().getId()).orElseThrow();var task=task(id);participant(task,me);noPending(task);</span>
+<span class="pc" id="L463">        var keyword=task.getKeywords().stream().filter(k-&gt;k.getId().equals(keywordId)).findFirst().orElseThrow(()-&gt;new ApiException(404,&quot;关键词不存在&quot;));</span>
+<span class="fc bfc" id="L464" title="All 4 branches covered.">        var text=remove?&quot;&quot;:keywordText(input);if(!remove)uniqueKeyword(task,text,keywordId);</span>
+<span class="fc" id="L465">        var change=new KeywordChange(keywordId,keyword.getText(),text,remove);</span>
+<span class="fc bfc" id="L466" title="All 4 branches covered.">        if(me.getRole()==Role.FOUNDER || keyword.getCreatedBy().equals(me.getId())){</span>
+<span class="fc bfc" id="L467" title="All 4 branches covered.">            applyKeyword(task,change);tasks.saveAndFlush(task);keywordNotice(task,me,(remove?&quot;删除关键词：&quot;:&quot;修改关键词：&quot;)+keyword.getText());return remove?&quot;关键词已删除&quot;:&quot;关键词已更新&quot;;</span>
+        }
+<span class="fc bfc" id="L469" title="All 2 branches covered.">        request(task,users.findById(me.getId()).orElseThrow(),remove?&quot;KEYWORD_DELETE&quot;:&quot;KEYWORD_EDIT&quot;,change);return &quot;关键词变更已提交直属上级审核，批准前保留原词&quot;;</span>
+    }
+    private void applyKeyword(TaskEntity task,KeywordChange change){
+<span class="pc" id="L472">        var keyword=task.getKeywords().stream().filter(k-&gt;k.getId().equals(change.keywordId())).findFirst().orElseThrow(()-&gt;new ApiException(409,&quot;关键词已变化，请重新提交&quot;));</span>
+<span class="pc bpc" id="L473" title="1 of 2 branches missed.">        if(!keyword.getText().equals(change.keywordBefore()))throw new ApiException(409,&quot;关键词已变化，请重新提交&quot;);</span>
+<span class="fc bfc" id="L474" title="All 2 branches covered.">        if(change.remove()){task.getKeywords().remove(keyword);keywords.delete(keyword);keywords.flush();}</span>
+<span class="fc" id="L475">        else {var text=keywordText(change.keywordText());uniqueKeyword(task,text,keyword.getId());keyword.setText(text);keywords.saveAndFlush(keyword);}</span>
+<span class="fc" id="L476">        task.keywordsChanged();</span>
+<span class="fc" id="L477">    }</span>
+    private void keywordNotice(TaskEntity task,UserEntity me,String message){
+<span class="fc" id="L479">        var recipients=new HashSet&lt;Long&gt;(List.of(task.getCreator().getId(),task.getAssignee().getId()));recipients.remove(me.getId());</span>
+<span class="fc" id="L480">        recipients.forEach(id-&gt;notifications.send(id,&quot;任务关键词已更新&quot;,task.getTitle()+&quot; · &quot;+message,&quot;task&quot;,task.getId()));</span>
+<span class="fc" id="L481">    }</span>
+<span class="fc" id="L482">    public record ReviewResponse(Long id,Long taskId,String taskTitle,Long applicantId,String applicantName,Long reviewerId,String reviewerName,String operation,String payload,String status,java.time.Instant createdAt,java.time.Instant decidedAt) {}</span>
+    private Long currentReviewerId(TaskReview review) {
+<span class="pc bpc" id="L484" title="1 of 2 branches missed.">        var applicant=users.findById(review.applicantId).orElse(null);var manager=applicant==null?null:managerFor(applicant);</span>
+<span class="fc bfc" id="L485" title="All 2 branches covered.">        return manager==null?null:manager.getId();</span>
+    }
+    private ReviewResponse response(TaskReview review) {
+<span class="fc bfc" id="L488" title="All 2 branches covered.">        Long reviewerId=&quot;pending&quot;.equals(review.status)?currentReviewerId(review):review.reviewerId;</span>
+<span class="fc" id="L489">        return new ReviewResponse(review.id,review.taskId,tasks.findById(review.taskId).map(TaskEntity::getTitle).orElse(&quot;已删除任务&quot;),review.applicantId,</span>
+<span class="fc bfc" id="L490" title="All 2 branches covered.">            users.findById(review.applicantId).map(UserEntity::getUsername).orElse(&quot;&quot;),reviewerId,reviewerId==null?&quot;&quot;:users.findById(reviewerId).map(UserEntity::getUsername).orElse(&quot;&quot;),</span>
+<span class="fc" id="L491">            review.operation,readablePayload(review.payload),review.status,review.createdAt,review.decidedAt);</span>
+    }
+    public List&lt;ReviewResponse&gt; keywordReviews() {
+<span class="fc" id="L494">        var me=access.assertBusiness();</span>
+<span class="fc" id="L495">        return keywordReviews.findAll().stream()</span>
+<span class="pc bpc" id="L496" title="1 of 8 branches missed.">            .filter(r-&gt;r.applicantId.equals(me.getId()) || (&quot;pending&quot;.equals(r.status)?me.getId().equals(currentReviewerId(r)):r.reviewerId.equals(me.getId())))</span>
+<span class="pc" id="L497">            .sorted(Comparator.comparing((TaskReview r)-&gt;r.createdAt).reversed().thenComparing(r-&gt;r.id,Comparator.reverseOrder()))</span>
+<span class="fc" id="L498">            .map(this::response).toList();</span>
+    }
+    private String readablePayload(String payload){
+<span class="fc" id="L501">        try {var data=(com.fasterxml.jackson.databind.node.ObjectNode)json.readTree(payload);</span>
+<span class="pc bpc" id="L502" title="3 of 4 branches missed.">            if(data.hasNonNull(&quot;assigneeId&quot;))users.findById(data.get(&quot;assigneeId&quot;).asLong()).ifPresent(u-&gt;data.put(&quot;assigneeName&quot;,u.getDisplayName()==null?u.getUsername():u.getDisplayName()));</span>
+<span class="pc bpc" id="L503" title="3 of 4 branches missed.">            if(data.hasNonNull(&quot;labelId&quot;)){long id=data.get(&quot;labelId&quot;).asLong();if(id==0)data.put(&quot;labelName&quot;,&quot;不使用标签&quot;);else {var label=labels.resolve(id,null);data.put(&quot;labelName&quot;,label.getName());data.put(&quot;labelColor&quot;,label.getColor());}}</span>
+<span class="fc" id="L504">            return json.writeValueAsString(data);</span>
+<span class="nc" id="L505">        }catch(Exception e){return payload;}</span>
+    }
+    @Transactional public ReviewResponse decide(Long id,String decision){
+<span class="pc" id="L508">        organization.lock();var me=access.assertBusiness();var review=keywordReviews.findById(id).orElseThrow(()-&gt;new ApiException(404,&quot;审核不存在&quot;));</span>
+<span class="fc bfc" id="L509" title="All 2 branches covered.">        if(&quot;canceled&quot;.equals(decision)){</span>
+<span class="fc bfc" id="L510" title="All 2 branches covered.">            if(!review.applicantId.equals(me.getId()))throw new ApiException(403,&quot;仅申请人可撤回&quot;);</span>
+<span class="pc bpc" id="L511" title="1 of 2 branches missed.">            if(!&quot;pending&quot;.equals(review.status))throw new ApiException(409,&quot;审核已处理，请刷新&quot;);</span>
+<span class="fc" id="L512">            var original=task(review.taskId);</span>
+<span class="fc" id="L513">            review.status=&quot;canceled&quot;;review.decidedAt=java.time.Instant.now();keywordReviews.saveAndFlush(review);</span>
+<span class="fc" id="L514">            logEvent(review.taskId,&quot;canceled&quot;,me.getId(),&quot;撤回&quot;+operationLabel(review.operation));</span>
+<span class="fc" id="L515">            Long currentReviewer=currentReviewerId(review);</span>
+<span class="fc bfc" id="L516" title="All 2 branches covered.">            if(currentReviewer!=null) notifications.send(currentReviewer,&quot;任务申请已撤回&quot;,original.getTitle(),&quot;task-review&quot;,original.getId());</span>
+<span class="fc" id="L517">            return keywordReviews().stream().filter(r-&gt;r.id().equals(id)).findFirst().orElseThrow();</span>
+        }
+<span class="pc bpc" id="L519" title="1 of 2 branches missed.">        if(!Set.of(&quot;approved&quot;,&quot;rejected&quot;).contains(decision)) throw new ApiException(400,&quot;无效审核结果&quot;);</span>
+<span class="pc bpc" id="L520" title="1 of 4 branches missed.">        if(!me.getId().equals(currentReviewerId(review)) || review.applicantId.equals(me.getId()))throw new ApiException(403,&quot;仅指定直属上级可审核，不能自审&quot;);</span>
+<span class="pc" id="L521">        var applicant=users.findById(review.applicantId).filter(access::isActiveBusiness).orElseThrow(()-&gt;new ApiException(409,&quot;申请人已停用&quot;));</span>
+<span class="pc bpc" id="L522" title="1 of 2 branches missed.">        if(!validManager(me.getId(),me.getRole(),applicant))throw new ApiException(409,&quot;直属上级已变化，不能继续审核&quot;);</span>
+<span class="fc bfc" id="L523" title="All 2 branches covered.">        if(!&quot;pending&quot;.equals(review.status))throw new ApiException(409,&quot;审核已处理，请刷新&quot;);</span>
+<span class="fc" id="L524">        var task=task(review.taskId);</span>
+
+<span class="fc bfc" id="L526" title="All 2 branches covered.">        if(&quot;approved&quot;.equals(decision)){</span>
+<span class="pc bpc" id="L527" title="1 of 4 branches missed.">            try{switch(review.operation){</span>
+                case &quot;PROGRESS&quot; -&gt; {
+<span class="pc bpc" id="L529" title="2 of 4 branches missed.">                    if(!task.getAssignee().getId().equals(review.applicantId) || !&quot;approved&quot;.equals(task.getApprovalStatus())) throw new ApiException(409,&quot;任务责任或审批状态已变化&quot;);</span>
+<span class="pc bpc" id="L530" title="1 of 2 branches missed.">                    if(task.getVersion()!=review.baseVersion) throw new ApiException(409,&quot;任务已变化，请撤回后重新提交进度&quot;);</span>
+<span class="fc" id="L531">                    applyProgress(task,json.readValue(review.payload,ProgressRequest.class),me.getId());</span>
+<span class="fc" id="L532">                }</span>
+                case &quot;RESCHEDULE&quot; -&gt; {
+<span class="fc" id="L534">                    assertCanReschedule(task,applicant.getId(),applicant.getRole());</span>
+<span class="pc bpc" id="L535" title="1 of 2 branches missed.">                    if(task.getVersion()!=review.baseVersion) throw new ApiException(409,&quot;任务已变化，请撤回后重新提交改期&quot;);</span>
+<span class="fc" id="L536">                    var change=json.readValue(review.payload,ScheduleChange.class);</span>
+<span class="fc" id="L537">                    assertSchedule(change.startAt(),change.dueAt());</span>
+<span class="fc" id="L538">                    applySchedule(task,change);</span>
+<span class="fc" id="L539">                }</span>
+<span class="pc bpc" id="L540" title="1 of 2 branches missed.">                case &quot;KEYWORD_EDIT&quot;, &quot;KEYWORD_DELETE&quot; -&gt; {participant(task,applicant);var input=json.readValue(review.payload,KeywordChange.class);if(input.remove()!=review.operation.equals(&quot;KEYWORD_DELETE&quot;))throw new ApiException(400,&quot;关键词操作不匹配&quot;);applyKeyword(task,input);}</span>
+<span class="nc" id="L541">                default -&gt; throw new ApiException(400,&quot;未知变更类型&quot;);</span>
+<span class="pc" id="L542">            }}catch(ApiException e){throw e;}catch(Exception e){throw new ApiException(400,&quot;审核内容无效&quot;);}</span>
+        }
+<span class="fc" id="L544">        tasks.saveAndFlush(task);review.reviewerId=me.getId();review.status=decision;review.decidedAt=java.time.Instant.now();keywordReviews.saveAndFlush(review);</span>
+<span class="fc" id="L545">        logEvent(task.getId(),review.operation.toLowerCase()+&quot;_&quot;+decision,me.getId(),&quot;审核&quot;+decision);</span>
+<span class="fc bfc" id="L546" title="All 2 branches covered.">        String result=&quot;approved&quot;.equals(decision)?&quot;已批准&quot;:&quot;已拒绝&quot;;</span>
+<span class="fc" id="L547">        notifications.send(review.applicantId,&quot;任务审核&quot;+result,operationLabel(review.operation)+&quot;：&quot;+task.getTitle(),&quot;task-review&quot;,task.getId());</span>
+<span class="fc bfc" id="L548" title="All 2 branches covered.">        if(&quot;approved&quot;.equals(decision)){</span>
+<span class="fc" id="L549">            var recipients=new HashSet&lt;Long&gt;(List.of(task.getAssignee().getId(),task.getCreator().getId()));recipients.remove(review.applicantId);recipients.remove(me.getId());</span>
+<span class="fc" id="L550">            recipients.forEach(recipient-&gt;notifications.send(recipient,&quot;任务已更新&quot;,operationLabel(review.operation)+&quot;：&quot;+task.getTitle(),&quot;task&quot;,task.getId()));</span>
+        }
+<span class="fc" id="L552">        return keywordReviews().stream().filter(r-&gt;r.id().equals(id)).findFirst().orElseThrow();</span>
+    }
+    private void softDelete(TaskEntity task,Long actorId) {
+<span class="fc" id="L555">        task.softDelete(actorId);</span>
+<span class="fc" id="L556">        keywordReviews.findByTaskIdAndStatus(task.getId(),&quot;pending&quot;).forEach(review-&gt;{</span>
+<span class="fc" id="L557">            review.status=&quot;canceled&quot;;review.decidedAt=Instant.now();keywordReviews.save(review);</span>
+<span class="fc" id="L558">            notifications.send(review.applicantId,&quot;任务已删除，申请已取消&quot;,task.getTitle(),&quot;task-review&quot;,task.getId());</span>
+<span class="fc" id="L559">        });</span>
+<span class="fc" id="L560">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LabelController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pandora-api</a> &gt; <a href="index.source.html" class="el_package">com.projectpandora.api.label</a> &gt; <span class="el_source">LabelController.java</span></div><h1>LabelController.java</h1><pre class="source lang-java linenums">package com.projectpandora.api.label;
+import com.projectpandora.api.common.ApiException;
+import com.projectpandora.api.security.AccessService;
+import com.projectpandora.api.user.*;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
+@RestController @RequestMapping(&quot;/api/v1/labels&quot;) @Transactional
+public class LabelController {
+    private final LabelRepository labels;private final AccessService access;private final OrganizationGuard organization;
+<span class="fc" id="L13">    public LabelController(LabelRepository labels,AccessService access,OrganizationGuard organization){this.labels=labels;this.access=access;this.organization=organization;}</span>
+<span class="fc" id="L14">    public record Input(@NotBlank @Size(max=64) String name,@NotNull @Pattern(regexp=&quot;#[0-9a-fA-F]{6}&quot;) String color) {}</span>
+<span class="fc bfc" id="L15" title="All 2 branches covered.">    private void founder(){organization.lock();if(access.assertBusiness().getRole()!=Role.FOUNDER)throw new ApiException(403,&quot;仅创始人可维护标签&quot;);}</span>
+<span class="nc" id="L16">    @GetMapping @Transactional(readOnly=true) public List&lt;LabelResponse&gt; list(){access.assertBusiness();return labels.findAll().stream().filter(WorkLabel::isActive).map(LabelResponse::from).toList();}</span>
+<span class="fc" id="L17">    @PostMapping public LabelResponse create(@Valid @RequestBody Input r){founder();var label=new WorkLabel();label.setName(r.name().trim());label.setColor(r.color().toUpperCase());return LabelResponse.from(labels.saveAndFlush(label));}</span>
+<span class="pc" id="L18">    @PutMapping(&quot;/{id}&quot;) public LabelResponse update(@PathVariable Long id,@Valid @RequestBody Input r){founder();var label=labels.findById(id).orElseThrow(()-&gt;new ApiException(404,&quot;标签不存在&quot;));label.setName(r.name().trim());label.setColor(r.color().toUpperCase());return LabelResponse.from(labels.saveAndFlush(label));}</span>
+<span class="pc" id="L19">    @DeleteMapping(&quot;/{id}&quot;) public java.util.Map&lt;String,String&gt; archive(@PathVariable Long id){founder();var label=labels.findById(id).orElseThrow(()-&gt;new ApiException(404,&quot;标签不存在&quot;));label.setActive(false);labels.saveAndFlush(label);return java.util.Map.of(&quot;message&quot;,&quot;标签已停用，历史记录保留原标签&quot;);}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

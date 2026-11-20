@@ -1,0 +1,962 @@
+[
+  {
+    "id": "A01-N",
+    "operation": "AuthController.login",
+    "variant": 0,
+    "category": "正常",
+    "input": "有效账号及正确密码",
+    "expected": "200，返回非空令牌"
+  },
+  {
+    "id": "A01-B",
+    "operation": "AuthController.login",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "账号从启用变为停用，密码仍正确",
+    "expected": "401，不允许登录"
+  },
+  {
+    "id": "A01-X",
+    "operation": "AuthController.login",
+    "variant": 2,
+    "category": "异常",
+    "input": "有效账号及错误密码",
+    "expected": "401，不允许登录"
+  },
+  {
+    "id": "A02-N",
+    "operation": "TaskService.create",
+    "variant": 0,
+    "category": "正常",
+    "input": "有效责任人，未来开始及截止时间",
+    "expected": "201，任务生效且标题一致"
+  },
+  {
+    "id": "A02-B",
+    "operation": "TaskService.create",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "标题128字，开始时间等于未来截止时间",
+    "expected": "201，保留完整标题"
+  },
+  {
+    "id": "A02-X",
+    "operation": "TaskService.create",
+    "variant": 2,
+    "category": "异常",
+    "input": "开始时间晚于截止时间",
+    "expected": "400，不创建任务"
+  },
+  {
+    "id": "A03-N",
+    "operation": "TaskService.createBatch",
+    "variant": 0,
+    "category": "正常",
+    "input": "两个不同责任人，各一条有效任务",
+    "expected": "201，返回2条任务"
+  },
+  {
+    "id": "A03-B",
+    "operation": "TaskService.createBatch",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "批量下限，仅1个责任人",
+    "expected": "201，返回1条任务"
+  },
+  {
+    "id": "A03-X",
+    "operation": "TaskService.createBatch",
+    "variant": 2,
+    "category": "异常",
+    "input": "同一责任人在批量中重复",
+    "expected": "400，拒绝整批"
+  },
+  {
+    "id": "A04-N",
+    "operation": "TaskService.reschedule",
+    "variant": 0,
+    "category": "正常",
+    "input": "创始人延长有效任务截止时间",
+    "expected": "200，保存新截止时间"
+  },
+  {
+    "id": "A04-B",
+    "operation": "TaskService.reschedule",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "截止时间等于已有未来开始时间",
+    "expected": "200，允许零时长区间"
+  },
+  {
+    "id": "A04-X",
+    "operation": "TaskService.reschedule",
+    "variant": 2,
+    "category": "异常",
+    "input": "新截止时间为过去时刻",
+    "expected": "400，拒绝改期"
+  },
+  {
+    "id": "A05-N",
+    "operation": "TaskService.review",
+    "variant": 0,
+    "category": "正常",
+    "input": "直属上级批准待审批任务",
+    "expected": "200，approvalStatus=approved"
+  },
+  {
+    "id": "A05-B",
+    "operation": "TaskService.review",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "同一创建申请已批准后再次批准",
+    "expected": "409，拒绝重复审批"
+  },
+  {
+    "id": "A05-X",
+    "operation": "TaskService.review",
+    "variant": 2,
+    "category": "异常",
+    "input": "申请人审批自己的创建申请",
+    "expected": "403，拒绝自审"
+  },
+  {
+    "id": "A06-N",
+    "operation": "TaskService.updateProgress",
+    "variant": 0,
+    "category": "正常",
+    "input": "创始人更新本人任务doing及50%",
+    "expected": "200，有效进度=50"
+  },
+  {
+    "id": "A06-B",
+    "operation": "TaskService.updateProgress",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "创始人更新本人任务done及100%",
+    "expected": "200，有效进度=100"
+  },
+  {
+    "id": "A06-X",
+    "operation": "TaskService.updateProgress",
+    "variant": 2,
+    "category": "异常",
+    "input": "进度101%，超过上限",
+    "expected": "400，拒绝更新"
+  },
+  {
+    "id": "A07-N",
+    "operation": "TaskService.requestChange",
+    "variant": 0,
+    "category": "正常",
+    "input": "创始人修改任务标题及说明，时间不变",
+    "expected": "200，保存新标题"
+  },
+  {
+    "id": "A07-B",
+    "operation": "TaskService.requestChange",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "已生效任务截止时间已过，仅改标题说明",
+    "expected": "200，保留既有时间并保存标题"
+  },
+  {
+    "id": "A07-X",
+    "operation": "TaskService.requestChange",
+    "variant": 2,
+    "category": "异常",
+    "input": "修改任务时替换责任人",
+    "expected": "400，拒绝更换责任人"
+  },
+  {
+    "id": "A08-N",
+    "operation": "TaskService.withdraw",
+    "variant": 0,
+    "category": "正常",
+    "input": "申请人撤回待审批创建申请",
+    "expected": "200，创建审批状态转为rejected"
+  },
+  {
+    "id": "A08-B",
+    "operation": "TaskService.withdraw",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "撤回后再次撤回，无待办申请",
+    "expected": "409，不重复转换状态"
+  },
+  {
+    "id": "A08-X",
+    "operation": "TaskService.withdraw",
+    "variant": 2,
+    "category": "异常",
+    "input": "创始人代替申请人撤回",
+    "expected": "403，拒绝越权"
+  },
+  {
+    "id": "A09-N",
+    "operation": "TaskService.approve",
+    "variant": 0,
+    "category": "正常",
+    "input": "直属上级批准待审内容变更",
+    "expected": "200，新标题变更后生效"
+  },
+  {
+    "id": "A09-B",
+    "operation": "TaskService.approve",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "内容变更批准后再次批准",
+    "expected": "400，没有待审事项"
+  },
+  {
+    "id": "A09-X",
+    "operation": "TaskService.approve",
+    "variant": 2,
+    "category": "异常",
+    "input": "申请人批准自己的内容变更",
+    "expected": "403，拒绝自审"
+  },
+  {
+    "id": "A10-N",
+    "operation": "TaskService.reject",
+    "variant": 0,
+    "category": "正常",
+    "input": "直属上级填写理由驳回内容变更",
+    "expected": "200，保留原任务标题"
+  },
+  {
+    "id": "A10-B",
+    "operation": "TaskService.reject",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "内容变更驳回后再次驳回",
+    "expected": "400，没有待审事项"
+  },
+  {
+    "id": "A10-X",
+    "operation": "TaskService.reject",
+    "variant": 2,
+    "category": "异常",
+    "input": "申请人驳回自己的内容变更",
+    "expected": "403，拒绝自审"
+  },
+  {
+    "id": "A11-N",
+    "operation": "TaskService.delete",
+    "variant": 0,
+    "category": "正常",
+    "input": "创始人删除有效任务",
+    "expected": "204，详情随后返回404"
+  },
+  {
+    "id": "A11-B",
+    "operation": "TaskService.delete",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "已删除任务再次删除",
+    "expected": "404，不重复删除"
+  },
+  {
+    "id": "A11-X",
+    "operation": "TaskService.delete",
+    "variant": 2,
+    "category": "异常",
+    "input": "仅为责任人的员工删除创始人任务",
+    "expected": "403，任务仍可读取"
+  },
+  {
+    "id": "A12-N",
+    "operation": "TaskService.addKeyword",
+    "variant": 0,
+    "category": "正常",
+    "input": "参与人新增有效关键词测试词",
+    "expected": "200，详情含新关键词"
+  },
+  {
+    "id": "A12-B",
+    "operation": "TaskService.addKeyword",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "新增24字关键词",
+    "expected": "200，完整保存24字"
+  },
+  {
+    "id": "A12-X",
+    "operation": "TaskService.addKeyword",
+    "variant": 2,
+    "category": "异常",
+    "input": "新增25字关键词",
+    "expected": "400，关键词数量保持0"
+  },
+  {
+    "id": "A13-N",
+    "operation": "TaskService.changeKeyword",
+    "variant": 0,
+    "category": "正常",
+    "input": "关键词作者将原词改为测试词",
+    "expected": "200，详情含新词"
+  },
+  {
+    "id": "A13-B",
+    "operation": "TaskService.changeKeyword",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "将原词改为24字关键词",
+    "expected": "200，完整保存24字"
+  },
+  {
+    "id": "A13-X",
+    "operation": "TaskService.changeKeyword",
+    "variant": 2,
+    "category": "异常",
+    "input": "将原词改为25字关键词",
+    "expected": "400，保留原关键词"
+  },
+  {
+    "id": "A14-N",
+    "operation": "TaskService.decide",
+    "variant": 0,
+    "category": "正常",
+    "input": "当前直属上级批准进度申请",
+    "expected": "200，审核状态approved"
+  },
+  {
+    "id": "A14-B",
+    "operation": "TaskService.decide",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "进度申请批准后再次批准",
+    "expected": "409，拒绝重复审批"
+  },
+  {
+    "id": "A14-X",
+    "operation": "TaskService.decide",
+    "variant": 2,
+    "category": "异常",
+    "input": "申请人批准自己的进度申请",
+    "expected": "403，拒绝自审"
+  },
+  {
+    "id": "A15-N",
+    "operation": "TaskService.saveNote",
+    "variant": 0,
+    "category": "正常",
+    "input": "可见任务参与人保存私密备注",
+    "expected": "200，再读内容一致"
+  },
+  {
+    "id": "A15-B",
+    "operation": "TaskService.saveNote",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "保存2000字备注",
+    "expected": "200，再读完整2000字"
+  },
+  {
+    "id": "A15-X",
+    "operation": "TaskService.saveNote",
+    "variant": 2,
+    "category": "异常",
+    "input": "保存2001字备注",
+    "expected": "400，再读仍为空"
+  },
+  {
+    "id": "A16-N",
+    "operation": "WorkLogController.create",
+    "variant": 0,
+    "category": "正常",
+    "input": "创建今天的日志草稿",
+    "expected": "201，日期为今天"
+  },
+  {
+    "id": "A16-B",
+    "operation": "WorkLogController.create",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "创建前天的日志，日期下限",
+    "expected": "201，日期为前天"
+  },
+  {
+    "id": "A16-X",
+    "operation": "WorkLogController.create",
+    "variant": 2,
+    "category": "异常",
+    "input": "创建三天前日志",
+    "expected": "400，拒绝越界日期"
+  },
+  {
+    "id": "A17-N",
+    "operation": "WorkLogController.update",
+    "variant": 0,
+    "category": "正常",
+    "input": "作者修改24小时内的日志正文",
+    "expected": "200，数据库正文更新"
+  },
+  {
+    "id": "A17-B",
+    "operation": "WorkLogController.update",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "创建已过去24小时1秒后编辑",
+    "expected": "403，数据库正文不变"
+  },
+  {
+    "id": "A17-X",
+    "operation": "WorkLogController.update",
+    "variant": 2,
+    "category": "异常",
+    "input": "其他账号修改该日志",
+    "expected": "403，数据库正文不变"
+  },
+  {
+    "id": "A18-N",
+    "operation": "WorkLogController.submit",
+    "variant": 0,
+    "category": "正常",
+    "input": "作者提交24小时内草稿",
+    "expected": "200，数据库状态submitted"
+  },
+  {
+    "id": "A18-B",
+    "operation": "WorkLogController.submit",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "创建已过去24小时1秒后提交",
+    "expected": "403，数据库保持draft"
+  },
+  {
+    "id": "A18-X",
+    "operation": "WorkLogController.submit",
+    "variant": 2,
+    "category": "异常",
+    "input": "其他账号提交该日志",
+    "expected": "403，数据库保持draft"
+  },
+  {
+    "id": "A19-N",
+    "operation": "PersonalTodoController.create",
+    "variant": 0,
+    "category": "正常",
+    "input": "创建有效标题与日期的私人事项",
+    "expected": "201，返回标题一致"
+  },
+  {
+    "id": "A19-B",
+    "operation": "PersonalTodoController.create",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "事项标题200字",
+    "expected": "201，完整保存200字"
+  },
+  {
+    "id": "A19-X",
+    "operation": "PersonalTodoController.create",
+    "variant": 2,
+    "category": "异常",
+    "input": "事项标题201字",
+    "expected": "400，拒绝超长输入"
+  },
+  {
+    "id": "A20-N",
+    "operation": "PersonalTodoController.update",
+    "variant": 0,
+    "category": "正常",
+    "input": "基于当前快照修改标题",
+    "expected": "200，标题更新"
+  },
+  {
+    "id": "A20-B",
+    "operation": "PersonalTodoController.update",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "旧快照只勾选完成，另一端已改标题",
+    "expected": "200，保留新标题且completed=true"
+  },
+  {
+    "id": "A20-X",
+    "operation": "PersonalTodoController.update",
+    "variant": 2,
+    "category": "异常",
+    "input": "旧快照修改标题，另一端已改同字段",
+    "expected": "409，保留另一端已保存标题"
+  },
+  {
+    "id": "A21-N",
+    "operation": "PersonalTodoController.delete",
+    "variant": 0,
+    "category": "正常",
+    "input": "作者删除自己的事项",
+    "expected": "200，自己的事项列表为空"
+  },
+  {
+    "id": "A21-B",
+    "operation": "PersonalTodoController.delete",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "事项已删除后再次删除",
+    "expected": "404，保持删除状态"
+  },
+  {
+    "id": "A21-X",
+    "operation": "PersonalTodoController.delete",
+    "variant": 2,
+    "category": "异常",
+    "input": "其他账号删除该私人事项",
+    "expected": "404，作者列表仍有该事项"
+  },
+  {
+    "id": "A22-N",
+    "operation": "CompanyNoticeService.create",
+    "variant": 0,
+    "category": "正常",
+    "input": "没有启用事项时创建1条",
+    "expected": "201，启用数量1"
+  },
+  {
+    "id": "A22-B",
+    "operation": "CompanyNoticeService.create",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "已有9条启用事项，再创建第10条",
+    "expected": "201，启用数量10"
+  },
+  {
+    "id": "A22-X",
+    "operation": "CompanyNoticeService.create",
+    "variant": 2,
+    "category": "异常",
+    "input": "已有10条启用事项，再创建第11条",
+    "expected": "400，启用数量保持10"
+  },
+  {
+    "id": "A23-N",
+    "operation": "CompanyNoticeService.update",
+    "variant": 0,
+    "category": "正常",
+    "input": "管理员更新公司事项标题",
+    "expected": "200，数据库新标题一致"
+  },
+  {
+    "id": "A23-B",
+    "operation": "CompanyNoticeService.update",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "公司事项标题128字",
+    "expected": "200，完整保存128字"
+  },
+  {
+    "id": "A23-X",
+    "operation": "CompanyNoticeService.update",
+    "variant": 2,
+    "category": "异常",
+    "input": "公司事项标题129字",
+    "expected": "400，保留原标题"
+  },
+  {
+    "id": "A24-N",
+    "operation": "CompanyNoticeService.saveNote",
+    "variant": 0,
+    "category": "正常",
+    "input": "管理员保存本人的公司事项备注",
+    "expected": "200，再读myNote一致"
+  },
+  {
+    "id": "A24-B",
+    "operation": "CompanyNoticeService.saveNote",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "公司事项私密备注2000字",
+    "expected": "200，再读完整2000字"
+  },
+  {
+    "id": "A24-X",
+    "operation": "CompanyNoticeService.saveNote",
+    "variant": 2,
+    "category": "异常",
+    "input": "公司事项私密备注2001字",
+    "expected": "400，拒绝超长输入"
+  },
+  {
+    "id": "A25-N",
+    "operation": "PersonalPriorityService.save",
+    "variant": 0,
+    "category": "正常",
+    "input": "revision=0，保存1条个人清单事项",
+    "expected": "200，返回1条且revision=1"
+  },
+  {
+    "id": "A25-B",
+    "operation": "PersonalPriorityService.save",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "revision=0，保存10条个人清单事项",
+    "expected": "200，返回10条且revision=1"
+  },
+  {
+    "id": "A25-X",
+    "operation": "PersonalPriorityService.save",
+    "variant": 2,
+    "category": "异常",
+    "input": "revision=0，保存11条个人清单事项",
+    "expected": "400，拒绝超出容量"
+  },
+  {
+    "id": "A26-N",
+    "operation": "LabelController.create",
+    "variant": 0,
+    "category": "正常",
+    "input": "创始人创建有效标签与十六进制颜色",
+    "expected": "200，名称一致且颜色转大写"
+  },
+  {
+    "id": "A26-B",
+    "operation": "LabelController.create",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "标签名称64字",
+    "expected": "200，完整保存64字"
+  },
+  {
+    "id": "A26-X",
+    "operation": "LabelController.create",
+    "variant": 2,
+    "category": "异常",
+    "input": "标签名称65字",
+    "expected": "400，拒绝超长输入"
+  },
+  {
+    "id": "A27-N",
+    "operation": "LabelController.update",
+    "variant": 0,
+    "category": "正常",
+    "input": "创始人修改标签名称和颜色",
+    "expected": "200，名称一致且颜色转大写"
+  },
+  {
+    "id": "A27-B",
+    "operation": "LabelController.update",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "修改后标签名称64字",
+    "expected": "200，完整保存64字"
+  },
+  {
+    "id": "A27-X",
+    "operation": "LabelController.update",
+    "variant": 2,
+    "category": "异常",
+    "input": "修改后标签名称65字",
+    "expected": "400，拒绝超长输入"
+  },
+  {
+    "id": "A28-N",
+    "operation": "LabelController.archive",
+    "variant": 0,
+    "category": "正常",
+    "input": "创始人停用有效标签",
+    "expected": "200，数据库active=false"
+  },
+  {
+    "id": "A28-B",
+    "operation": "LabelController.archive",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "已停用标签再次停用",
+    "expected": "200，仍为停用状态"
+  },
+  {
+    "id": "A28-X",
+    "operation": "LabelController.archive",
+    "variant": 2,
+    "category": "异常",
+    "input": "普通员工停用标签",
+    "expected": "403，数据库active仍为true"
+  },
+  {
+    "id": "A29-N",
+    "operation": "ContentLabelsController.save",
+    "variant": 0,
+    "category": "正常",
+    "input": "任务责任人独立保存1个分类标签",
+    "expected": "200，返回1个标签"
+  },
+  {
+    "id": "A29-B",
+    "operation": "ContentLabelsController.save",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "任务责任人保存12个有效分类标签",
+    "expected": "200，返回12个标签"
+  },
+  {
+    "id": "A29-X",
+    "operation": "ContentLabelsController.save",
+    "variant": 2,
+    "category": "异常",
+    "input": "任务责任人保存13个分类标签",
+    "expected": "400，拒绝超出上限"
+  },
+  {
+    "id": "A30-N",
+    "operation": "UserController.updateOwnProfile",
+    "variant": 0,
+    "category": "正常",
+    "input": "业务成员修改显示名及地址",
+    "expected": "200，返回新显示名"
+  },
+  {
+    "id": "A30-B",
+    "operation": "UserController.updateOwnProfile",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "显示名64字",
+    "expected": "200，完整保存64字"
+  },
+  {
+    "id": "A30-X",
+    "operation": "UserController.updateOwnProfile",
+    "variant": 2,
+    "category": "异常",
+    "input": "显示名65字",
+    "expected": "400，拒绝超长输入"
+  },
+  {
+    "id": "A31-N",
+    "operation": "UserController.changePassword",
+    "variant": 0,
+    "category": "正常",
+    "input": "正确原密码及新密码newpass123",
+    "expected": "200，新密码登录成功，旧密码401"
+  },
+  {
+    "id": "A31-B",
+    "operation": "UserController.changePassword",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "旧版接口新密码恰好6字符",
+    "expected": "200，新密码登录成功，旧密码401"
+  },
+  {
+    "id": "A31-X",
+    "operation": "UserController.changePassword",
+    "variant": 2,
+    "category": "异常",
+    "input": "旧版接口新密码仅5字符",
+    "expected": "400，拒绝过短密码"
+  },
+  {
+    "id": "A32-N",
+    "operation": "UserController.updateAvatar",
+    "variant": 0,
+    "category": "正常",
+    "input": "使用文本头像FOX",
+    "expected": "200，头像返回FOX"
+  },
+  {
+    "id": "A32-B",
+    "operation": "UserController.updateAvatar",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "文本头像恰好8个码点",
+    "expected": "200，完整返回8字"
+  },
+  {
+    "id": "A32-X",
+    "operation": "UserController.updateAvatar",
+    "variant": 2,
+    "category": "异常",
+    "input": "文本头像9个码点",
+    "expected": "400，拒绝超长文本头像"
+  },
+  {
+    "id": "A33-N",
+    "operation": "ProfileController.password",
+    "variant": 0,
+    "category": "正常",
+    "input": "正确原密码及新密码newpass123",
+    "expected": "200，新密码登录成功，旧密码401"
+  },
+  {
+    "id": "A33-B",
+    "operation": "ProfileController.password",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "新版接口新密码恰好8字符",
+    "expected": "200，新密码登录成功，旧密码401"
+  },
+  {
+    "id": "A33-X",
+    "operation": "ProfileController.password",
+    "variant": 2,
+    "category": "异常",
+    "input": "新版接口新密码仅7字符",
+    "expected": "400，拒绝过短密码"
+  },
+  {
+    "id": "A34-N",
+    "operation": "ProfileController.avatar",
+    "variant": 0,
+    "category": "正常",
+    "input": "实际生成有效1乘1 PNG并保存",
+    "expected": "200，返回原图片数据"
+  },
+  {
+    "id": "A34-B",
+    "operation": "ProfileController.avatar",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "头像数据为空字符串，清除边界",
+    "expected": "200，avatarData=null"
+  },
+  {
+    "id": "A34-X",
+    "operation": "ProfileController.avatar",
+    "variant": 2,
+    "category": "异常",
+    "input": "伪造PNG前缀但内容非图片",
+    "expected": "400，拒绝无效图片"
+  },
+  {
+    "id": "A35-N",
+    "operation": "AdminUserController.create",
+    "variant": 0,
+    "category": "正常",
+    "input": "管理员创建有效员工，手机号及上级有效",
+    "expected": "201，返回新用户名"
+  },
+  {
+    "id": "A35-B",
+    "operation": "AdminUserController.create",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "用户名恰好3字符",
+    "expected": "201，允许用户名下限"
+  },
+  {
+    "id": "A35-X",
+    "operation": "AdminUserController.create",
+    "variant": 2,
+    "category": "异常",
+    "input": "用户名仅2字符",
+    "expected": "400，拒绝过短用户名"
+  },
+  {
+    "id": "A36-N",
+    "operation": "AdminUserController.update",
+    "variant": 0,
+    "category": "正常",
+    "input": "管理员修改成员显示名",
+    "expected": "200，返回新显示名"
+  },
+  {
+    "id": "A36-B",
+    "operation": "AdminUserController.update",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "先设置日期，再显式传null清空出生及入职日期",
+    "expected": "200，两日期均为null"
+  },
+  {
+    "id": "A36-X",
+    "operation": "AdminUserController.update",
+    "variant": 2,
+    "category": "异常",
+    "input": "将成员直属上级设为本人",
+    "expected": "400，拒绝非法层级"
+  },
+  {
+    "id": "A37-N",
+    "operation": "ViewRequestController.create",
+    "variant": 0,
+    "category": "正常",
+    "input": "员工申请查看当前直属上级",
+    "expected": "200，申请状态pending"
+  },
+  {
+    "id": "A37-B",
+    "operation": "ViewRequestController.create",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "申请理由恰好500字",
+    "expected": "200，申请状态pending"
+  },
+  {
+    "id": "A37-X",
+    "operation": "ViewRequestController.create",
+    "variant": 2,
+    "category": "异常",
+    "input": "申请理由501字",
+    "expected": "400，拒绝超长理由"
+  },
+  {
+    "id": "A38-N",
+    "operation": "ViewRequestController.decide",
+    "variant": 0,
+    "category": "正常",
+    "input": "被申请直属上级批准查看申请",
+    "expected": "200，申请状态approved"
+  },
+  {
+    "id": "A38-B",
+    "operation": "ViewRequestController.decide",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "申请批准后重复批准",
+    "expected": "409，拒绝重复状态转换"
+  },
+  {
+    "id": "A38-X",
+    "operation": "ViewRequestController.decide",
+    "variant": 2,
+    "category": "异常",
+    "input": "申请人审批自己的查看申请",
+    "expected": "403，拒绝自审"
+  },
+  {
+    "id": "A39-N",
+    "operation": "NotificationService.markRead",
+    "variant": 0,
+    "category": "正常",
+    "input": "收件人标记一条未读通知为已读",
+    "expected": "204，数据库read_at非空"
+  },
+  {
+    "id": "A39-B",
+    "operation": "NotificationService.markRead",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "对已读通知再次标记已读",
+    "expected": "204，保持已读"
+  },
+  {
+    "id": "A39-X",
+    "operation": "NotificationService.markRead",
+    "variant": 2,
+    "category": "异常",
+    "input": "其他账号标记该通知",
+    "expected": "403，数据库read_at仍为空"
+  },
+  {
+    "id": "A40-N",
+    "operation": "NotificationService.markAllRead",
+    "variant": 0,
+    "category": "正常",
+    "input": "本人有2条未读，另一账号有1条未读",
+    "expected": "204，本人未读归零，另一账号仍未读"
+  },
+  {
+    "id": "A40-B",
+    "operation": "NotificationService.markAllRead",
+    "variant": 1,
+    "category": "边界或状态边界",
+    "input": "本人未读数为0时全部已读",
+    "expected": "204，未读仍为0且不影响另一账号"
+  },
+  {
+    "id": "A40-X",
+    "operation": "NotificationService.markAllRead",
+    "variant": 2,
+    "category": "异常",
+    "input": "匿名请求全部已读",
+    "expected": "401，两条本人通知及另一账号通知仍未读"
+  }
+]

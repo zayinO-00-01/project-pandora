@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NotificationService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pandora-api</a> &gt; <a href="index.source.html" class="el_package">com.projectpandora.api.notification</a> &gt; <span class="el_source">NotificationService.java</span></div><h1>NotificationService.java</h1><pre class="source lang-java linenums">package com.projectpandora.api.notification;
+
+import com.projectpandora.api.common.ApiException;
+import java.time.Instant;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class NotificationService {
+    private final NotificationRepository repo;
+<span class="fc" id="L12">    public NotificationService(NotificationRepository repo) { this.repo=repo; }</span>
+
+    @Transactional
+    public void notifyUser(Long userId,String type,String title,String body,Long taskId) {
+<span class="fc" id="L16">        notifyUser(userId,type,title,body,taskId,null);</span>
+<span class="fc" id="L17">    }</span>
+    private void notifyUser(Long userId,String type,String title,String body,Long taskId,Long referenceId) {
+<span class="pc bpc" id="L19" title="1 of 2 branches missed.">        if(userId==null) return;</span>
+<span class="pc bpc" id="L20" title="1 of 2 branches missed.">        String safeTitle=title.length()&gt;200 ? title.substring(0,200) : title;</span>
+<span class="pc bpc" id="L21" title="1 of 2 branches missed.">        String safeBody=body.length()&gt;500 ? body.substring(0,500) : body;</span>
+<span class="fc" id="L22">        repo.save(new NotificationEntity(userId,type,safeTitle,safeBody,taskId,referenceId));</span>
+<span class="fc" id="L23">    }</span>
+
+    @Transactional(readOnly=true)
+    public NotificationList list(Long userId) {
+<span class="fc" id="L27">        var items=repo.findByUserIdOrderByCreatedAtDescIdDesc(userId,PageRequest.of(0,200))</span>
+<span class="fc" id="L28">            .stream().map(NotificationResponse::from).toList();</span>
+<span class="fc" id="L29">        return new NotificationList(items,repo.countUnread(userId));</span>
+    }
+
+    @Transactional
+    public void markRead(Long userId,Long id) {
+<span class="pc" id="L34">        var n=repo.findById(id).orElseThrow(()-&gt;new ApiException(404,&quot;消息不存在&quot;));</span>
+<span class="fc bfc" id="L35" title="All 2 branches covered.">        if(!n.getUserId().equals(userId)) throw new ApiException(403,&quot;无权操作该消息&quot;);</span>
+<span class="fc bfc" id="L36" title="All 2 branches covered.">        if(n.getReadAt()==null) {n.setReadAt(Instant.now());repo.save(n);}</span>
+<span class="fc" id="L37">    }</span>
+
+    @Transactional
+    public void markAllRead(Long userId) {
+<span class="fc" id="L41">        var list=repo.findByUserIdAndReadAtIsNull(userId);</span>
+<span class="fc" id="L42">        var now=Instant.now();</span>
+<span class="fc" id="L43">        list.forEach(n-&gt;n.setReadAt(now));</span>
+<span class="fc" id="L44">        repo.saveAll(list);</span>
+<span class="fc" id="L45">    }</span>
+    /** Bridge new feature notifications onto the existing notification schema. */
+    @Transactional
+    public void send(Long recipient,String title,String message,String type,Long reference) {
+<span class="fc" id="L49">        boolean viewRequest=&quot;view-request&quot;.equals(type);</span>
+<span class="fc bfc" id="L50" title="All 4 branches covered.">        notifyUser(recipient,type,title,message,viewRequest?null:reference,viewRequest?reference:null);</span>
+<span class="fc" id="L51">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

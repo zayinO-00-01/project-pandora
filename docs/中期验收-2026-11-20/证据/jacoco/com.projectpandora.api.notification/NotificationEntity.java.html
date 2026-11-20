@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NotificationEntity.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pandora-api</a> &gt; <a href="index.source.html" class="el_package">com.projectpandora.api.notification</a> &gt; <span class="el_source">NotificationEntity.java</span></div><h1>NotificationEntity.java</h1><pre class="source lang-java linenums">package com.projectpandora.api.notification;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
+import java.time.Instant;
+
+@Entity
+@Table(name = &quot;notifications&quot;)
+public class NotificationEntity {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    @Column(name = &quot;user_id&quot;, nullable = false)
+    private Long userId;
+    @Column(nullable = false, length = 40)
+    private String type;
+    @Column(nullable = false, length = 200)
+    private String title;
+    @Column(nullable = false, length = 500)
+    private String body;
+    @Column(name = &quot;task_id&quot;)
+    private Long taskId;
+    @Column(name = &quot;reference_id&quot;)
+    private Long referenceId;
+    @Column(name = &quot;read_at&quot;)
+    private Instant readAt;
+    @Column(name = &quot;created_at&quot;, nullable = false, updatable = false)
+    private Instant createdAt;
+
+<span class="fc" id="L34">    protected NotificationEntity() {}</span>
+
+    NotificationEntity(Long userId,String type,String title,String body,Long taskId) {
+<span class="nc" id="L37">        this(userId,type,title,body,taskId,null);</span>
+<span class="nc" id="L38">    }</span>
+<span class="fc" id="L39">    NotificationEntity(Long userId,String type,String title,String body,Long taskId,Long referenceId) {</span>
+<span class="fc" id="L40">        this.userId=userId;this.type=type;this.title=title;this.body=body;this.taskId=taskId;this.referenceId=referenceId;</span>
+<span class="fc" id="L41">    }</span>
+
+<span class="fc" id="L43">    @PrePersist void onCreate() {createdAt=Instant.now();}</span>
+
+<span class="fc" id="L45">    public Long getId() {return id;}</span>
+<span class="fc" id="L46">    public Long getUserId() {return userId;}</span>
+<span class="fc" id="L47">    public String getType() {return type;}</span>
+<span class="fc" id="L48">    public String getTitle() {return title;}</span>
+<span class="fc" id="L49">    public String getBody() {return body;}</span>
+<span class="fc" id="L50">    public Long getTaskId() {return taskId;}</span>
+<span class="fc" id="L51">    public Long getReferenceId() {return referenceId;}</span>
+<span class="fc" id="L52">    public Instant getReadAt() {return readAt;}</span>
+<span class="fc" id="L53">    public void setReadAt(Instant readAt) {this.readAt=readAt;}</span>
+<span class="fc" id="L54">    public Instant getCreatedAt() {return createdAt;}</span>
+<span class="fc bfc" id="L55" title="All 2 branches covered.">    public boolean isRead() {return readAt!=null;}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

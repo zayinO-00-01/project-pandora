@@ -1,0 +1,868 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -------------------< com.projectpandora:pandora-api >-------------------
+[INFO] Building pandora-api 0.1.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.3.2:clean (default-clean) @ pandora-api ---
+[INFO] Deleting D:\��ѧ\רҵ��\����������������֤\ʵѵ\project-pandora\backend\target
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ pandora-api ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 27 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ pandora-api ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 85 source files with javac [debug parameters release 17] to target\classes
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ pandora-api ---
+[INFO] Copying 3 resources from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ pandora-api ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 31 source files with javac [debug parameters release 17] to target\test-classes
+[INFO] 
+[INFO] --- surefire:3.2.5:test (default-test) @ pandora-api ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running com.projectpandora.api.BatchTaskTests
+12:09:47.484 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.projectpandora.api.BatchTaskTests]: BatchTaskTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+12:09:47.774 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.BatchTaskTests
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.3.4)
+
+2026-11-20T12:09:48.446+08:00  INFO 12624 --- [pandora-api] [           main] com.projectpandora.api.BatchTaskTests    : Starting BatchTaskTests using Java 21.0.6 with PID 12624 (started by Lenovo in D:\��ѧ\רҵ��\����������������֤\ʵѵ\project-pandora\backend)
+2026-11-20T12:09:48.447+08:00  INFO 12624 --- [pandora-api] [           main] com.projectpandora.api.BatchTaskTests    : The following 1 profile is active: "test"
+2026-11-20T12:09:49.619+08:00  INFO 12624 --- [pandora-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-11-20T12:09:49.760+08:00  INFO 12624 --- [pandora-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 135 ms. Found 12 JPA repository interfaces.
+2026-11-20T12:09:50.537+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-11-20T12:09:50.785+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:pandora_ci user=SA
+2026-11-20T12:09:50.787+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-11-20T12:09:50.853+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:pandora_ci (H2 2.2)
+2026-11-20T12:09:50.856+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:09:50.922+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Schema history table "public"."flyway_schema_history" does not exist yet
+2026-11-20T12:09:50.922+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 25 migrations (execution time 00:00.062s)
+2026-11-20T12:09:50.941+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Creating Schema History table "public"."flyway_schema_history" ...
+2026-11-20T12:09:50.978+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": << Empty Schema >>
+2026-11-20T12:09:50.983+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "1 - init"
+2026-11-20T12:09:51.016+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "2 - seed demo users"
+2026-11-20T12:09:51.025+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "3 - dispatch tasks"
+2026-11-20T12:09:51.032+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "4 - view requests"
+2026-11-20T12:09:51.046+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "5 - roles disabled"
+2026-11-20T12:09:51.055+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "6 - task status optional progress"
+2026-11-20T12:09:51.084+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "7 - user profile"
+2026-11-20T12:09:51.118+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "8 - company notices"
+2026-11-20T12:09:51.122+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "9 - personal priorities"
+2026-11-20T12:09:51.122+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "10 - self task approval"
+2026-11-20T12:09:51.146+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "11 - user avatar"
+2026-11-20T12:09:51.153+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "12 - user avatar image"
+2026-11-20T12:09:51.158+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "13 - task review"
+2026-11-20T12:09:51.192+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "14 - notifications"
+2026-11-20T12:09:51.196+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "15 - log date range"
+2026-11-20T12:09:51.201+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "16 - self profile"
+2026-11-20T12:09:51.208+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "17 - work labels keyword reviews"
+2026-11-20T12:09:51.225+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "18 - task keywords"
+2026-11-20T12:09:51.225+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "19 - task notes and notification reference"
+2026-11-20T12:09:51.238+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "20 - task start at"
+2026-11-20T12:09:51.246+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "21 - content label sets"
+2026-11-20T12:09:51.250+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "22 - personal todos"
+2026-11-20T12:09:51.254+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "23 - personal todo labels"
+2026-11-20T12:09:51.255+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "24 - safe log and todo updates"
+2026-11-20T12:09:51.263+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "26 - company notice publish lock"
+2026-11-20T12:09:51.279+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 25 migrations to schema "public", now at version v26 (execution time 00:00.187s)
+2026-11-20T12:09:51.401+08:00  INFO 12624 --- [pandora-api] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-11-20T12:09:51.462+08:00  INFO 12624 --- [pandora-api] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.3.Final
+2026-11-20T12:09:51.494+08:00  INFO 12624 --- [pandora-api] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-11-20T12:09:51.800+08:00  INFO 12624 --- [pandora-api] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-11-20T12:09:53.182+08:00  INFO 12624 --- [pandora-api] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-11-20T12:09:53.221+08:00  INFO 12624 --- [pandora-api] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-11-20T12:09:53.536+08:00  INFO 12624 --- [pandora-api] [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-11-20T12:09:54.599+08:00  WARN 12624 --- [pandora-api] [           main] .s.s.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: 3c08091f-ef3a-4f08-817a-77ad972d072a
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-11-20T12:09:54.612+08:00  INFO 12624 --- [pandora-api] [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-11-20T12:09:55.233+08:00  INFO 12624 --- [pandora-api] [           main] o.s.b.t.m.w.SpringBootMockServletContext : Initializing Spring TestDispatcherServlet ''
+2026-11-20T12:09:55.233+08:00  INFO 12624 --- [pandora-api] [           main] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-11-20T12:09:55.233+08:00  INFO 12624 --- [pandora-api] [           main] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+2026-11-20T12:09:55.260+08:00  INFO 12624 --- [pandora-api] [           main] com.projectpandora.api.BatchTaskTests    : Started BatchTaskTests in 7.24 seconds (process running for 9.203)
+WARNING: A Java agent has been loaded dynamically (D:\?��?\????\?��??????????��??\??\project-pandora\.tools\m2\net\bytebuddy\byte-buddy-agent\1.14.19\byte-buddy-agent-1.14.)
+WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
+WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
+WARNING: Dynamic loading of agents will be disallowed by default in a future release
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 9.543 s -- in com.projectpandora.api.BatchTaskTests
+[INFO] Running com.projectpandora.api.CompanyNoticeConcurrencyTests
+2026-11-20T12:09:56.633+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.CompanyNoticeConcurrencyTests]: CompanyNoticeConcurrencyTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:09:56.638+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.CompanyNoticeConcurrencyTests
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.3.4)
+
+2026-11-20T12:09:56.660+08:00  INFO 12624 --- [pandora-api] [           main] c.p.api.CompanyNoticeConcurrencyTests    : Starting CompanyNoticeConcurrencyTests using Java 21.0.6 with PID 12624 (started by Lenovo in D:\��ѧ\רҵ��\����������������֤\ʵѵ\project-pandora\backend)
+2026-11-20T12:09:56.660+08:00  INFO 12624 --- [pandora-api] [           main] c.p.api.CompanyNoticeConcurrencyTests    : The following 1 profile is active: "test"
+2026-11-20T12:09:56.866+08:00  INFO 12624 --- [pandora-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-11-20T12:09:56.898+08:00  INFO 12624 --- [pandora-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 29 ms. Found 12 JPA repository interfaces.
+2026-11-20T12:09:56.956+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Starting...
+2026-11-20T12:09:56.956+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-2 - Added connection conn10: url=jdbc:h2:mem:pandora_notice_limit user=SA
+2026-11-20T12:09:56.956+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Start completed.
+2026-11-20T12:09:56.956+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:pandora_notice_limit (H2 2.2)
+2026-11-20T12:09:56.956+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:09:56.971+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Schema history table "public"."flyway_schema_history" does not exist yet
+2026-11-20T12:09:56.971+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 25 migrations (execution time 00:00.008s)
+2026-11-20T12:09:56.971+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Creating Schema History table "public"."flyway_schema_history" ...
+2026-11-20T12:09:56.986+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": << Empty Schema >>
+2026-11-20T12:09:56.987+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "1 - init"
+2026-11-20T12:09:56.993+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "2 - seed demo users"
+2026-11-20T12:09:56.996+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "3 - dispatch tasks"
+2026-11-20T12:09:57.001+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "4 - view requests"
+2026-11-20T12:09:57.005+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "5 - roles disabled"
+2026-11-20T12:09:57.005+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "6 - task status optional progress"
+2026-11-20T12:09:57.017+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "7 - user profile"
+2026-11-20T12:09:57.025+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "8 - company notices"
+2026-11-20T12:09:57.025+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "9 - personal priorities"
+2026-11-20T12:09:57.038+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "10 - self task approval"
+2026-11-20T12:09:57.048+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "11 - user avatar"
+2026-11-20T12:09:57.053+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "12 - user avatar image"
+2026-11-20T12:09:57.057+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "13 - task review"
+2026-11-20T12:09:57.074+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "14 - notifications"
+2026-11-20T12:09:57.077+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "15 - log date range"
+2026-11-20T12:09:57.082+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "16 - self profile"
+2026-11-20T12:09:57.084+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "17 - work labels keyword reviews"
+2026-11-20T12:09:57.097+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "18 - task keywords"
+2026-11-20T12:09:57.101+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "19 - task notes and notification reference"
+2026-11-20T12:09:57.101+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "20 - task start at"
+2026-11-20T12:09:57.101+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "21 - content label sets"
+2026-11-20T12:09:57.101+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "22 - personal todos"
+2026-11-20T12:09:57.116+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "23 - personal todo labels"
+2026-11-20T12:09:57.120+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "24 - safe log and todo updates"
+2026-11-20T12:09:57.124+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "26 - company notice publish lock"
+2026-11-20T12:09:57.126+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 25 migrations to schema "public", now at version v26 (execution time 00:00.072s)
+2026-11-20T12:09:57.138+08:00  INFO 12624 --- [pandora-api] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-11-20T12:09:57.145+08:00  INFO 12624 --- [pandora-api] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-11-20T12:09:57.151+08:00  INFO 12624 --- [pandora-api] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-11-20T12:09:57.326+08:00  INFO 12624 --- [pandora-api] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-11-20T12:09:57.326+08:00  INFO 12624 --- [pandora-api] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-11-20T12:09:57.481+08:00  WARN 12624 --- [pandora-api] [           main] .s.s.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: e821344b-262f-465e-9147-c21da1f2fe51
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-11-20T12:09:57.481+08:00  INFO 12624 --- [pandora-api] [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-11-20T12:09:57.552+08:00  INFO 12624 --- [pandora-api] [           main] o.s.b.t.m.w.SpringBootMockServletContext : Initializing Spring TestDispatcherServlet ''
+2026-11-20T12:09:57.552+08:00  INFO 12624 --- [pandora-api] [           main] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-11-20T12:09:57.552+08:00  INFO 12624 --- [pandora-api] [           main] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+2026-11-20T12:09:57.556+08:00  INFO 12624 --- [pandora-api] [           main] c.p.api.CompanyNoticeConcurrencyTests    : Started CompanyNoticeConcurrencyTests in 0.917 seconds (process running for 11.498)
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.595 s -- in com.projectpandora.api.CompanyNoticeConcurrencyTests
+[INFO] Running com.projectpandora.api.ContentLabelsTests
+2026-11-20T12:09:58.230+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.ContentLabelsTests]: ContentLabelsTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:09:58.232+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.ContentLabelsTests
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.448 s -- in com.projectpandora.api.ContentLabelsTests
+[INFO] Running com.projectpandora.api.IntegratedPolicyTests
+2026-11-20T12:09:59.680+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.IntegratedPolicyTests]: IntegratedPolicyTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:09:59.681+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.IntegratedPolicyTests
+[INFO] Tests run: 14, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.783 s -- in com.projectpandora.api.IntegratedPolicyTests
+[INFO] Running com.projectpandora.api.LogDemoTests
+2026-11-20T12:10:01.462+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.LogDemoTests]: LogDemoTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:01.472+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.LogDemoTests
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.535 s -- in com.projectpandora.api.LogDemoTests
+[INFO] Running com.projectpandora.api.LogRangeTests
+2026-11-20T12:10:01.998+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.LogRangeTests]: LogRangeTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:01.999+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.LogRangeTests
+2026-11-20T12:10:02.009+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:range_migration_1217218971500 (H2 2.2)
+2026-11-20T12:10:02.009+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:02.019+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Schema history table "public"."flyway_schema_history" does not exist yet
+2026-11-20T12:10:02.020+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 24 migrations (execution time 00:00.007s)
+2026-11-20T12:10:02.021+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Creating Schema History table "public"."flyway_schema_history" ...
+2026-11-20T12:10:02.023+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": << Empty Schema >>
+2026-11-20T12:10:02.024+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "1 - init"
+2026-11-20T12:10:02.027+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "2 - seed demo users"
+2026-11-20T12:10:02.029+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "3 - dispatch tasks"
+2026-11-20T12:10:02.033+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "4 - view requests"
+2026-11-20T12:10:02.035+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "5 - roles disabled"
+2026-11-20T12:10:02.040+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "6 - task status optional progress"
+2026-11-20T12:10:02.040+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 6 migrations to schema "public", now at version v6 (execution time 00:00.008s)
+2026-11-20T12:10:02.051+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:range_migration_1217218971500 (H2 2.2)
+2026-11-20T12:10:02.051+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:02.057+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 24 migrations (execution time 00:00.007s)
+2026-11-20T12:10:02.057+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 6
+2026-11-20T12:10:02.057+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "7 - user profile"
+2026-11-20T12:10:02.071+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "8 - company notices"
+2026-11-20T12:10:02.073+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "9 - personal priorities"
+2026-11-20T12:10:02.073+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "10 - self task approval"
+2026-11-20T12:10:02.082+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "11 - user avatar"
+2026-11-20T12:10:02.091+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "13 - task review"
+2026-11-20T12:10:02.100+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "14 - notifications"
+2026-11-20T12:10:02.100+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "15 - log date range"
+2026-11-20T12:10:02.110+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "16 - self profile"
+2026-11-20T12:10:02.116+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "17 - work labels keyword reviews"
+2026-11-20T12:10:02.123+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "18 - task keywords"
+2026-11-20T12:10:02.124+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "19 - task notes and notification reference"
+2026-11-20T12:10:02.124+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "20 - task start at"
+2026-11-20T12:10:02.132+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "21 - content label sets"
+2026-11-20T12:10:02.134+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "22 - personal todos"
+2026-11-20T12:10:02.136+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "23 - personal todo labels"
+2026-11-20T12:10:02.139+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "24 - safe log and todo updates"
+2026-11-20T12:10:02.145+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "26 - company notice publish lock"
+2026-11-20T12:10:02.145+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 18 migrations to schema "public", now at version v26 (execution time 00:00.046s)
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.253 s -- in com.projectpandora.api.LogRangeTests
+[INFO] Running com.projectpandora.api.LogWriteWindowTests
+2026-11-20T12:10:02.253+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.LogWriteWindowTests]: LogWriteWindowTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:02.255+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.LogWriteWindowTests
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.199 s -- in com.projectpandora.api.LogWriteWindowTests
+[INFO] Running com.projectpandora.api.MidtermAcceptanceTests
+2026-11-20T12:10:02.453+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.MidtermAcceptanceTests]: MidtermAcceptanceTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:02.455+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.MidtermAcceptanceTests
+MIDTERM_CASE=A01-N
+MIDTERM_CASE=A01-B
+MIDTERM_CASE=A01-X
+MIDTERM_CASE=A02-N
+MIDTERM_CASE=A02-B
+MIDTERM_CASE=A02-X
+MIDTERM_CASE=A03-N
+MIDTERM_CASE=A03-B
+MIDTERM_CASE=A03-X
+MIDTERM_CASE=A04-N
+MIDTERM_CASE=A04-B
+MIDTERM_CASE=A04-X
+MIDTERM_CASE=A05-N
+MIDTERM_CASE=A05-B
+MIDTERM_CASE=A05-X
+MIDTERM_CASE=A06-N
+MIDTERM_CASE=A06-B
+MIDTERM_CASE=A06-X
+MIDTERM_CASE=A07-N
+MIDTERM_CASE=A07-B
+MIDTERM_CASE=A07-X
+MIDTERM_CASE=A08-N
+MIDTERM_CASE=A08-B
+MIDTERM_CASE=A08-X
+MIDTERM_CASE=A09-N
+MIDTERM_CASE=A09-B
+MIDTERM_CASE=A09-X
+MIDTERM_CASE=A10-N
+MIDTERM_CASE=A10-B
+MIDTERM_CASE=A10-X
+MIDTERM_CASE=A11-N
+MIDTERM_CASE=A11-B
+MIDTERM_CASE=A11-X
+MIDTERM_CASE=A12-N
+MIDTERM_CASE=A12-B
+MIDTERM_CASE=A12-X
+MIDTERM_CASE=A13-N
+MIDTERM_CASE=A13-B
+MIDTERM_CASE=A13-X
+MIDTERM_CASE=A14-N
+MIDTERM_CASE=A14-B
+MIDTERM_CASE=A14-X
+MIDTERM_CASE=A15-N
+MIDTERM_CASE=A15-B
+MIDTERM_CASE=A15-X
+MIDTERM_CASE=A16-N
+MIDTERM_CASE=A16-B
+MIDTERM_CASE=A16-X
+MIDTERM_CASE=A17-N
+MIDTERM_CASE=A17-B
+MIDTERM_CASE=A17-X
+MIDTERM_CASE=A18-N
+MIDTERM_CASE=A18-B
+MIDTERM_CASE=A18-X
+MIDTERM_CASE=A19-N
+MIDTERM_CASE=A19-B
+MIDTERM_CASE=A19-X
+MIDTERM_CASE=A20-N
+MIDTERM_CASE=A20-B
+MIDTERM_CASE=A20-X
+MIDTERM_CASE=A21-N
+MIDTERM_CASE=A21-B
+MIDTERM_CASE=A21-X
+MIDTERM_CASE=A22-N
+MIDTERM_CASE=A22-B
+MIDTERM_CASE=A22-X
+MIDTERM_CASE=A23-N
+MIDTERM_CASE=A23-B
+MIDTERM_CASE=A23-X
+MIDTERM_CASE=A24-N
+MIDTERM_CASE=A24-B
+MIDTERM_CASE=A24-X
+MIDTERM_CASE=A25-N
+MIDTERM_CASE=A25-B
+MIDTERM_CASE=A25-X
+MIDTERM_CASE=A26-N
+MIDTERM_CASE=A26-B
+MIDTERM_CASE=A26-X
+MIDTERM_CASE=A27-N
+MIDTERM_CASE=A27-B
+MIDTERM_CASE=A27-X
+MIDTERM_CASE=A28-N
+MIDTERM_CASE=A28-B
+MIDTERM_CASE=A28-X
+MIDTERM_CASE=A29-N
+MIDTERM_CASE=A29-B
+MIDTERM_CASE=A29-X
+MIDTERM_CASE=A30-N
+MIDTERM_CASE=A30-B
+MIDTERM_CASE=A30-X
+MIDTERM_CASE=A31-N
+MIDTERM_CASE=A31-B
+MIDTERM_CASE=A31-X
+MIDTERM_CASE=A32-N
+MIDTERM_CASE=A32-B
+MIDTERM_CASE=A32-X
+MIDTERM_CASE=A33-N
+MIDTERM_CASE=A33-B
+MIDTERM_CASE=A33-X
+MIDTERM_CASE=A34-N
+MIDTERM_CASE=A34-B
+MIDTERM_CASE=A34-X
+MIDTERM_CASE=A35-N
+MIDTERM_CASE=A35-B
+MIDTERM_CASE=A35-X
+MIDTERM_CASE=A36-N
+MIDTERM_CASE=A36-B
+MIDTERM_CASE=A36-X
+MIDTERM_CASE=A37-N
+MIDTERM_CASE=A37-B
+MIDTERM_CASE=A37-X
+MIDTERM_CASE=A38-N
+MIDTERM_CASE=A38-B
+MIDTERM_CASE=A38-X
+MIDTERM_CASE=A39-N
+MIDTERM_CASE=A39-B
+MIDTERM_CASE=A39-X
+MIDTERM_CASE=A40-N
+MIDTERM_CASE=A40-B
+MIDTERM_CASE=A40-X
+[INFO] Tests run: 120, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.105 s -- in com.projectpandora.api.MidtermAcceptanceTests
+[INFO] Running com.projectpandora.api.NotificationTests
+2026-11-20T12:10:05.561+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.NotificationTests]: NotificationTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:05.561+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.NotificationTests
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.379 s -- in com.projectpandora.api.NotificationTests
+[INFO] Running com.projectpandora.api.OrganizationAccessTests
+2026-11-20T12:10:06.941+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.OrganizationAccessTests]: OrganizationAccessTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:06.941+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.OrganizationAccessTests
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.107 s -- in com.projectpandora.api.OrganizationAccessTests
+[INFO] Running com.projectpandora.api.OwnProfileAndDemoAccountsTests
+2026-11-20T12:10:07.049+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.OwnProfileAndDemoAccountsTests]: OwnProfileAndDemoAccountsTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:07.050+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.OwnProfileAndDemoAccountsTests
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.3.4)
+
+2026-11-20T12:10:07.055+08:00  INFO 12624 --- [pandora-api] [           main] c.p.api.OwnProfileAndDemoAccountsTests   : Starting OwnProfileAndDemoAccountsTests using Java 21.0.6 with PID 12624 (started by Lenovo in D:\��ѧ\רҵ��\����������������֤\ʵѵ\project-pandora\backend)
+2026-11-20T12:10:07.055+08:00  INFO 12624 --- [pandora-api] [           main] c.p.api.OwnProfileAndDemoAccountsTests   : The following 1 profile is active: "test"
+2026-11-20T12:10:07.235+08:00  INFO 12624 --- [pandora-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-11-20T12:10:07.257+08:00  INFO 12624 --- [pandora-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 22 ms. Found 12 JPA repository interfaces.
+2026-11-20T12:10:07.301+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Starting...
+2026-11-20T12:10:07.302+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-3 - Added connection conn26: url=jdbc:h2:mem:pandora_demo_accounts_ci user=SA
+2026-11-20T12:10:07.302+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Start completed.
+2026-11-20T12:10:07.303+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:pandora_demo_accounts_ci (H2 2.2)
+2026-11-20T12:10:07.304+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:07.311+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Schema history table "public"."flyway_schema_history" does not exist yet
+2026-11-20T12:10:07.312+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 25 migrations (execution time 00:00.007s)
+2026-11-20T12:10:07.312+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Creating Schema History table "public"."flyway_schema_history" ...
+2026-11-20T12:10:07.315+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": << Empty Schema >>
+2026-11-20T12:10:07.316+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "1 - init"
+2026-11-20T12:10:07.318+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "2 - seed demo users"
+2026-11-20T12:10:07.321+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "3 - dispatch tasks"
+2026-11-20T12:10:07.322+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "4 - view requests"
+2026-11-20T12:10:07.322+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "5 - roles disabled"
+2026-11-20T12:10:07.322+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "6 - task status optional progress"
+2026-11-20T12:10:07.332+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "7 - user profile"
+2026-11-20T12:10:07.341+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "8 - company notices"
+2026-11-20T12:10:07.347+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "9 - personal priorities"
+2026-11-20T12:10:07.350+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "10 - self task approval"
+2026-11-20T12:10:07.357+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "11 - user avatar"
+2026-11-20T12:10:07.358+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "12 - user avatar image"
+2026-11-20T12:10:07.358+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "13 - task review"
+2026-11-20T12:10:07.370+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "14 - notifications"
+2026-11-20T12:10:07.373+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "15 - log date range"
+2026-11-20T12:10:07.377+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "16 - self profile"
+2026-11-20T12:10:07.383+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "17 - work labels keyword reviews"
+2026-11-20T12:10:07.390+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "18 - task keywords"
+2026-11-20T12:10:07.393+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "19 - task notes and notification reference"
+2026-11-20T12:10:07.396+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "20 - task start at"
+2026-11-20T12:10:07.400+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "21 - content label sets"
+2026-11-20T12:10:07.401+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "22 - personal todos"
+2026-11-20T12:10:07.401+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "23 - personal todo labels"
+2026-11-20T12:10:07.401+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "24 - safe log and todo updates"
+2026-11-20T12:10:07.401+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "26 - company notice publish lock"
+2026-11-20T12:10:07.401+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 25 migrations to schema "public", now at version v26 (execution time 00:00.045s)
+2026-11-20T12:10:07.422+08:00  INFO 12624 --- [pandora-api] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-11-20T12:10:07.423+08:00  INFO 12624 --- [pandora-api] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-11-20T12:10:07.425+08:00  INFO 12624 --- [pandora-api] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-11-20T12:10:07.573+08:00  INFO 12624 --- [pandora-api] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-11-20T12:10:07.573+08:00  INFO 12624 --- [pandora-api] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-11-20T12:10:07.697+08:00  WARN 12624 --- [pandora-api] [           main] .s.s.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: 56c072da-f785-485e-9983-20c2f408530e
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-11-20T12:10:07.697+08:00  INFO 12624 --- [pandora-api] [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-11-20T12:10:07.765+08:00  INFO 12624 --- [pandora-api] [           main] o.s.b.t.m.w.SpringBootMockServletContext : Initializing Spring TestDispatcherServlet ''
+2026-11-20T12:10:07.765+08:00  INFO 12624 --- [pandora-api] [           main] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-11-20T12:10:07.765+08:00  INFO 12624 --- [pandora-api] [           main] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+2026-11-20T12:10:07.765+08:00  INFO 12624 --- [pandora-api] [           main] c.p.api.OwnProfileAndDemoAccountsTests   : Started OwnProfileAndDemoAccountsTests in 0.713 seconds (process running for 21.711)
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.977 s -- in com.projectpandora.api.OwnProfileAndDemoAccountsTests
+[INFO] Running com.projectpandora.api.PandoraApplicationTests
+2026-11-20T12:10:08.025+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.PandoraApplicationTests]: PandoraApplicationTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:08.025+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.PandoraApplicationTests
+[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.718 s -- in com.projectpandora.api.PandoraApplicationTests
+[INFO] Running com.projectpandora.api.PersonalPriorityTests
+2026-11-20T12:10:08.743+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.PersonalPriorityTests]: PersonalPriorityTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:08.745+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.PersonalPriorityTests
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.3.4)
+
+2026-11-20T12:10:08.758+08:00  INFO 12624 --- [pandora-api] [           main] c.p.api.PersonalPriorityTests            : Starting PersonalPriorityTests using Java 21.0.6 with PID 12624 (started by Lenovo in D:\��ѧ\רҵ��\����������������֤\ʵѵ\project-pandora\backend)
+2026-11-20T12:10:08.758+08:00  INFO 12624 --- [pandora-api] [           main] c.p.api.PersonalPriorityTests            : The following 1 profile is active: "test"
+2026-11-20T12:10:08.910+08:00  INFO 12624 --- [pandora-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-11-20T12:10:08.928+08:00  INFO 12624 --- [pandora-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 19 ms. Found 12 JPA repository interfaces.
+2026-11-20T12:10:08.973+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-4 - Starting...
+2026-11-20T12:10:08.976+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-4 - Added connection conn36: url=jdbc:h2:mem:pandora_priorities user=SA
+2026-11-20T12:10:08.977+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-4 - Start completed.
+2026-11-20T12:10:08.977+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:pandora_priorities (H2 2.2)
+2026-11-20T12:10:08.978+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:08.982+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Schema history table "public"."flyway_schema_history" does not exist yet
+2026-11-20T12:10:08.982+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 25 migrations (execution time 00:00.006s)
+2026-11-20T12:10:08.982+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Creating Schema History table "public"."flyway_schema_history" ...
+2026-11-20T12:10:08.988+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": << Empty Schema >>
+2026-11-20T12:10:08.989+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "1 - init"
+2026-11-20T12:10:08.992+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "2 - seed demo users"
+2026-11-20T12:10:08.993+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "3 - dispatch tasks"
+2026-11-20T12:10:08.995+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "4 - view requests"
+2026-11-20T12:10:08.997+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "5 - roles disabled"
+2026-11-20T12:10:09.000+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "6 - task status optional progress"
+2026-11-20T12:10:09.000+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "7 - user profile"
+2026-11-20T12:10:09.000+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "8 - company notices"
+2026-11-20T12:10:09.015+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "9 - personal priorities"
+2026-11-20T12:10:09.017+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "10 - self task approval"
+2026-11-20T12:10:09.023+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "11 - user avatar"
+2026-11-20T12:10:09.026+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "12 - user avatar image"
+2026-11-20T12:10:09.029+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "13 - task review"
+2026-11-20T12:10:09.037+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "14 - notifications"
+2026-11-20T12:10:09.043+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "15 - log date range"
+2026-11-20T12:10:09.046+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "16 - self profile"
+2026-11-20T12:10:09.050+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "17 - work labels keyword reviews"
+2026-11-20T12:10:09.055+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "18 - task keywords"
+2026-11-20T12:10:09.055+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "19 - task notes and notification reference"
+2026-11-20T12:10:09.055+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "20 - task start at"
+2026-11-20T12:10:09.055+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "21 - content label sets"
+2026-11-20T12:10:09.055+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "22 - personal todos"
+2026-11-20T12:10:09.055+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "23 - personal todo labels"
+2026-11-20T12:10:09.055+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "24 - safe log and todo updates"
+2026-11-20T12:10:09.069+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "26 - company notice publish lock"
+2026-11-20T12:10:09.069+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 25 migrations to schema "public", now at version v26 (execution time 00:00.038s)
+2026-11-20T12:10:09.083+08:00  INFO 12624 --- [pandora-api] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-11-20T12:10:09.084+08:00  INFO 12624 --- [pandora-api] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-11-20T12:10:09.085+08:00  INFO 12624 --- [pandora-api] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-11-20T12:10:09.200+08:00  INFO 12624 --- [pandora-api] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-11-20T12:10:09.200+08:00  INFO 12624 --- [pandora-api] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-11-20T12:10:09.321+08:00  WARN 12624 --- [pandora-api] [           main] .s.s.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: 553a3447-448b-43f4-9ea7-8153484ba874
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-11-20T12:10:09.321+08:00  INFO 12624 --- [pandora-api] [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-11-20T12:10:09.389+08:00  INFO 12624 --- [pandora-api] [           main] o.s.b.t.m.w.SpringBootMockServletContext : Initializing Spring TestDispatcherServlet ''
+2026-11-20T12:10:09.389+08:00  INFO 12624 --- [pandora-api] [           main] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-11-20T12:10:09.390+08:00  INFO 12624 --- [pandora-api] [           main] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 1 ms
+2026-11-20T12:10:09.395+08:00  INFO 12624 --- [pandora-api] [           main] c.p.api.PersonalPriorityTests            : Started PersonalPriorityTests in 0.647 seconds (process running for 23.337)
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.555 s -- in com.projectpandora.api.PersonalPriorityTests
+[INFO] Running com.projectpandora.api.PersonalTodoTests
+2026-11-20T12:10:10.299+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.PersonalTodoTests]: PersonalTodoTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:10.301+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.PersonalTodoTests
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.394 s -- in com.projectpandora.api.PersonalTodoTests
+[INFO] Running com.projectpandora.api.ProfileAndNoticeTests
+2026-11-20T12:10:10.695+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.ProfileAndNoticeTests]: ProfileAndNoticeTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:10.695+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.ProfileAndNoticeTests
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.360 s -- in com.projectpandora.api.ProfileAndNoticeTests
+[INFO] Running com.projectpandora.api.ProfileConcurrencyTests
+2026-11-20T12:10:12.057+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.ProfileConcurrencyTests]: ProfileConcurrencyTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:12.059+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.ProfileConcurrencyTests
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.3.4)
+
+2026-11-20T12:10:12.072+08:00  INFO 12624 --- [pandora-api] [           main] c.p.api.ProfileConcurrencyTests          : Starting ProfileConcurrencyTests using Java 21.0.6 with PID 12624 (started by Lenovo in D:\��ѧ\רҵ��\����������������֤\ʵѵ\project-pandora\backend)
+2026-11-20T12:10:12.072+08:00  INFO 12624 --- [pandora-api] [           main] c.p.api.ProfileConcurrencyTests          : The following 1 profile is active: "test"
+2026-11-20T12:10:12.216+08:00  INFO 12624 --- [pandora-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-11-20T12:10:12.228+08:00  INFO 12624 --- [pandora-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 19 ms. Found 12 JPA repository interfaces.
+2026-11-20T12:10:12.279+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-5 - Starting...
+2026-11-20T12:10:12.281+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-5 - Added connection conn46: url=jdbc:h2:mem:profile_concurrency user=SA
+2026-11-20T12:10:12.281+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-5 - Start completed.
+2026-11-20T12:10:12.282+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:profile_concurrency (H2 2.2)
+2026-11-20T12:10:12.282+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:12.284+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Schema history table "public"."flyway_schema_history" does not exist yet
+2026-11-20T12:10:12.290+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 25 migrations (execution time 00:00.007s)
+2026-11-20T12:10:12.290+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Creating Schema History table "public"."flyway_schema_history" ...
+2026-11-20T12:10:12.292+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": << Empty Schema >>
+2026-11-20T12:10:12.293+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "1 - init"
+2026-11-20T12:10:12.296+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "2 - seed demo users"
+2026-11-20T12:10:12.297+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "3 - dispatch tasks"
+2026-11-20T12:10:12.299+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "4 - view requests"
+2026-11-20T12:10:12.308+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "5 - roles disabled"
+2026-11-20T12:10:12.314+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "6 - task status optional progress"
+2026-11-20T12:10:12.326+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "7 - user profile"
+2026-11-20T12:10:12.342+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "8 - company notices"
+2026-11-20T12:10:12.345+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "9 - personal priorities"
+2026-11-20T12:10:12.347+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "10 - self task approval"
+2026-11-20T12:10:12.353+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "11 - user avatar"
+2026-11-20T12:10:12.355+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "12 - user avatar image"
+2026-11-20T12:10:12.356+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "13 - task review"
+2026-11-20T12:10:12.356+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "14 - notifications"
+2026-11-20T12:10:12.356+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "15 - log date range"
+2026-11-20T12:10:12.356+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "16 - self profile"
+2026-11-20T12:10:12.371+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "17 - work labels keyword reviews"
+2026-11-20T12:10:12.371+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "18 - task keywords"
+2026-11-20T12:10:12.371+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "19 - task notes and notification reference"
+2026-11-20T12:10:12.371+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "20 - task start at"
+2026-11-20T12:10:12.382+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "21 - content label sets"
+2026-11-20T12:10:12.384+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "22 - personal todos"
+2026-11-20T12:10:12.385+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "23 - personal todo labels"
+2026-11-20T12:10:12.387+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "24 - safe log and todo updates"
+2026-11-20T12:10:12.387+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "26 - company notice publish lock"
+2026-11-20T12:10:12.387+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 25 migrations to schema "public", now at version v26 (execution time 00:00.037s)
+2026-11-20T12:10:12.405+08:00  INFO 12624 --- [pandora-api] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-11-20T12:10:12.405+08:00  INFO 12624 --- [pandora-api] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-11-20T12:10:12.412+08:00  INFO 12624 --- [pandora-api] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-11-20T12:10:12.556+08:00  INFO 12624 --- [pandora-api] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-11-20T12:10:12.556+08:00  INFO 12624 --- [pandora-api] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-11-20T12:10:12.769+08:00  WARN 12624 --- [pandora-api] [           main] .s.s.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: 9153125e-7f9f-4536-9cb5-3d30901d3575
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-11-20T12:10:12.769+08:00  INFO 12624 --- [pandora-api] [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-11-20T12:10:12.848+08:00  INFO 12624 --- [pandora-api] [           main] o.s.b.t.m.w.SpringBootMockServletContext : Initializing Spring TestDispatcherServlet ''
+2026-11-20T12:10:12.848+08:00  INFO 12624 --- [pandora-api] [           main] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-11-20T12:10:12.849+08:00  INFO 12624 --- [pandora-api] [           main] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 1 ms
+2026-11-20T12:10:12.852+08:00  INFO 12624 --- [pandora-api] [           main] c.p.api.ProfileConcurrencyTests          : Started ProfileConcurrencyTests in 0.79 seconds (process running for 26.794)
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.530 s -- in com.projectpandora.api.ProfileConcurrencyTests
+[INFO] Running com.projectpandora.api.ProfileTests
+2026-11-20T12:10:15.586+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.ProfileTests]: ProfileTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:15.586+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.ProfileTests
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.369 s -- in com.projectpandora.api.ProfileTests
+[INFO] Running com.projectpandora.api.TaskApprovalMigrationTests
+2026-11-20T12:10:15.955+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:cloud_upgrade_1231174560100 (H2 2.2)
+2026-11-20T12:10:15.955+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:15.955+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Schema history table "public"."flyway_schema_history" does not exist yet
+2026-11-20T12:10:15.955+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 24 migrations (execution time 00:00.005s)
+2026-11-20T12:10:15.955+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Creating Schema History table "public"."flyway_schema_history" ...
+2026-11-20T12:10:15.970+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": << Empty Schema >>
+2026-11-20T12:10:15.970+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "1 - init"
+2026-11-20T12:10:15.970+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "2 - seed demo users"
+2026-11-20T12:10:15.970+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "3 - dispatch tasks"
+2026-11-20T12:10:15.970+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "4 - view requests"
+2026-11-20T12:10:15.970+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "5 - roles disabled"
+2026-11-20T12:10:15.981+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "6 - task status optional progress"
+2026-11-20T12:10:15.984+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "7 - user profile"
+2026-11-20T12:10:15.986+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "8 - company notices"
+2026-11-20T12:10:15.986+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "9 - personal priorities"
+2026-11-20T12:10:15.994+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "10 - self task approval"
+2026-11-20T12:10:15.997+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 10 migrations to schema "public", now at version v10 (execution time 00:00.009s)
+2026-11-20T12:10:16.004+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:cloud_upgrade_1231174560100 (H2 2.2)
+2026-11-20T12:10:16.004+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:16.011+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 24 migrations (execution time 00:00.006s)
+2026-11-20T12:10:16.012+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 10
+2026-11-20T12:10:16.013+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "11 - user avatar"
+2026-11-20T12:10:16.015+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "13 - task review"
+2026-11-20T12:10:16.022+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "14 - notifications"
+2026-11-20T12:10:16.022+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "15 - log date range"
+2026-11-20T12:10:16.022+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "16 - self profile"
+2026-11-20T12:10:16.022+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "17 - work labels keyword reviews"
+2026-11-20T12:10:16.022+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "18 - task keywords"
+2026-11-20T12:10:16.022+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "19 - task notes and notification reference"
+2026-11-20T12:10:16.037+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "20 - task start at"
+2026-11-20T12:10:16.040+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "21 - content label sets"
+2026-11-20T12:10:16.040+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "22 - personal todos"
+2026-11-20T12:10:16.040+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "23 - personal todo labels"
+2026-11-20T12:10:16.040+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "24 - safe log and todo updates"
+2026-11-20T12:10:16.046+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "26 - company notice publish lock"
+2026-11-20T12:10:16.047+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 14 migrations to schema "public", now at version v26 (execution time 00:00.012s)
+2026-11-20T12:10:16.053+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:cloud_upgrade_1231174560100 (H2 2.2)
+2026-11-20T12:10:16.054+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:16.058+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 24 migrations (execution time 00:00.006s)
+2026-11-20T12:10:16.058+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:approval_upgrade_1231279104100 (H2 2.2)
+2026-11-20T12:10:16.058+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:16.074+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Schema history table "public"."flyway_schema_history" does not exist yet
+2026-11-20T12:10:16.074+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 24 migrations (execution time 00:00.006s)
+2026-11-20T12:10:16.074+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Creating Schema History table "public"."flyway_schema_history" ...
+2026-11-20T12:10:16.074+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": << Empty Schema >>
+2026-11-20T12:10:16.076+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "1 - init"
+2026-11-20T12:10:16.077+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "2 - seed demo users"
+2026-11-20T12:10:16.079+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "3 - dispatch tasks"
+2026-11-20T12:10:16.081+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "4 - view requests"
+2026-11-20T12:10:16.083+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "5 - roles disabled"
+2026-11-20T12:10:16.083+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "6 - task status optional progress"
+2026-11-20T12:10:16.090+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "7 - user profile"
+2026-11-20T12:10:16.095+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "8 - company notices"
+2026-11-20T12:10:16.097+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "9 - personal priorities"
+2026-11-20T12:10:16.098+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 9 migrations to schema "public", now at version v9 (execution time 00:00.006s)
+2026-11-20T12:10:16.100+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:approval_upgrade_1231279104100 (H2 2.2)
+2026-11-20T12:10:16.100+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:16.100+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 24 migrations (execution time 00:00.006s)
+2026-11-20T12:10:16.100+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 9
+2026-11-20T12:10:16.100+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "10 - self task approval"
+2026-11-20T12:10:16.116+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "11 - user avatar"
+2026-11-20T12:10:16.119+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "13 - task review"
+2026-11-20T12:10:16.125+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "14 - notifications"
+2026-11-20T12:10:16.125+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "15 - log date range"
+2026-11-20T12:10:16.125+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "16 - self profile"
+2026-11-20T12:10:16.125+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "17 - work labels keyword reviews"
+2026-11-20T12:10:16.140+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "18 - task keywords"
+2026-11-20T12:10:16.144+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "19 - task notes and notification reference"
+2026-11-20T12:10:16.149+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "20 - task start at"
+2026-11-20T12:10:16.157+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "21 - content label sets"
+2026-11-20T12:10:16.161+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "22 - personal todos"
+2026-11-20T12:10:16.161+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "23 - personal todo labels"
+2026-11-20T12:10:16.169+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "24 - safe log and todo updates"
+2026-11-20T12:10:16.169+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "26 - company notice publish lock"
+2026-11-20T12:10:16.177+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 15 migrations to schema "public", now at version v26 (execution time 00:00.030s)
+2026-11-20T12:10:16.195+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:approval_upgrade_1231279104100 (H2 2.2)
+2026-11-20T12:10:16.195+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:16.204+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 24 migrations (execution time 00:00.009s)
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.249 s -- in com.projectpandora.api.TaskApprovalMigrationTests
+[INFO] Running com.projectpandora.api.TaskApprovalTests
+2026-11-20T12:10:16.204+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.TaskApprovalTests]: TaskApprovalTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:16.204+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.TaskApprovalTests
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.321 s -- in com.projectpandora.api.TaskApprovalTests
+[INFO] Running com.projectpandora.api.TaskCreationDateTests
+2026-11-20T12:10:16.525+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.TaskCreationDateTests]: TaskCreationDateTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:16.525+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.TaskCreationDateTests
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.068 s -- in com.projectpandora.api.TaskCreationDateTests
+[INFO] Running com.projectpandora.api.TaskDemoTests
+2026-11-20T12:10:16.594+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.TaskDemoTests]: TaskDemoTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:16.596+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.TaskDemoTests
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.196 s -- in com.projectpandora.api.TaskDemoTests
+[INFO] Running com.projectpandora.api.TaskReviewTests
+2026-11-20T12:10:20.790+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.TaskReviewTests]: TaskReviewTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:20.790+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.TaskReviewTests
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.568 s -- in com.projectpandora.api.TaskReviewTests
+[INFO] Running com.projectpandora.api.TaskStatusMigrationTests
+2026-11-20T12:10:23.365+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:status_upgrade_1238575579700 (H2 2.2)
+2026-11-20T12:10:23.365+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:23.371+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Schema history table "public"."flyway_schema_history" does not exist yet
+2026-11-20T12:10:23.372+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 24 migrations (execution time 00:00.005s)
+2026-11-20T12:10:23.372+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Creating Schema History table "public"."flyway_schema_history" ...
+2026-11-20T12:10:23.374+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": << Empty Schema >>
+2026-11-20T12:10:23.375+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "1 - init"
+2026-11-20T12:10:23.377+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "2 - seed demo users"
+2026-11-20T12:10:23.378+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "3 - dispatch tasks"
+2026-11-20T12:10:23.380+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "4 - view requests"
+2026-11-20T12:10:23.382+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "5 - roles disabled"
+2026-11-20T12:10:23.384+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 5 migrations to schema "public", now at version v5 (execution time 00:00.001s)
+2026-11-20T12:10:23.392+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:status_upgrade_1238575579700 (H2 2.2)
+2026-11-20T12:10:23.393+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:23.403+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 24 migrations (execution time 00:00.009s)
+2026-11-20T12:10:23.404+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 5
+2026-11-20T12:10:23.405+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "6 - task status optional progress"
+2026-11-20T12:10:23.414+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "7 - user profile"
+2026-11-20T12:10:23.419+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "8 - company notices"
+2026-11-20T12:10:23.422+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "9 - personal priorities"
+2026-11-20T12:10:23.425+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "10 - self task approval"
+2026-11-20T12:10:23.433+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "11 - user avatar"
+2026-11-20T12:10:23.435+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "13 - task review"
+2026-11-20T12:10:23.443+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "14 - notifications"
+2026-11-20T12:10:23.446+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "15 - log date range"
+2026-11-20T12:10:23.447+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "16 - self profile"
+2026-11-20T12:10:23.450+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "17 - work labels keyword reviews"
+2026-11-20T12:10:23.454+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "18 - task keywords"
+2026-11-20T12:10:23.455+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "19 - task notes and notification reference"
+2026-11-20T12:10:23.455+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "20 - task start at"
+2026-11-20T12:10:23.455+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "21 - content label sets"
+2026-11-20T12:10:23.455+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "22 - personal todos"
+2026-11-20T12:10:23.455+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "23 - personal todo labels"
+2026-11-20T12:10:23.455+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "24 - safe log and todo updates"
+2026-11-20T12:10:23.455+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "26 - company notice publish lock"
+2026-11-20T12:10:23.455+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 19 migrations to schema "public", now at version v26 (execution time 00:00.028s)
+2026-11-20T12:10:23.472+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:status_upgrade_1238575579700 (H2 2.2)
+2026-11-20T12:10:23.473+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:23.480+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 24 migrations (execution time 00:00.008s)
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.122 s -- in com.projectpandora.api.TaskStatusMigrationTests
+[INFO] Running com.projectpandora.api.TaskTimeTests
+2026-11-20T12:10:23.480+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.TaskTimeTests]: TaskTimeTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:23.486+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.TaskTimeTests
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.737 s -- in com.projectpandora.api.TaskTimeTests
+[INFO] Running com.projectpandora.api.TaskWorkflowTests
+2026-11-20T12:10:25.220+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.TaskWorkflowTests]: TaskWorkflowTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:25.221+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.TaskWorkflowTests
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.210 s -- in com.projectpandora.api.TaskWorkflowTests
+[INFO] Running com.projectpandora.api.TeacherTaskPolicyTests
+2026-11-20T12:10:33.428+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.TeacherTaskPolicyTests]: TeacherTaskPolicyTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:33.428+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.TeacherTaskPolicyTests
+[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.088 s -- in com.projectpandora.api.TeacherTaskPolicyTests
+[INFO] Running com.projectpandora.api.ViewRequestConcurrencyTests
+2026-11-20T12:10:37.517+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.ViewRequestConcurrencyTests]: ViewRequestConcurrencyTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:37.517+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.ViewRequestConcurrencyTests
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.3.4)
+
+2026-11-20T12:10:37.529+08:00  INFO 12624 --- [pandora-api] [           main] c.p.api.ViewRequestConcurrencyTests      : Starting ViewRequestConcurrencyTests using Java 21.0.6 with PID 12624 (started by Lenovo in D:\��ѧ\רҵ��\����������������֤\ʵѵ\project-pandora\backend)
+2026-11-20T12:10:37.529+08:00  INFO 12624 --- [pandora-api] [           main] c.p.api.ViewRequestConcurrencyTests      : The following 1 profile is active: "test"
+2026-11-20T12:10:37.664+08:00  INFO 12624 --- [pandora-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-11-20T12:10:37.689+08:00  INFO 12624 --- [pandora-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 21 ms. Found 12 JPA repository interfaces.
+2026-11-20T12:10:37.723+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-6 - Starting...
+2026-11-20T12:10:37.723+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-6 - Added connection conn80: url=jdbc:h2:mem:pandora_concurrency user=SA
+2026-11-20T12:10:37.723+08:00  INFO 12624 --- [pandora-api] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-6 - Start completed.
+2026-11-20T12:10:37.723+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:pandora_concurrency (H2 2.2)
+2026-11-20T12:10:37.723+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:37.732+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Schema history table "public"."flyway_schema_history" does not exist yet
+2026-11-20T12:10:37.732+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 25 migrations (execution time 00:00.006s)
+2026-11-20T12:10:37.733+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Creating Schema History table "public"."flyway_schema_history" ...
+2026-11-20T12:10:37.734+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": << Empty Schema >>
+2026-11-20T12:10:37.735+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "1 - init"
+2026-11-20T12:10:37.736+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "2 - seed demo users"
+2026-11-20T12:10:37.738+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "3 - dispatch tasks"
+2026-11-20T12:10:37.739+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "4 - view requests"
+2026-11-20T12:10:37.741+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "5 - roles disabled"
+2026-11-20T12:10:37.742+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "6 - task status optional progress"
+2026-11-20T12:10:37.742+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "7 - user profile"
+2026-11-20T12:10:37.750+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "8 - company notices"
+2026-11-20T12:10:37.752+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "9 - personal priorities"
+2026-11-20T12:10:37.753+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "10 - self task approval"
+2026-11-20T12:10:37.757+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "11 - user avatar"
+2026-11-20T12:10:37.759+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "12 - user avatar image"
+2026-11-20T12:10:37.759+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "13 - task review"
+2026-11-20T12:10:37.759+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "14 - notifications"
+2026-11-20T12:10:37.759+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "15 - log date range"
+2026-11-20T12:10:37.759+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "16 - self profile"
+2026-11-20T12:10:37.772+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "17 - work labels keyword reviews"
+2026-11-20T12:10:37.779+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "18 - task keywords"
+2026-11-20T12:10:37.781+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "19 - task notes and notification reference"
+2026-11-20T12:10:37.782+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "20 - task start at"
+2026-11-20T12:10:37.784+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "21 - content label sets"
+2026-11-20T12:10:37.784+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "22 - personal todos"
+2026-11-20T12:10:37.784+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "23 - personal todo labels"
+2026-11-20T12:10:37.784+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "24 - safe log and todo updates"
+2026-11-20T12:10:37.791+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "26 - company notice publish lock"
+2026-11-20T12:10:37.792+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 25 migrations to schema "public", now at version v26 (execution time 00:00.016s)
+2026-11-20T12:10:37.801+08:00  INFO 12624 --- [pandora-api] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-11-20T12:10:37.801+08:00  INFO 12624 --- [pandora-api] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-11-20T12:10:37.801+08:00  INFO 12624 --- [pandora-api] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-11-20T12:10:37.936+08:00  INFO 12624 --- [pandora-api] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-11-20T12:10:37.938+08:00  INFO 12624 --- [pandora-api] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-11-20T12:10:38.028+08:00  WARN 12624 --- [pandora-api] [           main] .s.s.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: e91d37a5-7b65-4012-9548-f170d78639ed
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-11-20T12:10:38.029+08:00  INFO 12624 --- [pandora-api] [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-11-20T12:10:38.071+08:00  INFO 12624 --- [pandora-api] [           main] o.s.b.t.m.w.SpringBootMockServletContext : Initializing Spring TestDispatcherServlet ''
+2026-11-20T12:10:38.071+08:00  INFO 12624 --- [pandora-api] [           main] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-11-20T12:10:38.071+08:00  INFO 12624 --- [pandora-api] [           main] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+2026-11-20T12:10:38.071+08:00  INFO 12624 --- [pandora-api] [           main] c.p.api.ViewRequestConcurrencyTests      : Started ViewRequestConcurrencyTests in 0.554 seconds (process running for 52.019)
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.375 s -- in com.projectpandora.api.ViewRequestConcurrencyTests
+[INFO] Running com.projectpandora.api.WorkflowNotesMigrationTests
+2026-11-20T12:10:38.892+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:notes_upgrade_1254108382300 (H2 2.2)
+2026-11-20T12:10:38.892+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:38.892+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Schema history table "public"."flyway_schema_history" does not exist yet
+2026-11-20T12:10:38.892+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 24 migrations (execution time 00:00.005s)
+2026-11-20T12:10:38.892+08:00  INFO 12624 --- [pandora-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Creating Schema History table "public"."flyway_schema_history" ...
+2026-11-20T12:10:38.892+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": << Empty Schema >>
+2026-11-20T12:10:38.892+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "1 - init"
+2026-11-20T12:10:38.907+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "2 - seed demo users"
+2026-11-20T12:10:38.907+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "3 - dispatch tasks"
+2026-11-20T12:10:38.907+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "4 - view requests"
+2026-11-20T12:10:38.912+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "5 - roles disabled"
+2026-11-20T12:10:38.913+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "6 - task status optional progress"
+2026-11-20T12:10:38.916+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "7 - user profile"
+2026-11-20T12:10:38.920+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "8 - company notices"
+2026-11-20T12:10:38.921+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "9 - personal priorities"
+2026-11-20T12:10:38.922+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "10 - self task approval"
+2026-11-20T12:10:38.923+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "11 - user avatar"
+2026-11-20T12:10:38.923+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "13 - task review"
+2026-11-20T12:10:38.934+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "14 - notifications"
+2026-11-20T12:10:38.936+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "15 - log date range"
+2026-11-20T12:10:38.937+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "16 - self profile"
+2026-11-20T12:10:38.939+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "17 - work labels keyword reviews"
+2026-11-20T12:10:38.941+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "18 - task keywords"
+2026-11-20T12:10:38.941+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 17 migrations to schema "public", now at version v18 (execution time 00:00.014s)
+2026-11-20T12:10:38.948+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:notes_upgrade_1254108382300 (H2 2.2)
+2026-11-20T12:10:38.949+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:38.954+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 24 migrations (execution time 00:00.005s)
+2026-11-20T12:10:38.954+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 18
+2026-11-20T12:10:38.955+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "19 - task notes and notification reference"
+2026-11-20T12:10:38.957+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "20 - task start at"
+2026-11-20T12:10:38.959+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "21 - content label sets"
+2026-11-20T12:10:38.959+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "22 - personal todos"
+2026-11-20T12:10:38.959+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "23 - personal todo labels"
+2026-11-20T12:10:38.959+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "24 - safe log and todo updates"
+2026-11-20T12:10:38.959+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "26 - company notice publish lock"
+2026-11-20T12:10:38.959+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 7 migrations to schema "public", now at version v26 (execution time 00:00.002s)
+2026-11-20T12:10:38.959+08:00  INFO 12624 --- [pandora-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:notes_upgrade_1254108382300 (H2 2.2)
+2026-11-20T12:10:38.959+08:00  WARN 12624 --- [pandora-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-11-20T12:10:38.979+08:00  INFO 12624 --- [pandora-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 24 migrations (execution time 00:00.005s)
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.088 s -- in com.projectpandora.api.WorkflowNotesMigrationTests
+[INFO] Running com.projectpandora.api.WorkflowNotesTests
+2026-11-20T12:10:38.981+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.WorkflowNotesTests]: WorkflowNotesTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:38.982+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.WorkflowNotesTests
+[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.014 s -- in com.projectpandora.api.WorkflowNotesTests
+[INFO] Running com.projectpandora.api.WorkspaceRevisionTests
+2026-11-20T12:10:42.994+08:00  INFO 12624 --- [pandora-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.projectpandora.api.WorkspaceRevisionTests]: WorkspaceRevisionTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-11-20T12:10:42.994+08:00  INFO 12624 --- [pandora-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.projectpandora.api.PandoraApplication for test class com.projectpandora.api.WorkspaceRevisionTests
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.856 s -- in com.projectpandora.api.WorkspaceRevisionTests
+[INFO] 
+[INFO] Results:
+[INFO] 
+[INFO] Tests run: 288, Failures: 0, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] 
+[INFO] --- jacoco:0.8.12:report (default-cli) @ pandora-api ---
+[INFO] Loading execution data file D:\��ѧ\רҵ��\����������������֤\ʵѵ\project-pandora\backend\target\jacoco.exec
+[INFO] Analyzed bundle 'pandora-api' with 113 classes
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  01:06 min
+[INFO] Finished at: 2026-11-20T12:10:45+08:00
+[INFO] ------------------------------------------------------------------------

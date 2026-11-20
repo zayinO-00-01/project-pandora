@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CompanyNoticeController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">pandora-api</a> &gt; <a href="index.source.html" class="el_package">com.projectpandora.api.notice</a> &gt; <span class="el_source">CompanyNoticeController.java</span></div><h1>CompanyNoticeController.java</h1><pre class="source lang-java linenums">package com.projectpandora.api.notice;
+
+import com.projectpandora.api.security.AccessService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import java.util.List;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping(&quot;/api/v1/company-notices&quot;)
+public class CompanyNoticeController {
+
+    private final CompanyNoticeService service;
+    private final AccessService access;
+
+<span class="fc" id="L17">    public CompanyNoticeController(CompanyNoticeService service, AccessService access) {</span>
+<span class="fc" id="L18">        this.service = service;</span>
+<span class="fc" id="L19">        this.access = access;</span>
+<span class="fc" id="L20">    }</span>
+
+    @GetMapping
+    public List&lt;NoticeResponse&gt; list() {
+<span class="fc" id="L24">        Long me = access.assertBusiness().getId();</span>
+<span class="fc" id="L25">        return service.enabled().stream().map(notice -&gt; NoticeResponse.from(notice, service.noteOf(notice.getId(), me))).toList();</span>
+    }
+
+    @GetMapping(&quot;/{id}&quot;)
+    public NoticeResponse detail(@PathVariable Long id) {
+<span class="fc" id="L30">        Long me = access.assertBusiness().getId();</span>
+<span class="fc" id="L31">        var notice = service.requireEnabled(id);</span>
+<span class="fc" id="L32">        return NoticeResponse.from(notice, service.noteOf(notice.getId(), me));</span>
+    }
+
+    @PutMapping(&quot;/{id}/note&quot;)
+    public NoticeResponse saveNote(@PathVariable Long id, @Valid @RequestBody NoteRequest request) {
+<span class="fc" id="L37">        Long me = access.assertBusiness().getId();</span>
+<span class="fc" id="L38">        var notice = service.requireEnabled(id);</span>
+<span class="fc" id="L39">        String note = service.saveNote(id, me, request.content());</span>
+<span class="fc" id="L40">        return NoticeResponse.from(notice, note);</span>
+    }
+
+<span class="fc" id="L43">    public record NoteRequest(@NotNull @Size(max = 2000) String content) {}</span>
+
+<span class="fc" id="L45">    public record NoticeResponse(Long id, String title, String content, Integer sortOrder, boolean enabled,</span>
+                                 String updatedAt, String myNote) {
+        static NoticeResponse from(CompanyNoticeEntity notice, String myNote) {
+<span class="fc" id="L48">            return new NoticeResponse(notice.getId(), notice.getTitle(), notice.getContent(), notice.getSortOrder(),</span>
+<span class="fc" id="L49">                    notice.isEnabled(), notice.getUpdatedAt().toString(), myNote);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
