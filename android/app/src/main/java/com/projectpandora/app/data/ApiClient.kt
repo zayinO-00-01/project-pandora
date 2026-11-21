@@ -112,7 +112,7 @@ class ApiClient(address: String) {
         if(!AppRoles.canCreateTask(session.role))throw ApiException(403,"仅业务成员可创建任务")
         (TaskDispatchValidation.inputError(input,session.userId) ?: TaskDispatchValidation.creationDateError(input))?.let {throw IllegalArgumentException(it)}
         val result: DispatchTask=request("/tasks","POST",input,session,DispatchTask::class.java)
-        if(result.id<=0 || result.assigneeId!=input.assigneeId || result.createdBy!=session.userId)throw ApiException(502,"服务器返回的任务信息不一致，请刷新确认后重试")
+        if(result.id<=0 || result.assigneeId!=input.assigneeId || result.createdBy!=session.userId || (input.assigneeIds!=null && result.assigneeIds.orEmpty().toSet()!=input.assigneeIds.toSet()))throw ApiException(502,"服务器返回的任务信息不一致，请刷新确认后重试")
         return result
     }
     fun withdrawTask(session: Session,id: Long): DispatchTask = request("/tasks/$id/withdraw","POST",null,session,DispatchTask::class.java)

@@ -21,6 +21,7 @@ import com.projectpandora.api.common.ApiException;
    db.update("insert into content_label_sets(kind,content_id,label_ids) values(?,?,?)",kind,id,text);
   } catch(com.fasterxml.jackson.core.JsonProcessingException e) {throw new ApiException(500,"标签保存失败");}
  }
+ public Set<Long> ids(String kind,Long id) {return existingIds(kind,id);}
  private Set<Long> existingIds(String kind,Long id) {
   var records=db.queryForList("select label_ids from content_label_sets where kind=? and content_id=?",String.class,kind,id);
   if(!records.isEmpty()) {

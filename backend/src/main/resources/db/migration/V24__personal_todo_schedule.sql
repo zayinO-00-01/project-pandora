@@ -1,0 +1,2 @@
+ALTER TABLE personal_todos ADD COLUMN start_at TIMESTAMP NULL;
+ALTER TABLE personal_todos ADD COLUMN end_at TIMESTAMP NULL;

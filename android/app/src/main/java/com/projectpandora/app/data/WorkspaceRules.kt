@@ -62,7 +62,7 @@ fun isPendingReview(reviewStatus: String?): Boolean =
 
 /** Staff see only their pending work; leaders see their authored assignments, including completed ones. */
 fun dutyTasks(tasks: List<DispatchTask>,userId: Long,leader: Boolean): List<DispatchTask> =
-    orderedTasks(tasks.filter {if(leader)it.createdBy==userId else it.assigneeId==userId && it.status!="done"})
+    orderedTasks(tasks.filter {if(leader)it.createdBy==userId else it.isResponsible(userId) && it.status!="done"})
 
 fun taskPriorityRank(priority: String)=when(priority) {"high"->0;"low"->2;else->1}
 fun taskPriorityLabel(priority: String)=when(priority) {"high"->"高优先级";"low"->"低优先级";else->"普通优先级"}
@@ -83,6 +83,8 @@ fun logRangeDays(start: String,end: String?): Long = runCatching {java.time.temp
 fun logDateLabel(start: String,end: String?): String = if(end==null || end==start)start else "$start 至 $end · ${logRangeDays(start,end)} 天"
 fun canWriteLogRange(start: String,end: String?,reference: LocalDate=today()): Boolean = canWriteLog(start,reference) && (end==null || end==start)
 
-fun relatedTasks(tasks: List<DispatchTask>,userId: Long): List<DispatchTask> = orderedTasks(tasks.filter { !it.deleted && (it.createdBy==userId || it.assigneeId==userId) })
+fun relatedTasks(tasks: List<DispatchTask>,userId: Long): List<DispatchTask> = orderedTasks(tasks.filter { !it.deleted && (it.createdBy==userId || it.isResponsible(userId)) })
 
 fun directoryAssignees(contacts: List<DirectoryContact>): List<UserSummary> = contacts.filter {it.role in AppRoles.business}.distinctBy {it.id}.map {UserSummary(it.id,it.username,it.displayName,it.role)}
+
+fun DispatchTask.isResponsible(userId: Long?): Boolean = userId!=null && (assigneeId==userId || assigneeIds.orEmpty().contains(userId))

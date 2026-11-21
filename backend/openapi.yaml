@@ -2149,6 +2149,15 @@ components:
         assigneeId:
           type: integer
           format: int64
+        assigneeIds:
+          type: array
+          description: 同一个任务的全部责任人；创建时省略则使用 assigneeId，传入时须包含 assigneeId。
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: integer
+            format: int64
         dueAt:
           type: string
           format: date-time
@@ -2191,6 +2200,15 @@ components:
         assigneeId:
           type: integer
           format: int64
+        assigneeIds:
+          type: array
+          description: 同一个任务的全部责任人；创建时省略则使用 assigneeId，传入时须包含 assigneeId。
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: integer
+            format: int64
         dueAt:
           type: string
           format: date-time

@@ -28,7 +28,8 @@ import com.projectpandora.app.data.*
         prefs.edit().putStringSet(pinKey,pins).apply()
     }
     val tasks=relatedTasks(state.tasks,me.userId).filter {
-        (filter!="created" || it.createdBy==me.userId) && (filter!="assigned" || it.assigneeId==me.userId) &&
+        (state.taskLabelFilter==null || contentTags(state,"task",it.id,it.label).any {label->label.id==state.taskLabelFilter}) &&
+        (filter!="created" || it.createdBy==me.userId) && (filter!="assigned" || it.isResponsible(me.userId)) &&
         (query.isBlank() || it.title.contains(query.trim(),true) || it.assigneeName.contains(query.trim(),true))
     }.sortedByDescending {it.id.toString() in pins}
     Column(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
@@ -41,6 +42,7 @@ import com.projectpandora.app.data.*
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf("all" to "全部","assigned" to "我负责的","created" to "我创建的").forEach {(key,label)->FilterChip(selected=filter==key,onClick={filter=key},label={Text(label)})}
         }
+        if(state.taskLabelFilter!=null)InputChip(selected=true,onClick={model.openLabel(null)},label={Text((state.labels.firstOrNull {it.id==state.taskLabelFilter}?.name ?: "标签筛选")+" ×")})
         if(state.taskLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
         state.taskError?.let {Hint(it,true,onRetry=model::refresh)}
         Text("${tasks.size} 项",style=MaterialTheme.typography.labelSmall)
@@ -59,7 +61,7 @@ import com.projectpandora.app.data.*
                                 modifier=Modifier.semantics {contentDescription=(if(pinned)"取消置顶：" else "置顶：")+task.title}) {
                                 Text(if(pinned)"★" else "☆")
                             }
-                        };Column(Modifier.width(200.dp)) {TaskCell(task.title,200);LabelLines(contentTags(state,"task",task.id,task.label),Modifier.padding(start=8.dp,top=6.dp))};TaskCell(dueLabel(task.dueAt),155)
+                        };Column(Modifier.width(200.dp)) {TaskCell(task.title,200);CompactLabelRow(contentTags(state,"task",task.id,task.label),Modifier.padding(start=8.dp,top=4.dp),onClick={model.openLabel(it.id)})};TaskCell(dueLabel(task.dueAt),155)
                         Box(Modifier.width(110.dp).padding(horizontal=8.dp)) {TaskPriorityText(task.priority,onLabel=false)}
                         TaskCell(taskFeedbackLabel(task),110);TaskCell(task.progressNote.ifBlank {"暂无进度说明"},230);TaskCell(task.assigneeName,160)
                     }}

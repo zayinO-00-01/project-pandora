@@ -11,9 +11,12 @@ public record CreateTaskRequest(
         @Size(max = 5000, message = "任务详情不能超过5000字") String detail,
         @Pattern(regexp = "low|normal|high", message = "优先级必须为 low、normal 或 high") String priority,
         @NotNull(message = "请选择责任人") Long assigneeId,
-        @NotNull(message = "请选择截止时间") Instant dueAt, Long labelId, Instant startAt, java.util.List<Long> labelIds) {
+        @NotNull(message = "请选择截止时间") Instant dueAt, Long labelId, Instant startAt, java.util.List<Long> labelIds, @Size(min=1,max=100) java.util.List<@NotNull @jakarta.validation.constraints.Positive Long> assigneeIds) {
     @jakarta.validation.constraints.AssertTrue(message = "开始时间不能晚于截止时间")
     public boolean isTimeRangeValid() { return startAt == null || dueAt == null || !startAt.isAfter(dueAt); }
+    public CreateTaskRequest(String title,String detail,String priority,Long assigneeId,Instant dueAt,Long labelId,Instant startAt,java.util.List<Long> labelIds){
+        this(title,detail,priority,assigneeId,dueAt,labelId,startAt,labelIds,null);
+    }
     public CreateTaskRequest {
         title = title == null ? null : title.trim();
         detail = detail == null ? "" : detail;

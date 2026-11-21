@@ -32,11 +32,11 @@ data class DispatchTask(val id: Long, val title: String, val detail: String, val
     val reviewerId: Long? = null, val reviewedAt: String? = null,
     val reviewStatus: String? = "none", val reviewReason: String? = null, val reviewedBy: Long? = null,
     val lifecycleReviewedAt: String? = null, val deleted: Boolean = false, val pendingChange: String? = null,
-    val label: WorkLabel? = null, val keywords: List<TaskKeyword>? = null, val startAt: String? = null,val labelIds: List<Long>? = null)
+    val label: WorkLabel? = null, val keywords: List<TaskKeyword>? = null, val startAt: String? = null,val labelIds: List<Long>? = null,val assigneeIds: List<Long>? = null)
 data class TaskProgressInput(val progress: Int?, val progressNote: String, val status: String? = null)
 data class TaskEditBuffer(val server: String, val userId: Long, val taskId: Long, val progress: String, val note: String, val status: String? = null)
 
-data class TaskCreateInput(val title: String, val detail: String, val priority: String, val assigneeId: Long, val dueAt: String?,val labelId: Long? = null,val startAt: String? = null,val labelIds: List<Long>? = null)
+data class TaskCreateInput(val title: String, val detail: String, val priority: String, val assigneeId: Long, val dueAt: String?,val labelId: Long? = null,val startAt: String? = null,val labelIds: List<Long>? = null,val assigneeIds: List<Long>? = null)
 data class TaskDispatchBuffer(val server: String, val userId: Long, val title: String = "", val detail: String = "", val priority: String = "normal", val assigneeId: Long? = null, val dueDate: String = "",val taskId: Long? = null,val labelId: Long? = null,val startDate: String? = null,val labelIds: List<Long>? = null,val assigneeIds: List<Long>? = null)
 
 
@@ -52,15 +52,15 @@ data class NoticeNote(val id: Long, val myNote: String?)
 
 data class WorkLabel(val id: Long,val name: String,val color: String,val active: Boolean = true)
 data class TaskReview(val id: Long,val taskId: Long,val taskTitle: String,val applicantId: Long,val applicantName: String,val reviewerId: Long,val reviewerName: String,val operation: String,val payload: String,val status: String,val createdAt: String,val decidedAt: String?)
-fun reviewOperation(value: String)=when(value) {"CREATE"->"创建任务";"EDIT"->"编辑任务";"DELETE"->"删除任务";"KEYWORD_EDIT"->"修改他人关键词";"KEYWORD_DELETE"->"删除他人关键词";"PROGRESS"->"更新进度";else->"任务变更"}
+fun reviewOperation(value: String)=when(value) {"LABELS"->"修改任务标签";"CREATE"->"创建任务";"EDIT"->"编辑任务";"DELETE"->"删除任务";"KEYWORD_EDIT"->"修改他人关键词";"KEYWORD_DELETE"->"删除他人关键词";"PROGRESS"->"更新进度";else->"任务变更"}
 fun reviewStatus(value: String?)=when(value) {"pending"->"待审核";"approved"->"已批准";"canceled"->"已撤回";else->"已拒绝"}
 
 data class TaskKeyword(val id: Long,val text: String,val createdBy: Long)
 
-data class DirectoryContact(val id: Long,val username: String,val displayName: String?,val role: String,val managerId: Long?,val managerName: String?,val phone: String?,val avatar: String?,val avatarData: String?)
+data class DirectoryContact(val id: Long,val username: String,val displayName: String?,val role: String,val managerId: Long?,val managerName: String?,val phone: String?,val avatar: String?,val avatarData: String?,val departmentId: Long?=null,val departmentName: String?=null)
 
 data class ContentLabels(val kind: String,val contentId: Long,val labels: List<WorkLabel>)
 
-data class DailyTodo(val id: String,val title: String,val date: String,val completed: Boolean=false,val labels: List<WorkLabel>?=null,val labelIds: List<Long>?=null)
+data class DailyTodo(val id: String,val title: String,val date: String,val completed: Boolean=false,val labels: List<WorkLabel>?=null,val labelIds: List<Long>?=null,val startAt: String?=null,val endAt: String?=null)
 
 data class OwnProfileInput(val displayName: String,val phone: String,val emergencyContact: String,val emergencyPhone: String,val address: String)

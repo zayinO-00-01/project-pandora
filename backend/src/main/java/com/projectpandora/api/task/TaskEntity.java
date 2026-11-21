@@ -40,6 +40,14 @@ public class TaskEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "assignee_id", nullable = false, updatable = false)
     private UserEntity assignee;
+    @jakarta.persistence.ManyToMany(fetch=FetchType.EAGER)
+    @jakarta.persistence.JoinTable(name="task_assignees",joinColumns=@JoinColumn(name="task_id"),inverseJoinColumns=@JoinColumn(name="user_id"))
+    private java.util.Set<UserEntity> assignees=new java.util.LinkedHashSet<>();
+    public java.util.Set<UserEntity> getAssignees(){
+        var result=new java.util.LinkedHashSet<>(assignees);if(assignee!=null)result.add(assignee);return result;
+    }
+    public boolean hasAssignee(Long id){return getAssignees().stream().anyMatch(u->u.getId().equals(id));}
+    void assign(java.util.Collection<UserEntity> people){assignees.clear();assignees.addAll(people);}
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)

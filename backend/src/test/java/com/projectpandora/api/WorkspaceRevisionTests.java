@@ -51,11 +51,11 @@ class WorkspaceRevisionTests {
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
         assertThat(mine.findValues("id").stream().mapToLong(JsonNode::asLong).boxed().toList()).contains(id);
     }
-    @Test void directoryIsCompanyWideButContainsNoPrivatePersonnelFields() throws Exception {
+    @Test void directoryIsDepartmentScopedAndContainsNoPrivatePersonnelFields() throws Exception {
         var staff=users.findByUsername("staff").orElseThrow();staff.setPhone("13800001234");users.saveAndFlush(staff);
         var response=mvc.perform(get("/api/v1/directory").header("Authorization",token("staff"))).andExpect(status().isOk()).andReturn();
         var contacts=json.readTree(response.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
-        assertThat(contacts.findValuesAsText("username")).contains("staff","team_lead","leader","founder").doesNotContain("admin");
+        assertThat(contacts.findValuesAsText("username")).contains("staff","team_lead","leader").doesNotContain("admin","founder");
         assertThat(contacts.toString()).doesNotContain("passwordHash","idCard","birthDate","emergencyPhone","address");
         assertThat(contacts.findValuesAsText("phone")).contains("13800001234");
         mvc.perform(get("/api/v1/directory")).andExpect(status().isUnauthorized());
@@ -63,5 +63,25 @@ class WorkspaceRevisionTests {
         staff.setDisabled(true);users.saveAndFlush(staff);
         var list=mvc.perform(get("/api/v1/directory").header("Authorization",token("founder"))).andExpect(status().isOk()).andReturn();
         assertThat(json.readTree(list.getResponse().getContentAsString()).findValuesAsText("username")).doesNotContain("staff");
+    }
+
+    @Autowired com.projectpandora.api.label.LabelRepository labels;
+    @Test void taskLabelChangeWaitsForDirectManagerAndReviewUsesNames() throws Exception {
+        var staff=users.findByUsername("staff").orElseThrow();
+        var due=Instant.now().plusSeconds(86400).toString();
+        var body=json.writeValueAsString(Map.of("title","标签审核","assigneeId",staff.getId(),"dueAt",due,"startAt",due));
+        var created=mvc.perform(post("/api/v1/tasks").header("Authorization",token("founder")).contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isCreated()).andReturn();
+        long id=json.readTree(created.getResponse().getContentAsString()).get("id").asLong();
+        long label=labels.findAll().get(0).getId();
+        mvc.perform(put("/api/v1/content-labels/task/"+id).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content("{\"labelIds\":["+label+"]}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.labels.length()").value(0));
+        var reviews=mvc.perform(get("/api/v1/task-reviews").header("Authorization",token("team_lead"))).andExpect(status().isOk()).andReturn();
+        var review=json.readTree(reviews.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8)).get(0);
+        assertThat(review.get("applicantName").asText()).isEqualTo(staff.getDisplayName());
+        mvc.perform(put("/api/v1/task-reviews/"+review.get("id").asLong()).header("Authorization",token("staff")).contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"approved\"}"))
+            .andExpect(status().isForbidden());
+        mvc.perform(put("/api/v1/task-reviews/"+review.get("id").asLong()).header("Authorization",token("team_lead")).contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"approved\"}"))
+            .andExpect(status().isOk());
+        mvc.perform(get("/api/v1/content-labels").header("Authorization",token("staff"))).andExpect(status().isOk()).andExpect(jsonPath("$[0].labels[0].id").value(label));
     }
 }

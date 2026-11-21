@@ -27,8 +27,10 @@ public class ContentLabelsController {
  @PutMapping("/{kind}/{id}") @Transactional public Entry save(@PathVariable String kind,@PathVariable Long id,@Valid @RequestBody Input input)throws Exception{
  guard.lock();var me=access.assertBusiness();if(!readable(kind).contains(id))throw new ApiException(403,"无权修改此内容标签");
  if(kind.equals("company") && me.getRole()!=com.projectpandora.api.user.Role.FOUNDER)throw new ApiException(403,"公司事项标签由创始人维护");
- if(kind.equals("task")){var t=tasks.list(null).stream().filter(v->v.id().equals(id)).findFirst().orElseThrow();if(!t.createdBy().equals(me.getId()) && !t.assigneeId().equals(me.getId()) && me.getRole()!=com.projectpandora.api.user.Role.FOUNDER)throw new ApiException(403,"仅任务创建人、负责人或创始人可设置标签");}
- var ids=input.labelIds().stream().distinct().toList();store.save(kind,id,ids);
+ if(kind.equals("task")){var t=tasks.list(null).stream().filter(v->v.id().equals(id)).findFirst().orElseThrow();if(!t.createdBy().equals(me.getId()) && !t.assigneeIds().contains(me.getId()) && me.getRole()!=com.projectpandora.api.user.Role.FOUNDER)throw new ApiException(403,"仅任务创建人、负责人或创始人可设置标签");}
+ var ids=input.labelIds().stream().distinct().toList();
+ if(kind.equals("task")){tasks.changeLabels(id,ids);return entry(kind,id,json.writeValueAsString(store.ids(kind,id)));}
+ store.save(kind,id,ids);
  return entry(kind,id,json.writeValueAsString(ids));
  }
 }

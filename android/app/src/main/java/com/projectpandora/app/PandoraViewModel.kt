@@ -14,6 +14,7 @@ data class AppState(
     val labelError: String? = null, val labels: List<WorkLabel> = emptyList(),val taskReviewRecords: List<TaskReview> = emptyList(),val taskReviewRecordsReady: Boolean = false,val workspaceError: String? = null,
     val directory: List<DirectoryContact> = emptyList(), val directoryLoading: Boolean = false, val directoryError: String? = null,
     val contentLabels: List<ContentLabels> = emptyList(), val contentLabelError: String? = null,
+    val taskLabelFilter: Long? = null,
     val myProfile: MyProfile? = null,
     val session: Session? = null, val server: String = "", val username: String = "staff",
     val developmentPreview: Boolean = false,
@@ -322,7 +323,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             notice=if(pending==null && taskPending==null && dispatchPending==null)null else "已恢复上次未保存的内容，请检查后保存。")
         refresh()
     }
-    fun saveContentLabels(kind: String,id: Long,ids: List<Long>)=workspaceAction({me->api(me).saveContentLabels(me,kind,id,ids);Unit},"事项标签已保存")
+    fun saveContentLabels(kind: String,id: Long,ids: List<Long>)=workspaceAction({me->api(me).saveContentLabels(me,kind,id,ids);Unit},if(kind=="task" && state.value.session?.role!="FOUNDER")"标签变更已提交审核" else "事项标签已保存")
     fun loadWorkspaceExtras() {
         val me=state.value.session ?: return
         if(state.value.developmentPreview || state.value.saving)return
@@ -583,13 +584,13 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
                 val result=withContext(Dispatchers.IO) {
                     val members=directoryAssignees(api(me).directory(me))
                     if(draft.taskId==null)TaskDispatchValidation.error(draft,members)?.let {throw IllegalArgumentException(it)}
-                    if(draft.taskId==null)api(me).createTasks(me,TaskDispatchValidation.assigneeIds(draft).map {TaskDispatchValidation.input(draft).copy(assigneeId=it)}) else listOf(api(me).editTask(me,draft.taskId,TaskDispatchValidation.input(draft)))
+                    if(draft.taskId==null)listOf(api(me).createTask(me,TaskDispatchValidation.input(draft).copy(assigneeIds=TaskDispatchValidation.assigneeIds(draft)))) else listOf(api(me).editTask(me,draft.taskId,TaskDispatchValidation.input(draft)))
                 }
                 if(gen!=generation || state.value.session!=me)return@launch
                 store.clearDispatchBuffer(me)
                 val first=result.first()
                 mutable.update {it.copy(saving=false,dispatchEditor=null,dispatchOpen=false,dispatchError=null,
-                    tasks=result+it.tasks.filterNot {old->result.any {row->row.id==old.id}},selectedTaskId=first.id,notice=if(result.size>1)"已分别创建 ${result.size} 份任务，每人独立记录进度。" else if(first.reviewStatus=="pending_change")"变更已提交，等待上级审核。" else if(first.approvalStatus=="pending")"已提交，等待直属上级审核。" else "任务已生效，可开始处理。")}
+                    tasks=result+it.tasks.filterNot {old->result.any {row->row.id==old.id}},selectedTaskId=first.id,notice=if(draft.taskId==null && TaskDispatchValidation.assigneeIds(draft).size>1)"已创建一个任务，${TaskDispatchValidation.assigneeIds(draft).size} 位责任人共同处理。" else if(first.reviewStatus=="pending_change")"变更已提交，等待上级审核。" else if(first.approvalStatus=="pending")"已提交，等待直属上级审核。" else "任务已生效，可开始处理。")}
                 refresh()
             } catch(e:CancellationException) {throw e}
             catch(e:Exception) {
@@ -600,6 +601,10 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             }
         }
     }
+    fun openLabel(id: Long?) {
+        if(state.value.saving)return
+        closeTask();mutable.update {it.copy(screen="tasks",taskLabelFilter=id)}
+    }
     fun openTask(id: Long) {
         if(state.value.saving || state.value.editor!=null)return
         taskSelectionGeneration++;taskDetailJob?.cancel();taskNoteJob?.cancel()
@@ -609,7 +614,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     fun closeTask() {
         if(state.value.saving)return
         taskSelectionGeneration++;taskDetailJob?.cancel();taskNoteJob?.cancel()
-        mutable.update {it.copy(selectedTaskId=null,selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=null,taskNote=TaskNoteState(),taskEditorError=null)}
+        mutable.update {it.copy(screen="day",selectedTaskId=null,selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=null,taskNote=TaskNoteState(),taskEditorError=null)}
     }
     fun loadSelectedTaskDetail() {
         val me=state.value.session ?: return
@@ -686,7 +691,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     }
     fun editTask(task: DispatchTask) {
         val me=state.value.session ?: return
-        if(state.value.saving || task.assigneeId!=me.userId || !taskCanReportProgress(task,state.value.taskReviewRecords) || state.value.taskLoading || !state.value.taskReviewRecordsReady)return
+        if(state.value.saving || !task.isResponsible(me.userId) || !taskCanReportProgress(task,state.value.taskReviewRecords) || state.value.taskLoading || !state.value.taskReviewRecordsReady)return
         val pending=state.value.taskEditor
         if(pending!=null && pending.taskId!=task.id)return
         val buffer=pending ?: TaskEditBuffer(me.server,me.userId,task.id,"",task.progressNote,task.status)
@@ -711,7 +716,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         val buffer=current.taskEditor ?: return
         if(current.saving || current.selectedTaskId!=buffer.taskId)return
         val task=current.tasks.firstOrNull {it.id==buffer.taskId}
-        if(task==null || task.assigneeId!=me.userId || !taskCanReportProgress(task,current.taskReviewRecords) || current.taskLoading || !current.taskReviewRecordsReady) {
+        if(task==null || !task.isResponsible(me.userId) || !taskCanReportProgress(task,current.taskReviewRecords) || current.taskLoading || !current.taskReviewRecordsReady) {
             mutable.update {it.copy(taskEditorError="请刷新任务并确认你是当前责任人后再提交。")};return
         }
         val validation=TaskValidation.error("",buffer.note,buffer.status)
@@ -759,7 +764,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     }
     fun loadReviews() {
         val me=state.value.session ?: return
-        if(state.value.developmentPreview || me.role !in AppRoles.business)return
+        if(state.value.developmentPreview || me.role !in AppRoles.business || state.value.notificationsLoading)return
         reviewsJob?.cancel()
         val gen=generation
         mutable.update {it.copy(reviewsLoading=true)}
@@ -837,7 +842,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     }
     fun loadNotifications() {
         val me=state.value.session ?: return
-        if(state.value.developmentPreview || me.role !in AppRoles.business)return
+        if(state.value.developmentPreview || me.role !in AppRoles.business || state.value.notificationsLoading)return
         val gen=generation
         mutable.update {it.copy(notificationsLoading=true)}
         viewModelScope.launch {

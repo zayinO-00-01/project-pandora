@@ -28,6 +28,7 @@ import com.projectpandora.app.data.*
     var query by rememberSaveable(me.userId) {mutableStateOf("")}
     var section by rememberSaveable(me.userId) {mutableStateOf("home")}
     var selectedId by rememberSaveable(me.userId) {mutableStateOf<Long?>(null)}
+    var workDate by rememberSaveable {mutableStateOf(today().toString())}
     val selected=state.directory.firstOrNull {it.id==selectedId}
     val contactsById=state.directory.associateBy {it.id}
     fun canReadWork(person: DirectoryContact): Boolean {
@@ -64,6 +65,7 @@ import com.projectpandora.app.data.*
                 HorizontalDivider()
                 ContactInfo("账号",selected.username)
                 ContactInfo("职位",AppRoles.label(selected.role))
+                ContactInfo("所属部门",selected.departmentName ?: "未分配部门")
                 ContactInfo("直属上级",selected.managerName)
                 ContactInfo("工作联系电话",selected.phone)
             }}}
@@ -77,7 +79,10 @@ import com.projectpandora.app.data.*
                         item {Text("已提交日志 · ${state.memberLogs.size}",style=MaterialTheme.typography.titleMedium)}
                         items(state.memberLogs,key={"contact-log-${it.id}"}) {log->Column {Text(log.logDate,style=MaterialTheme.typography.labelMedium);Text(log.content)}}
                         item {Text("任务 · ${state.memberTasks.size}",style=MaterialTheme.typography.titleMedium)}
-                        items(orderedTasks(state.memberTasks),key={"contact-task-${it.id}"}) {task->Column {Text(task.title,style=MaterialTheme.typography.titleSmall);Text(taskFeedbackLabel(task));if(task.detail.isNotBlank())Text(task.detail);if(task.progressNote.isNotBlank())Text(task.progressNote)}}
+                        item {WorkspaceCalendar(java.time.LocalDate.parse(workDate),onDate={workDate=it.toString()}) {date->
+                            orderedTasks(state.memberTasks).filter {taskDate(it)==date}.take(2).forEach {CalendarItemChip(it.title,contentTags(state,"task",it.id,it.label))}
+                        }}
+                        items(orderedTasks(state.memberTasks).filter {taskDate(it)?.toString()==workDate},key={"contact-task-${it.id}"}) {task->Column {ControlTextButton(onClick={model.openTask(task.id)}) {Text(task.title,style=MaterialTheme.typography.titleSmall)};Text(taskFeedbackLabel(task));if(task.detail.isNotBlank())Text(task.detail);if(task.progressNote.isNotBlank())Text(task.progressNote)}}
                     }
                 }
             }
@@ -94,7 +99,7 @@ import com.projectpandora.app.data.*
                 }
                 item {Text(if(query.isNotBlank())"搜索结果 · ${people.size} 位" else if(section=="starred")"星标联系人 · ${people.size} 位" else "组织内联系人 · ${people.size} 位",style=MaterialTheme.typography.titleMedium)}
                 if(people.isEmpty() && !state.directoryLoading)item {EmptyCard("暂无匹配的联系人","可以搜索姓名，或在联系人详情中添加星标。")}
-                people.groupBy {it.managerName?.let {name->"$name 的团队"} ?: "组织负责人"}.forEach {(group,members)->
+                people.groupBy {it.departmentName ?: "未分配部门"}.forEach {(group,members)->
                     item {Text(group,style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.secondary,modifier=Modifier.padding(top=8.dp))}
                     items(members,key={it.id}) {person->Surface(onClick={selectedId=person.id},color=MaterialTheme.colorScheme.surface.copy(alpha=.9f),shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth()) {
                         Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)) {

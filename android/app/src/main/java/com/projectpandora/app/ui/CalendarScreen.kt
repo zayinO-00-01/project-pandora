@@ -167,16 +167,15 @@ import java.time.LocalDate
             }
             tasks.forEach {task->
                 item(key="${agendaDate}-task-${task.id}") {
-                    AgendaEntry(task,state,!state.saving) {feedback();model.openTask(task.id)}
+                    AgendaEntry(task,state,!state.saving,onLabel={model.openLabel(it)}) {feedback();model.openTask(task.id)}
                 }
             }
         }
-        item {TaskManagementSection(state.copy(tasks=state.tasks.filter {taskDate(it)==selected}),model)}
     }
     }
     if(showHelp)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={showHelp=false},title={Text("显示说明")},text={Text("日历仅显示任务，日志在日志页独立管理。月视图查看整月，周视图查看选中日期所在周，下方仅列出选中当天的工作安排，日视图专注当天详情。点击日期标题可直接输入年份并选择月份；跳转保留所选日期，超出当月天数时使用月末。箭头按当前视图切换月、周或天，“今天”返回当前日期。日期摘要最多两排，详细内容在下方显示。仅展示当前已同步内容，没有截止日期的任务可在任务列表查看。")},confirmButton={ControlTextButton(onClick={showHelp=false}) {Text("关闭")}})
 }
-@Composable private fun AgendaEntry(task: DispatchTask,state: AppState,enabled: Boolean,onClick: ()->Unit) {
+@Composable private fun AgendaEntry(task: DispatchTask,state: AppState,enabled: Boolean,onLabel: (Long)->Unit,onClick: ()->Unit) {
     val background=MaterialTheme.colorScheme.surface.copy(alpha=0.96f)
     val foreground=MaterialTheme.colorScheme.onSurface
     Surface(onClick=onClick,enabled=enabled,color=background,contentColor=foreground,shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth().panelOutline()) {
@@ -191,7 +190,7 @@ import java.time.LocalDate
                 TaskPriorityText(task.priority,onLabel=false)
                 if(task.detail.isNotBlank())Text(task.detail,style=MaterialTheme.typography.bodyMedium)
                 if(task.progressNote.isNotBlank())Text("进度：${task.progressNote}",style=MaterialTheme.typography.bodySmall)
-                LabelLines(contentTags(state,"task",task.id,task.label))
+                CompactLabelRow(contentTags(state,"task",task.id,task.label),onClick={onLabel(it.id)})
             }
         }
     }

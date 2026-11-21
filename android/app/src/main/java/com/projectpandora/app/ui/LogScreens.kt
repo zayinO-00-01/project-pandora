@@ -44,19 +44,19 @@ import androidx.compose.ui.semantics.contentDescription
         val preview=if(nextStep>=0)detail.substring(0,nextStep).trim() else detail
         if(preview.isNotEmpty())Text(preview,style=MaterialTheme.typography.bodySmall.copy(lineHeight=18.sp),maxLines=2,overflow=TextOverflow.Ellipsis,color=MaterialTheme.colorScheme.onSurfaceVariant)
         if(nextStep>=0)Text(detail.substring(nextStep).trim(),style=MaterialTheme.typography.bodySmall.copy(lineHeight=18.sp),maxLines=1,overflow=TextOverflow.Ellipsis,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        LabelLines(tags)
+        CompactLabelRow(tags,compact=true)
 
     }}
 }
 @Composable fun LogsScreen(state: AppState, model: PandoraViewModel, dayOnly: Boolean=false) {
     var allDates by rememberSaveable {mutableStateOf(true)}
-    val logs=if(!dayOnly && allDates)state.logs else state.logs.filter {it.covers(state.selectedDate)}
+    val logs=if(!dayOnly && allDates)state.logs else logCalendarContent(LocalDate.parse(state.selectedDate),state.session?.userId,state.logs,state.contentLabels).logs
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=24.dp),contentPadding=PaddingValues(top=4.dp,bottom=32.dp)) {
         item {Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                 if(!dayOnly && allDates)Text("全部记录 · ${logs.size} 条",modifier=Modifier.padding(vertical=14.dp),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 else Text(state.selectedDate,modifier=Modifier.padding(vertical=14.dp),style=MaterialTheme.typography.labelMedium)
-                if(!dayOnly)ControlTextButton(onClick={allDates=!allDates},enabled=!state.saving,colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.secondary)) {Text(if(allDates)"日志月历" else "全部记录",style=MaterialTheme.typography.labelMedium)}
+                if(!dayOnly)BackdropTextButton(onClick={allDates=!allDates},enabled=!state.saving,modifier=Modifier.heightIn(min=44.dp)) {Text(if(allDates)"日志月历" else "全部记录",style=MaterialTheme.typography.labelMedium)}
             }
             if(dayOnly)Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                 ControlOutlinedButton(onClick={model.selectDate(LocalDate.parse(state.selectedDate).minusDays(1).toString())}) {Text("← 前一天")}
@@ -70,19 +70,7 @@ import androidx.compose.ui.semantics.contentDescription
         if(!dayOnly && !allDates) {
             item {LogCalendar(state,model)}
             val date=LocalDate.parse(state.selectedDate)
-            val tasks=logCalendarContent(date,state.session?.userId,state.logs,state.tasks,state.contentLabels).tasks
-            item {
-                Column(Modifier.padding(vertical=12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-                    holidayLabel(date)?.let {Text(it,color=MaterialTheme.colorScheme.secondary)}
-                    Text("当天任务 · ${tasks.size} 项",style=MaterialTheme.typography.titleMedium)
-                }
-            }
-            items(tasks,key={"log-calendar-task-${it.id}"}) {task->
-                Column {
-                    TaskSummary(task,!state.saving) {model.openTask(task.id)}
-                    LabelLines(contentTags(state,"task",task.id,task.label))
-                }
-            }
+            item {holidayLabel(date)?.let {Text(it,color=MaterialTheme.colorScheme.secondary,modifier=Modifier.padding(top=8.dp))}}
             item {Text("当天日志 · ${logs.size} 条",style=MaterialTheme.typography.titleMedium,modifier=Modifier.padding(top=12.dp))}
         }
         if(logs.isEmpty() && !state.loading && state.logError==null)item {
@@ -133,7 +121,7 @@ import androidx.compose.ui.semantics.contentDescription
             state.editorError?.let {item {Hint(it,true)}}
         }
         Row(Modifier.fillMaxWidth().padding(vertical=12.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            if(readOnly)ControlTextButton(onClick={model.discardEditor()},enabled=!state.saving) {Text("返回")}
+            if(readOnly)BackdropTextButton(onClick={model.discardEditor()},enabled=!state.saving,modifier=Modifier.heightIn(min=48.dp)) {Text("← 返回日志")}
             else {
             ControlTextButton(onClick={discard=true},enabled=!state.saving) {Text("取消")}
             if(editor.status!="submitted")ControlOutlinedButton(onClick={model.save("draft")},enabled=!state.saving) {Text("存草稿")}

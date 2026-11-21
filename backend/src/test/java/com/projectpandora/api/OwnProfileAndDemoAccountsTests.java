@@ -34,7 +34,7 @@ class OwnProfileAndDemoAccountsTests {
             .andExpect(status().isOk()).andExpect(jsonPath("$.displayName").value("示例姓名"))
             .andExpect(jsonPath("$.role").value("STAFF")).andExpect(jsonPath("$.managerName").value("团队长"));
         mvc.perform(get("/api/v1/users/me").header("Authorization",staff))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.phone").value("010-12345678"));
+            .andExpect(status().isOk()).andExpect(jsonPath("$.phone").value("010-12345678")).andExpect(jsonPath("$.emergencyContact").value("示例联系人")).andExpect(jsonPath("$.emergencyPhone").value("12345678901"));
         mvc.perform(get("/api/v1/users/me").header("Authorization",colleague))
             .andExpect(status().isOk()).andExpect(jsonPath("$.displayName").value("演示员工小陈"));
         mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON)

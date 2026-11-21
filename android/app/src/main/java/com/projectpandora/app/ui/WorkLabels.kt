@@ -2,6 +2,8 @@ package com.projectpandora.app.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.semantics.semantics
@@ -19,8 +21,19 @@ fun labelTextColor(label: WorkLabel?): Color {
     val c=labelColor(label)
     return if(0.2126*c.red+0.7152*c.green+0.0722*c.blue>0.55)Color(0xFF162C30) else Color.White
 }
-@Composable fun LabelBadge(label: WorkLabel?) {
-    if(label!=null)Surface(color=labelColor(label),contentColor=labelTextColor(label),shape=androidx.compose.foundation.shape.CircleShape) {Text(label.name,modifier=Modifier.padding(horizontal=8.dp,vertical=4.dp),style=MaterialTheme.typography.labelSmall)}
+@Composable fun LabelBadge(label: WorkLabel?,compact: Boolean=false,modifier: Modifier=Modifier) {
+    if(label!=null)Surface(modifier=modifier,color=labelColor(label),contentColor=labelTextColor(label),shape=androidx.compose.foundation.shape.CircleShape) {
+        Text(label.name,modifier=Modifier.padding(horizontal=if(compact)6.dp else 8.dp,vertical=if(compact)2.dp else 4.dp),
+            maxLines=1,style=MaterialTheme.typography.labelSmall.let {if(compact)it.copy(fontSize=10.sp,lineHeight=12.sp) else it})
+    }
+}
+@Composable fun CompactLabelRow(labels: List<WorkLabel>,modifier: Modifier=Modifier,compact: Boolean=false,onClick: ((WorkLabel)->Unit)?=null) {
+    if(labels.isEmpty())return
+    Row(modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+        labels.distinctBy {it.id}.forEach {label->
+            LabelBadge(label,compact,if(onClick==null)Modifier else Modifier.clickable(role=androidx.compose.ui.semantics.Role.Button) {onClick(label)})
+        }
+    }
 }
 @Composable fun LabelPicker(labels: List<WorkLabel>,selected: Long?,enabled: Boolean,onSelect: (Long)->Unit) {
     var open by remember {mutableStateOf(false)}
@@ -46,6 +59,7 @@ fun contentTags(state: com.projectpandora.app.AppState,kind: String,id: Long,fal
     var open by remember {mutableStateOf(false)}
     Column {
         ControlOutlinedButton(onClick={open=true},enabled=enabled,modifier=Modifier.fillMaxWidth()) {Text("选择标签 · 已选 ${selected.size} 个")}
+        if(selected.isNotEmpty())CompactLabelRow(selected.map {id->labels.firstOrNull {it.id==id} ?: WorkLabel(id,"已停用标签", "#D0D5D5")},Modifier.padding(top=6.dp),compact=true)
     }
     if(open)AlertDialog(containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={open=false},title={Text("选择标签（可多选）")},text={Column(Modifier.heightIn(max=360.dp).verticalScroll(rememberScrollState())) {
         if(labels.isEmpty())Text("暂无可选标签，请由创始人维护。")

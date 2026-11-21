@@ -25,7 +25,7 @@ import com.projectpandora.app.data.*
     var showCompanyExamples by remember {mutableStateOf(false)}
     val companyExamples=state.developmentPreview || (BuildConfig.DEBUG && showCompanyExamples)
     val company=if(companyExamples)CompanyPriorityExamples.items else state.panels?.companyImportant.orEmpty().sortedBy {it.sortOrder}
-    val dispatch=orderedTasks(state.tasks.filter {it.assigneeId==state.session?.userId && taskIsApproved(it) && !it.deleted}).map {PanelItem(it.id,it.title,null,null)}
+    val dispatch=orderedTasks(state.tasks.filter {it.isResponsible(state.session?.userId) && taskIsApproved(it) && !it.deleted}).map {PanelItem(it.id,it.title,null,null)}
     var tagging by remember {mutableStateOf<Pair<String,Long>?>(null)}
     var chosen by remember {mutableStateOf<List<Long>>(emptyList())}
     fun tags(kind: String,id: Long,fallback: WorkLabel?=null)=state.contentLabels.firstOrNull {it.kind==kind && it.contentId==id}?.labels ?: listOfNotNull(fallback)
@@ -43,7 +43,7 @@ import com.projectpandora.app.data.*
         LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp)) {
             item {BackdropTextButton(onClick={selectedPanel=null}) {Text("返回首页")}}
             item {Text("任务看板",style=MaterialTheme.typography.titleLarge)}
-            val assigned=orderedTasks(state.tasks.filter {it.assigneeId==state.session?.userId && taskIsApproved(it) && !it.deleted})
+            val assigned=orderedTasks(state.tasks.filter {it.isResponsible(state.session?.userId) && taskIsApproved(it) && !it.deleted})
             if(assigned.isEmpty())item {Text("暂无派发任务")}
             assigned.forEach {task->item(key=task.id) {TaskSummary(task,!state.saving) {model.openTask(task.id)}}}
         }
@@ -70,7 +70,7 @@ import com.projectpandora.app.data.*
                     if(dispatch.isEmpty())OverviewEmpty(if(state.taskLoading)"正在读取任务…" else "暂无派发任务")
                     dispatch.take(2).forEachIndexed {index,entry->
                         val task=state.tasks.firstOrNull {it.id==entry.id}
-                        CompanyDepthCard(entry,index,compact=true,labels=tags("task",entry.id,task?.label),onLabels=if(task!=null && (task.createdBy==state.session?.userId || task.assigneeId==state.session?.userId || state.session?.role=="FOUNDER"))({pick("task",entry.id,task?.label)}) else null) {model.openTask(entry.id)}
+                        CompanyDepthCard(entry,index,compact=true,labels=tags("task",entry.id,task?.label),onLabels=if(task!=null && (task.createdBy==state.session?.userId || task.isResponsible(state.session?.userId) || state.session?.role=="FOUNDER"))({pick("task",entry.id,task?.label)}) else null) {model.openTask(entry.id)}
                     }
                 }
             }}

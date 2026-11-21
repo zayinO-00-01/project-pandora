@@ -49,4 +49,12 @@ class PersonalTodoTests {
   mvc.perform(get("/api/v1/personal-todos")).andExpect(status().isUnauthorized());
   mvc.perform(post("/api/v1/personal-todos").header("Authorization",TaskPolicyTestSupport.token(mvc,json,"staff")).contentType(MediaType.APPLICATION_JSON).content("{\"title\":\" \"}")).andExpect(status().isBadRequest());
  }
+
+ @Test void optionalSchedulePersistsAndReversedRangeIsRejected() throws Exception {
+  var token=TaskPolicyTestSupport.token(mvc,json,"staff");
+  var body=json.createObjectNode().put("title","个人安排").put("date","2026-11-21").put("startAt","2026-11-21T09:00:00").put("endAt","2026-11-21T10:00:00");
+  mvc.perform(post("/api/v1/personal-todos").header("Authorization",token).contentType(MediaType.APPLICATION_JSON).content(body.toString())).andExpect(status().isCreated()).andExpect(jsonPath("$.endAt").value("2026-11-21T10:00:00"));
+  body.put("endAt","2026-11-21T08:00:00");
+  mvc.perform(post("/api/v1/personal-todos").header("Authorization",token).contentType(MediaType.APPLICATION_JSON).content(body.toString())).andExpect(status().isBadRequest());
+ }
 }

@@ -26,4 +26,16 @@ class BatchDispatchTest {
  val request=server.takeRequest();assertEquals("/api/v1/tasks/batch",request.path);assertEquals(2,JsonParser.parseString(request.body.readUtf8()).asJsonObject["tasks"].asJsonArray.size())
  }
  }
+ @Test fun sharedTaskPostsOnceAndKeepsAllResponsiblePeople() {
+  MockWebServer().use {server->
+   server.enqueue(MockResponse().setBody("""{"id":1,"createdBy":3,"assigneeId":3,"assigneeIds":[3,4]}"""));server.start()
+   val api=ApiClient(server.url("/").toString());val me=Session(api.server,"t",3,"STAFF",null,"staff")
+   val result=api.createTask(me,TaskCreateInput("共同任务","","normal",3,"2090-12-01T10:00:00Z",startAt="2090-12-01T09:00:00Z",assigneeIds=listOf(3,4)))
+   assertTrue(result.isResponsible(4));assertEquals(1,relatedTasks(listOf(result),4).size)
+   val request=server.takeRequest();assertEquals("/api/v1/tasks",request.path)
+   assertEquals(2,JsonParser.parseString(request.body.readUtf8()).asJsonObject["assigneeIds"].asJsonArray.size())
+   assertEquals(1,server.requestCount)
+  }
+ }
+
 }
