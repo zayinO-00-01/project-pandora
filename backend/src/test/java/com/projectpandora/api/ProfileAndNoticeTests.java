@@ -32,8 +32,10 @@ class ProfileAndNoticeTests {
     }
     String token(JsonNode user) { return "Bearer " + user.get("token").asText(); }
 
-    String createBody(String username, String phone) throws Exception {
-        return json.writeValueAsString(Map.of("username", username, "password", "demo1234", "role", "STAFF", "phone", phone));
+    com.fasterxml.jackson.databind.node.ObjectNode staffAccount(String username, String phone) {
+        return json.createObjectNode().put("username", username).put("password", "demo1234").put("role", "STAFF")
+            .put("displayName", "示例姓名").put("phone", phone).put("idCard", TestIdentity.card(410))
+            .put("managerId", db.queryForObject("select id from users where username='team_lead'", Long.class));
     }
 
     @Test void ownerCanChangePasswordWithCurrentPassword() throws Exception {
@@ -79,22 +81,20 @@ class ProfileAndNoticeTests {
             .andExpect(status().isBadRequest());
         // malformed phone rejected
         mvc.perform(post("/api/v1/admin/users").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON)
-            .content(createBody("bad_phone_user", "12345"))).andExpect(status().isBadRequest());
+            .content(staffAccount("bad_phone_user", "12345").toString())).andExpect(status().isBadRequest());
         // valid creation
         mvc.perform(post("/api/v1/admin/users").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON)
-            .content(createBody("good_phone_user", "13800001234")))
+            .content(staffAccount("good_phone_user", "13800001234").toString()))
             .andExpect(status().isCreated()).andExpect(jsonPath("$.phone").value("13800001234"));
         // duplicate phone rejected
         mvc.perform(post("/api/v1/admin/users").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON)
-            .content(createBody("dup_phone_user", "13800001234"))).andExpect(status().isBadRequest());
+            .content(staffAccount("dup_phone_user", "13800001234").put("idCard", TestIdentity.card(411)).toString())).andExpect(status().isBadRequest());
     }
 
     @Test void adminPatchDistinguishesOmittedDatesFromExplicitlyClearedDates() throws Exception {
         String admin=token(login("admin"));
-        var response=mvc.perform(post("/api/v1/admin/users").header("Authorization",admin).contentType(MediaType.APPLICATION_JSON)
-            .content("{\"username\":\"clear_date_user\",\"password\":\"demo1234\",\"role\":\"STAFF\",\"phone\":\"13800001235\",\"birthDate\":\"1990-05-01\",\"hireDate\":\"2025-01-01\"}"))
-            .andExpect(status().isCreated()).andReturn().getResponse();
-        String path="/api/v1/admin/users/"+json.readTree(response.getContentAsString()).get("id").asLong();
+        db.update("update users set id_card=null, birth_date=DATE '1990-05-01', hire_date=DATE '2025-01-01' where username='staff'");
+        String path="/api/v1/admin/users/"+login("staff").path("userId").asLong();
         mvc.perform(patch(path).header("Authorization",admin).contentType(MediaType.APPLICATION_JSON)
             .content("{\"displayName\":\"New title\"}")).andExpect(status().isOk())
             .andExpect(jsonPath("$.birthDate").value("1990-05-01")).andExpect(jsonPath("$.hireDate").value("2025-01-01"));
@@ -116,7 +116,7 @@ class ProfileAndNoticeTests {
         String path="/api/v1/admin/users/"+staff.get("userId").asLong();
         String admin=token(login("admin"));
         mvc.perform(patch(path).header("Authorization",admin).contentType(MediaType.APPLICATION_JSON)
-            .content("{\"displayName\":\"Revised\",\"phone\":\"010-12345678\"}")).andExpect(status().isOk())
+            .content("{\"displayName\":\"Revised\"}")).andExpect(status().isOk())
             .andExpect(jsonPath("$.phone").value("010-12345678")).andExpect(jsonPath("$.displayName").value("Revised"));
         mvc.perform(patch(path).header("Authorization",admin).contentType(MediaType.APPLICATION_JSON)
             .content("{\"phone\":\"010-12345679\"}")).andExpect(status().isBadRequest());
@@ -125,25 +125,36 @@ class ProfileAndNoticeTests {
             .andExpect(jsonPath("$.phone").value("13700001234"));
     }
 
-    @Test void idCardIsValidatedAndRejectsFutureBirthDate() throws Exception {
+    @Test void requiredProfileFieldsAndDerivedBirthdayAreEnforced() throws Exception {
         var admin = login("admin");
-        mvc.perform(post("/api/v1/admin/users").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("username", "bad_id_user", "password", "demo1234", "role", "STAFF",
-                "phone", "13800002222", "idCard", "123")))).andExpect(status().isBadRequest());
-        mvc.perform(post("/api/v1/admin/users").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("username", "wrong_checksum", "password", "demo1234", "role", "STAFF",
-                "phone", "13800002222", "idCard", "110105194912310021")))).andExpect(status().isBadRequest());
-        mvc.perform(post("/api/v1/admin/users").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("username", "future_birth_user", "password", "demo1234", "role", "STAFF",
-                "phone", "13800003333", "birthDate", "2999-01-01")))).andExpect(status().isBadRequest());
-        mvc.perform(post("/api/v1/admin/users").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("username", "good_profile_user", "password", "demo1234", "role", "STAFF",
-                "phone", "13800004444", "idCard", "11010519491231002x", "gender", "FEMALE", "emergencyPhone", "13900004444"))))
+        var input = staffAccount("good_profile_user", "13800004444");
+        for (String field : new String[]{"displayName", "idCard", "managerId"}) {
+            var incomplete = input.deepCopy();
+            incomplete.remove(field);
+            mvc.perform(post("/api/v1/admin/users").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON)
+                .content(incomplete.toString())).andExpect(status().isBadRequest());
+        }
+        for (String invalid : new String[]{"130503900101001", "11010519491231002Y", "110105194912310021",
+                TestIdentity.card("29990101", 413), TestIdentity.card("19900230", 413)}) {
+            mvc.perform(post("/api/v1/admin/users").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON)
+                .content(input.deepCopy().put("idCard", invalid).toString())).andExpect(status().isBadRequest());
+        }
+        var created = mvc.perform(post("/api/v1/admin/users").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON)
+            .content(input.put("idCard", "11010519491231002x").put("birthDate", "2000-01-01")
+                .put("gender", "FEMALE").put("emergencyPhone", "13900004444").toString()))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.idCard").value("11010519491231002X"))
             .andExpect(jsonPath("$.gender").value("FEMALE"))
             .andExpect(jsonPath("$.birthDate").value("1949-12-31"))
-            .andExpect(jsonPath("$.emergencyPhone").value("13900004444"));
+            .andExpect(jsonPath("$.emergencyPhone").value("13900004444")).andReturn();
+        String path = "/api/v1/admin/users/" + json.readTree(created.getResponse().getContentAsString()).path("id").asLong();
+        for (String invalid : new String[]{"{\"idCard\":\"\"}", "{\"idCard\":null}", "{\"displayName\":\" \"}",
+                "{\"phone\":\"138000044440\"}", "{\"phone\":\"\"}", "{\"clearManager\":true}"}) {
+            mvc.perform(patch(path).header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON)
+                .content(invalid)).andExpect(status().isBadRequest());
+        }
+        mvc.perform(patch(path).header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"birthDate\":null}")).andExpect(status().isOk()).andExpect(jsonPath("$.birthDate").value("1949-12-31"));
     }
 
     @Test void changedEmergencyPhonesAreValidatedInBothEditorsWhileExistingValuesAreKept() throws Exception {
@@ -151,8 +162,9 @@ class ProfileAndNoticeTests {
         String path="/api/v1/admin/users/"+staff.path("userId").asLong();
         db.update("update users set id_card=?,emergency_phone=? where username='staff'", "000000198001010001", "123");
         mvc.perform(patch(path).header("Authorization",token(admin)).contentType(MediaType.APPLICATION_JSON)
-            .content("{\"idCard\":\"000000198001010001\",\"emergencyPhone\":\"123\"}"))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.emergencyPhone").value("123"));
+            .content("{\"emergencyPhone\":\"123\"}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.emergencyPhone").value("123"))
+            .andExpect(jsonPath("$.idCard").value("000000198001010001"));
         mvc.perform(patch(path).header("Authorization",token(admin)).contentType(MediaType.APPLICATION_JSON)
             .content("{\"emergencyPhone\":\"12012345678\"}")).andExpect(status().isBadRequest());
         mvc.perform(put("/api/v1/users/me").header("Authorization",token(staff)).contentType(MediaType.APPLICATION_JSON)

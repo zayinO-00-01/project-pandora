@@ -1809,23 +1809,28 @@ components:
           - STAFF
         displayName:
           type: string
+          minLength: 1
           maxLength: 64
         managerId:
           type: integer
           format: int64
           nullable: true
+          description: 部门负责人、团队长及员工必填；管理员和创始人无上级。
         disabled:
           type: boolean
         phone:
           type: string
-          description: 必填，11 位手机号，trim 后唯一
+          pattern: '^1[3-9][0-9]{9}$'
+          description: 11 位手机号，trim 后唯一
         idCard:
           type: string
-          nullable: true
+          pattern: '^[0-9]{17}[0-9Xx]$'
+          description: 18 位居民身份证，校验出生日期和校验位，trim 后唯一。
         birthDate:
           type: string
           format: date
           nullable: true
+          description: 由身份证号确定，忽略请求中的生日。
         gender:
           type: string
           enum:
@@ -1850,7 +1855,9 @@ components:
       - username
       - password
       - role
+      - displayName
       - phone
+      - idCard
     PatchUser:
       type: object
       properties:
@@ -1868,28 +1875,30 @@ components:
           - STAFF
         displayName:
           type: string
+          minLength: 1
           maxLength: 64
         managerId:
           type: integer
           format: int64
-          nullable: true
+          description: 变更岗位或上级时，业务岗位必须保留有效直属上级。
         disabled:
           type: boolean
         clearManager:
           type: boolean
-          description: true clears current managerId
+          description: 仅当结果岗位为管理员或创始人时允许清空。
         phone:
           type: string
-          nullable: true
-          description: 更新时填写有效且唯一的11位手机号。留空、未提供或与当前值相同时保持原值。
+          pattern: '^1[3-9][0-9]{9}$'
+          description: 提交时须为有效且唯一的 11 位手机号；省略则保留原值。
         idCard:
           type: string
-          nullable: true
+          pattern: '^[0-9]{17}[0-9Xx]$'
+          description: 提交时须为合法且唯一的 18 位身份证，省略则保留原值。
         birthDate:
           type: string
           format: date
           nullable: true
-          description: 未提供时保持原值，显式为null时清除。
+          description: 有身份证时由身份证确定；无身份证的旧档案仍可设置或清除。
         gender:
           type: string
           enum:

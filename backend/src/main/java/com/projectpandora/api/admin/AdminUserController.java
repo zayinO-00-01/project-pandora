@@ -1,6 +1,7 @@
 package com.projectpandora.api.admin;
 
 import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
 import com.projectpandora.api.common.ApiException;
 import com.projectpandora.api.security.AccessService;
 import com.projectpandora.api.user.*;
@@ -40,13 +41,14 @@ public class AdminUserController {
         String phone=ProfileRules.normalizePhone(request.phone());
         if(users.findByPhone(phone).isPresent()) throw new ApiException(400,"手机号已被使用");
         String idCard=ProfileRules.normalizeIdCard(request.idCard());
-        if(idCard!=null && users.findByIdCard(idCard).isPresent()) throw new ApiException(400,"身份证号已被使用");
+        if(users.findByIdCard(idCard).isPresent()) throw new ApiException(400,"身份证号已被使用");
+        assertRequiredManager(request.role(),request.managerId());
         assertAssignableManager(request.managerId());
         UserEntity user=new UserEntity();user.setUsername(username);user.setPasswordHash(passwords.encode(request.password()));
-        user.setRole(request.role());user.setDisplayName(request.displayName()==null || request.displayName().isBlank() ? username : request.displayName().trim());
+        user.setRole(request.role());user.setDisplayName(requiredName(request.displayName()));
         user.setManagerId(request.managerId());user.setDisabled(Boolean.TRUE.equals(request.disabled()));user.setCreatedAt(Instant.now());
         if(request.role()==Role.DEPT_HEAD)user.setDepartmentName(trimToNull(request.departmentName()));
-        applyProfile(user,phone,idCard,request.birthDate()!=null ? request.birthDate() : ProfileRules.birthDateFromId(idCard),request.gender(),request.hireDate(),
+        applyProfile(user,phone,idCard,ProfileRules.birthDateFromId(idCard),request.gender(),request.hireDate(),
             request.emergencyContact(),request.emergencyPhone(),request.address());
         var all=new ArrayList<>(users.findAll());all.add(user);validateHierarchy(all);
         return ResponseEntity.status(201).body(AdminUserResponse.from(users.saveAndFlush(user)));
@@ -58,12 +60,16 @@ public class AdminUserController {
         var user=users.findById(id).orElseThrow(()->new ApiException(404,"用户不存在"));
         Role oldRole=user.getRole();Long oldManager=user.getManagerId();boolean oldDisabled=user.isDisabled();
         if(request.role!=null) user.setRole(request.role);
-        if(request.displayName!=null) user.setDisplayName(request.displayName.trim());
+        if(request.displayName!=null) user.setDisplayName(requiredName(request.displayName));
         if(user.getRole()!=Role.DEPT_HEAD)user.setDepartmentName(null);
         else if(request.departmentName!=null)user.setDepartmentName(trimToNull(request.departmentName));
         if(request.managerId!=null || Boolean.TRUE.equals(request.clearManager)) {
             Long manager=Boolean.TRUE.equals(request.clearManager) ? null : request.managerId;
-            assertAssignableManager(manager);user.setManagerId(manager);
+            user.setManagerId(manager);
+        }
+        if(user.getRole()!=oldRole || request.managerId!=null || Boolean.TRUE.equals(request.clearManager)) {
+            assertRequiredManager(user.getRole(),user.getManagerId());
+            assertAssignableManager(user.getManagerId());
         }
         if(request.disabled!=null) user.setDisabled(request.disabled);
         if(request.password!=null && !request.password.isBlank()) {user.setPasswordHash(passwords.encode(request.password));user.revokeSessions();}
@@ -77,6 +83,14 @@ public class AdminUserController {
             }
         }
         return AdminUserResponse.from(users.saveAndFlush(user));
+    }
+    private static String requiredName(String name) {
+        String value=trimToNull(name);
+        if(value==null) throw new ApiException(400,"姓名不能为空");
+        return value;
+    }
+    private static void assertRequiredManager(Role role,Long managerId) {
+        if(role!=Role.ADMIN && role!=Role.FOUNDER && managerId==null) throw new ApiException(400,"请选择直属上级");
     }
     private void assertAssignableManager(Long id) {
         if(id==null) return;
@@ -112,20 +126,21 @@ public class AdminUserController {
         user.setAddress(trimToNull(address));
     }
     private void applyProfileUpdate(UserEntity user,UpdateUserRequest r) {
-        if(r.phone!=null && !r.phone.isBlank() && !r.phone.trim().equals(trimToNull(user.getPhone()))) {
+        if(r.phone!=null) {
             String phone=ProfileRules.normalizePhone(r.phone);
             users.findByPhone(phone).filter(other->!other.getId().equals(user.getId()))
                 .ifPresent(other->{throw new ApiException(400,"手机号已被使用");});
             user.setPhone(phone);
         }
-        if(r.idCard!=null && !Objects.equals(trimToNull(r.idCard),trimToNull(user.getIdCard()))) {
+        if(r.idCard!=null) {
             String idCard=ProfileRules.normalizeIdCard(r.idCard);
-            if(idCard!=null) users.findByIdCard(idCard).filter(other->!other.getId().equals(user.getId()))
+            users.findByIdCard(idCard).filter(other->!other.getId().equals(user.getId()))
                 .ifPresent(other->{throw new ApiException(400,"身份证号已被使用");});
             user.setIdCard(idCard);
-            if(idCard!=null && !r.birthDatePresent)user.setBirthDate(ProfileRules.birthDateFromId(idCard));
+            user.setBirthDate(ProfileRules.birthDateFromId(idCard));
+        } else if(r.birthDatePresent && user.getIdCard()==null) {
+            user.setBirthDate(ProfileRules.validateBirthDate(r.birthDate));
         }
-        if(r.birthDatePresent) user.setBirthDate(ProfileRules.validateBirthDate(r.birthDate));
         if(r.gender!=null) user.setGender(ProfileRules.normalizeGender(r.gender));
         if(r.hireDatePresent) user.setHireDate(r.hireDate);
         if(r.emergencyContact!=null) user.setEmergencyContact(trimToNull(r.emergencyContact));
@@ -142,11 +157,13 @@ public class AdminUserController {
         @Size(max=64) String departmentName) {}
     public static class UpdateUserRequest {
         public Role role;
-        @Size(max=64) public String displayName;
-        public Long managerId;
+        @JsonSetter(nulls=Nulls.FAIL) @Size(max=64) public String displayName;
+        @JsonSetter(nulls=Nulls.FAIL) public Long managerId;
         public Boolean clearManager,disabled;
         @Size(min=6,max=72) public String password;
-        @Size(max=20) public String phone,idCard,emergencyPhone;
+        @JsonSetter(nulls=Nulls.FAIL) @Size(max=20) public String phone;
+        @JsonSetter(nulls=Nulls.FAIL) @Size(max=20) public String idCard;
+        @Size(max=20) public String emergencyPhone;
         public String gender;
         @Size(max=64) public String emergencyContact,departmentName;
         @Size(max=255) public String address;

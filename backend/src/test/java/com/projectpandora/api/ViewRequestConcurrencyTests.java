@@ -30,11 +30,15 @@ class ViewRequestConcurrencyTests {
             .andReturn().getResponse().getContentAsString());
     }
     String token(JsonNode user) {return "Bearer "+user.get("token").asText();}
-    String phone() { return "139" + String.format("%08d", sequence.incrementAndGet()); }
+    Map<String,Object> account(String name, long managerId) {
+        int serial = sequence.incrementAndGet();
+        return Map.of("username", name, "password", "demo1234", "role", "STAFF", "displayName", name.trim(),
+            "managerId", managerId, "phone", "139" + String.format("%08d", serial), "idCard", TestIdentity.card(500 + serial % 400));
+    }
     JsonNode newStaff(JsonNode admin,JsonNode manager) throws Exception {
         String name="concurrent_"+sequence.incrementAndGet();
         mvc.perform(post("/api/v1/admin/users").header("Authorization",token(admin)).contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("username",name,"password","demo1234","role","STAFF","managerId",manager.get("userId").asLong(),"phone",phone()))))
+            .content(json.writeValueAsString(account(name,manager.get("userId").asLong()))))
             .andExpect(status().isCreated());return login(name);
     }
     String requestBody(JsonNode manager) throws Exception {
@@ -85,10 +89,11 @@ class ViewRequestConcurrencyTests {
     }
     @Test void concurrentTrimmedUsernamesReturnOneCreationAndOneClientError() throws Exception {
         var admin=login("admin");String name="duplicate_"+sequence.incrementAndGet();
+        long manager=login("team_lead").get("userId").asLong();
         Callable<Integer> first=()->mvc.perform(post("/api/v1/admin/users").header("Authorization",token(admin)).contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("username",name,"password","demo1234","role","STAFF","phone",phone())))).andReturn().getResponse().getStatus();
+            .content(json.writeValueAsString(account(name,manager)))).andReturn().getResponse().getStatus();
         Callable<Integer> second=()->mvc.perform(post("/api/v1/admin/users").header("Authorization",token(admin)).contentType(MediaType.APPLICATION_JSON)
-            .content(json.writeValueAsString(Map.of("username"," "+name+" ","password","demo1234","role","STAFF","phone",phone())))).andReturn().getResponse().getStatus();
+            .content(json.writeValueAsString(account(" "+name+" ",manager)))).andReturn().getResponse().getStatus();
         assertThat(race(first,second)).containsExactlyInAnyOrder(201,400);
     }
 }
