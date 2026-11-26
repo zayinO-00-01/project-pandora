@@ -240,7 +240,7 @@ internal fun dueLabel(value: String?): String = if(value==null)"未设置" else 
             if(draft.taskId==null)Text("多位责任人共同处理一条任务，共用状态和进度。",style=MaterialTheme.typography.bodySmall)
             if(state.dispatchLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
             ControlOutlinedButton(onClick={assigneesExpanded=true},enabled=enabled && draft.taskId==null && !state.dispatchLoading,modifier=Modifier.fillMaxWidth()) {
-                Text(if(selectedIds.isEmpty())"从通讯录选择责任人" else if(draft.taskId!=null)state.selectedTaskDetail?.assigneeName ?: selected?.displayName ?: selected?.username.orEmpty() else "已选 ${selectedIds.size} 人 · "+state.dispatchMembers.filter {it.id in selectedIds}.joinToString("、") {it.displayName ?: it.username},maxLines=2,overflow=TextOverflow.Ellipsis)
+                Text(if(selectedIds.isEmpty())"选择责任人" else if(draft.taskId!=null)state.selectedTaskDetail?.assigneeName ?: selected?.displayName ?: selected?.username.orEmpty() else "已选 ${selectedIds.size} 人 · "+state.dispatchMembers.filter {it.id in selectedIds}.joinToString("、") {it.displayName ?: it.username},maxLines=2,overflow=TextOverflow.Ellipsis)
             }
             if(!state.dispatchLoading && state.dispatchMembers.isEmpty())Text("人员列表尚未加载，请刷新或检查网络。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             BackdropTextButton(onClick=model::loadDispatchMembers,enabled=enabled && !state.dispatchLoading) {Text("刷新通讯录")}

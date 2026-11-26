@@ -91,7 +91,7 @@ public class ResetDemoData {
         try(var s=c.createStatement();var r=s.executeQuery("select version,success from flyway_schema_history where version is not null")) {
             boolean latest=false;
             while(r.next()) { if(!r.getBoolean(2))throw new IllegalStateException("Failed migration exists"); if("28".equals(r.getString(1)))latest=true;
-                if(Double.parseDouble(r.getString(1).replace('_','.'))>28)throw new IllegalStateException("Schema newer than V28; review this tool before use"); }
+                if(Double.parseDouble(r.getString(1).replace('_','.'))>29)throw new IllegalStateException("Schema newer than V29; review this tool before use"); }
             if(!latest)throw new IllegalStateException("Deploy and migrate through V28 before using this tool");
         }
         for(var table:DELETE_ORDER) count(c,table);

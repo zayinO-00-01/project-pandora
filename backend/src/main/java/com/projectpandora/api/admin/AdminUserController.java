@@ -45,7 +45,8 @@ public class AdminUserController {
         UserEntity user=new UserEntity();user.setUsername(username);user.setPasswordHash(passwords.encode(request.password()));
         user.setRole(request.role());user.setDisplayName(request.displayName()==null || request.displayName().isBlank() ? username : request.displayName().trim());
         user.setManagerId(request.managerId());user.setDisabled(Boolean.TRUE.equals(request.disabled()));user.setCreatedAt(Instant.now());
-        applyProfile(user,phone,idCard,request.birthDate(),request.gender(),request.hireDate(),
+        if(request.role()==Role.DEPT_HEAD)user.setDepartmentName(trimToNull(request.departmentName()));
+        applyProfile(user,phone,idCard,request.birthDate()!=null ? request.birthDate() : ProfileRules.birthDateFromId(idCard),request.gender(),request.hireDate(),
             request.emergencyContact(),request.emergencyPhone(),request.address());
         var all=new ArrayList<>(users.findAll());all.add(user);validateHierarchy(all);
         return ResponseEntity.status(201).body(AdminUserResponse.from(users.saveAndFlush(user)));
@@ -58,6 +59,8 @@ public class AdminUserController {
         Role oldRole=user.getRole();Long oldManager=user.getManagerId();boolean oldDisabled=user.isDisabled();
         if(request.role!=null) user.setRole(request.role);
         if(request.displayName!=null) user.setDisplayName(request.displayName.trim());
+        if(user.getRole()!=Role.DEPT_HEAD)user.setDepartmentName(null);
+        else if(request.departmentName!=null)user.setDepartmentName(trimToNull(request.departmentName));
         if(request.managerId!=null || Boolean.TRUE.equals(request.clearManager)) {
             Long manager=Boolean.TRUE.equals(request.clearManager) ? null : request.managerId;
             assertAssignableManager(manager);user.setManagerId(manager);
@@ -105,7 +108,7 @@ public class AdminUserController {
         user.setGender(ProfileRules.normalizeGender(gender));
         user.setHireDate(hireDate);
         user.setEmergencyContact(trimToNull(emergencyContact));
-        user.setEmergencyPhone(trimToNull(emergencyPhone));
+        user.setEmergencyPhone(ProfileRules.normalizeEmergencyPhone(emergencyPhone,null));
         user.setAddress(trimToNull(address));
     }
     private void applyProfileUpdate(UserEntity user,UpdateUserRequest r) {
@@ -115,17 +118,18 @@ public class AdminUserController {
                 .ifPresent(other->{throw new ApiException(400,"手机号已被使用");});
             user.setPhone(phone);
         }
-        if(r.idCard!=null) {
+        if(r.idCard!=null && !Objects.equals(trimToNull(r.idCard),trimToNull(user.getIdCard()))) {
             String idCard=ProfileRules.normalizeIdCard(r.idCard);
             if(idCard!=null) users.findByIdCard(idCard).filter(other->!other.getId().equals(user.getId()))
                 .ifPresent(other->{throw new ApiException(400,"身份证号已被使用");});
             user.setIdCard(idCard);
+            if(idCard!=null && !r.birthDatePresent)user.setBirthDate(ProfileRules.birthDateFromId(idCard));
         }
         if(r.birthDatePresent) user.setBirthDate(ProfileRules.validateBirthDate(r.birthDate));
         if(r.gender!=null) user.setGender(ProfileRules.normalizeGender(r.gender));
         if(r.hireDatePresent) user.setHireDate(r.hireDate);
         if(r.emergencyContact!=null) user.setEmergencyContact(trimToNull(r.emergencyContact));
-        if(r.emergencyPhone!=null) user.setEmergencyPhone(trimToNull(r.emergencyPhone));
+        if(r.emergencyPhone!=null) user.setEmergencyPhone(ProfileRules.normalizeEmergencyPhone(r.emergencyPhone,user.getEmergencyPhone()));
         if(r.address!=null) user.setAddress(trimToNull(r.address));
     }
     private static String trimToNull(String value) {
@@ -134,14 +138,18 @@ public class AdminUserController {
     public record CreateUserRequest(@NotBlank @Size(min=3,max=64) String username,
         @NotBlank @Size(min=6,max=72) String password,@NotNull Role role,@Size(max=64) String displayName,Long managerId,Boolean disabled,
         String phone,String idCard,LocalDate birthDate,String gender,LocalDate hireDate,
-        String emergencyContact,String emergencyPhone,String address) {}
+        @Size(max=64) String emergencyContact,@Size(max=20) String emergencyPhone,@Size(max=255) String address,
+        @Size(max=64) String departmentName) {}
     public static class UpdateUserRequest {
         public Role role;
         @Size(max=64) public String displayName;
         public Long managerId;
         public Boolean clearManager,disabled;
         @Size(min=6,max=72) public String password;
-        public String phone,idCard,gender,emergencyContact,emergencyPhone,address;
+        @Size(max=20) public String phone,idCard,emergencyPhone;
+        public String gender;
+        @Size(max=64) public String emergencyContact,departmentName;
+        @Size(max=255) public String address;
         private LocalDate birthDate,hireDate;
         private boolean birthDatePresent,hireDatePresent;
 
@@ -153,11 +161,11 @@ public class AdminUserController {
     }
     public record AdminUserResponse(Long id,String username,String role,String displayName,Long managerId,boolean disabled,
         String phone,String idCard,LocalDate birthDate,String gender,LocalDate hireDate,
-        String emergencyContact,String emergencyPhone,String address) {
+        String emergencyContact,String emergencyPhone,String address,String departmentName) {
         static AdminUserResponse from(UserEntity u) {
             return new AdminUserResponse(u.getId(),u.getUsername(),u.getRole().name(),u.getDisplayName(),u.getManagerId(),u.isDisabled(),
                 u.getPhone(),u.getIdCard(),u.getBirthDate(),u.getGender(),u.getHireDate(),
-                u.getEmergencyContact(),u.getEmergencyPhone(),u.getAddress());
+                u.getEmergencyContact(),u.getEmergencyPhone(),u.getAddress(),u.getDepartmentName());
         }
     }
 }

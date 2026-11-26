@@ -31,10 +31,19 @@ import java.time.LocalDate
     var section by rememberSaveable(me.userId) {mutableStateOf("home")}
     var selectedId by rememberSaveable(me.userId) {mutableStateOf<Long?>(null)}
     val selected=state.directory.firstOrNull {it.id==selectedId}
+    LaunchedEffect(state.directoryLoading,state.directory,selectedId) {
+        if(!state.directoryLoading && selectedId!=null && selected==null)selectedId=null
+    }
+    val scopeLine=when(me.role) {
+        "STAFF"->"直属上级和本部门同级同事"
+        "TEAM_LEAD"->"直属上级、本部门员工和各部门团队长"
+        else->"按部门查看全公司的业务联系人"
+    }
     var calendarDate by rememberSaveable(key,selectedId) {mutableStateOf(today().toString())}
     val contactsById=state.directory.associateBy {it.id}
     fun canReadWork(person: DirectoryContact): Boolean {
         if(person.id==me.userId)return false
+        person.canViewWork?.let {return it}
         if(me.role=="FOUNDER")return true
         if(!AppRoles.canViewDown(me.role))return false
         if(me.role=="DEPT_HEAD" && person.departmentId==me.userId)return true
@@ -70,6 +79,8 @@ import java.time.LocalDate
                 ContactInfo("职位",AppRoles.label(selected.role))
                 if(selected.role!="FOUNDER")ContactInfo("所属部门",selected.departmentName ?: "未分配部门")
                 ContactInfo("直属上级",selected.managerName)
+                val manager=selected.managerId?.let(contactsById::get)
+                if(manager!=null)ControlTextButton(onClick={selectedId=manager.id}) {Text("查看直属上级")}
                 ContactInfo("工作联系电话",selected.phone)
             }}}
             if(canReadWork(selected) && !state.developmentPreview) {
@@ -106,7 +117,7 @@ import java.time.LocalDate
         } else {
             item {OutlinedTextField(query,{query=it},singleLine=true,label={Text("搜索姓名、账号或联系电话")},modifier=Modifier.fillMaxWidth())}
             if(section=="home" && query.isBlank()) {
-                item {ScreenHeading("公司通讯录","${state.directory.size} 位组织内联系人")}
+                item {ScreenHeading("公司通讯录",scopeLine)}
                 item {DirectoryEntry("组织内联系人", "按部门分组 · ${state.directory.size} 位") {section="organization"}}
                 item {DirectoryEntry("★ 星标联系人","${state.directory.count {it.id.toString() in stars}} 位常用联系人 · 仅保存在本机") {section="starred"}}
             } else {
@@ -119,13 +130,14 @@ import java.time.LocalDate
                 people.groupBy {person->person.departmentId to (person.departmentName ?: if(person.role=="FOUNDER")"公司负责人" else "未分配部门")}.forEach {entry->
                     val group=entry.key.second
                     val members=entry.value
-                    item {Text(group,style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.secondary,modifier=Modifier.padding(top=8.dp))}
+                    item {Text("$group · ${members.size} 人",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.secondary,modifier=Modifier.padding(top=8.dp))}
                     items(members,key={it.id}) {person->Surface(onClick={selectedId=person.id},color=MaterialTheme.colorScheme.surface.copy(alpha=.9f),shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth()) {
                         Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)) {
                             ContactAvatar(person,42)
                             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                                 Text(person.displayName ?: person.username,style=MaterialTheme.typography.titleSmall)
                                 Text(AppRoles.label(person.role),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                person.managerName?.takeIf {it.isNotBlank()}?.let {Text("直属上级：$it",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
                             }
                             Text(if(person.id.toString() in stars)"★  ›" else "›",color=MaterialTheme.colorScheme.secondary)
                         }

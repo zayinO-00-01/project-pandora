@@ -225,12 +225,15 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             mutable.update {it.copy(directory=PreviewWorkspace.contacts,directoryError=null)};return
         }
         val gen=generation
-        mutable.update {it.copy(directoryLoading=true,directoryError=null)}
+        mutable.update {it.copy(directory=emptyList(),directoryLoading=true,directoryError=null)}
         viewModelScope.launch {
             try {val people=withContext(Dispatchers.IO) {api(me).directory(me)}
                 if(gen==generation)mutable.update {it.copy(directory=people,directoryLoading=false)}
             } catch(e:CancellationException) {throw e}
-              catch(e:Exception) {if(gen==generation)mutable.update {it.copy(directoryLoading=false,directoryError=message(e))}}
+              catch(e:Exception) {if(gen==generation) {
+                  if(e is ApiException && e.status==401)failure(e,false)
+                  else mutable.update {it.copy(directory=emptyList(),directoryLoading=false,directoryError=message(e))}
+              }}
         }
     }
     fun loadOrganization() {
@@ -533,17 +536,17 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         dispatchJob=viewModelScope.launch {
             try {
                 val legacyId=state.value.dispatchEditor?.takeIf(TaskDispatchValidation::needsOriginalSchedule)?.taskId
-                val (contacts,legacyTask)=withContext(Dispatchers.IO) {api(me).let {client->
-                    client.directory(me) to legacyId?.let {client.task(me,it)}
+                val (org,legacyTask)=withContext(Dispatchers.IO) {api(me).let {client->
+                    client.organization(me) to legacyId?.let {client.task(me,it)}
                 }}
-                val members=directoryAssignees(contacts)
+                val members=TaskDispatchValidation.assignees(me,org)
                 val currentTask=legacyTask ?: state.value.tasks.firstOrNull {it.id==state.value.dispatchEditor?.taskId}
                 val available=if(currentTask!=null && members.none {it.id==currentTask.assigneeId})members+UserSummary(currentTask.assigneeId,"",currentTask.assigneeName,"STAFF") else members
                 if(gen==generation) {
                     val draft=state.value.dispatchEditor
                     val restored=if(draft!=null && legacyTask!=null)TaskDispatchValidation.restoreOriginalSchedule(draft,legacyTask) else draft
                     if(restored!=null && restored!=draft)store.saveDispatchBuffer(restored)
-                    mutable.update {it.copy(directory=contacts,directoryError=null,dispatchMembers=available,dispatchLoading=false,dispatchEditor=restored)}
+                    mutable.update {it.copy(dispatchMembers=available,dispatchLoading=false,dispatchEditor=restored)}
                 }
             } catch(e:CancellationException) {throw e}
             catch(e:Exception) {
@@ -596,7 +599,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 val result=withContext(Dispatchers.IO) {
-                    val members=directoryAssignees(api(me).directory(me))
+                    val members=TaskDispatchValidation.assignees(me,api(me).organization(me))
                     if(draft.taskId==null)TaskDispatchValidation.error(draft,members)?.let {throw IllegalArgumentException(it)}
                     if(draft.taskId==null)api(me).createTask(me,TaskDispatchValidation.input(draft)) else api(me).editTask(me,draft.taskId,TaskDispatchValidation.input(draft))
                 }

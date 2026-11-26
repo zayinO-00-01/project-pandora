@@ -54,7 +54,7 @@ public class UserController {
                 .ifPresent(other->{throw new ApiException(400,"手机号已被使用");});
             user.setPhone(phone);
         }
-        String emergencyPhone=optionalPhone(request.emergencyPhone());
+        String emergencyPhone=ProfileRules.normalizeEmergencyPhone(request.emergencyPhone(),user.getEmergencyPhone());
         user.setEmergencyContact(optionalText(request.emergencyContact()));
         user.setEmergencyPhone(emergencyPhone);
         user.setAddress(optionalText(request.address()));
@@ -63,12 +63,6 @@ public class UserController {
     }
     private static String optionalText(String value) {
         return value==null || value.isBlank() ? null : value.trim();
-    }
-    private static String optionalPhone(String value) {
-        String phone=optionalText(value);
-        if(phone!=null && (!phone.matches("[+0-9() -]+") || phone.chars().filter(Character::isDigit).count()<3))
-            throw new ApiException(400,"请输入有效联系电话");
-        return phone;
     }
     public record OwnProfileRequest(@Size(max=64) String displayName,@Size(max=20) String phone,@Size(max=20) String newPhone,
         @Size(max=64) String emergencyContact,@Size(max=20) String emergencyPhone,@Size(max=255) String address) {}

@@ -17,3 +17,5 @@
 .filter-fields > div:not(.search-field){flex:0 1 135px}
 .filter-fields > div > select{width:100%;text-overflow:ellipsis}
 @media(min-width:701px) and (max-width:930px){.filter-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.filter-fields .search-field{max-width:none}}
+
+.org-roster{margin-bottom:16px;overflow:hidden}.org-list{margin:0;padding:5px 18px 12px;list-style:none}.org-row{padding:9px 0 9px calc(var(--report-depth) * 1.55rem);border-bottom:1px solid var(--line);display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}.org-row:last-child{border-bottom:0}.org-member{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.org-member .text-button{font-size:13px;font-weight:600}.org-role,.org-manager{font-size:12px;color:var(--muted)}.org-branch{color:#65806c}.field-help.field-invalid{color:#9a2c1d}[aria-invalid=true]{border-color:#a83b2a!important}

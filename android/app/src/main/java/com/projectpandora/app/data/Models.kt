@@ -61,7 +61,7 @@ fun reviewStatus(value: String?)=when(value) {"pending"->"待审核";"approved"-
 
 data class TaskKeyword(val id: Long,val text: String,val createdBy: Long)
 
-data class DirectoryContact(val id: Long,val username: String,val displayName: String?,val role: String,val managerId: Long?,val managerName: String?,val phone: String?,val avatar: String?,val avatarData: String?,val departmentId: Long?=null,val departmentName: String?=null)
+data class DirectoryContact(val id: Long,val username: String,val displayName: String?,val role: String,val managerId: Long?,val managerName: String?,val phone: String?,val avatar: String?,val avatarData: String?,val departmentId: Long?=null,val departmentName: String?=null,val canViewWork: Boolean?=null)
 
 data class ContentLabels(val kind: String,val contentId: Long,val labels: List<WorkLabel>,val status: String?=null)
 
