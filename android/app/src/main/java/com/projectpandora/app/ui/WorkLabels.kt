@@ -46,10 +46,10 @@ fun labelTextColor(label: WorkLabel?): Color {
 }
 
 @OptIn(ExperimentalLayoutApi::class)
-@Composable internal fun CalendarLabelNames(labels: List<WorkLabel>) {
+@Composable internal fun CalendarLabelNames(labels: List<WorkLabel>,onClick: (() -> Unit)?=null) {
     if(labels.isEmpty())return
     FlowRow(horizontalArrangement=Arrangement.spacedBy(4.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-        labels.distinctBy {it.id}.forEach {LabelBadge(it)}
+        labels.distinctBy {it.id}.forEach {label->if(onClick==null)LabelBadge(label) else Box(Modifier.clickable(onClick=onClick)) {LabelBadge(label)}}
     }
 }
 

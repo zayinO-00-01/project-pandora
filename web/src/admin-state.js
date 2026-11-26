@@ -10,6 +10,19 @@ export function eligibleManagers(users, role, userId) {
   return users.filter(user => !user.disabled && String(user.id) !== String(userId)
     && rank[user.role] !== undefined && rank[user.role] < rank[role]);
 }
+export function departmentFor(users, person) {
+  const byId = users instanceof Map ? users : new Map(users.map(user => [String(user.id), user]));
+  const seen = new Set();
+  let current = person;
+  if (current?.disabled) return null;
+  while (current && rank[current.role] !== undefined) {
+    if (current.role === 'DEPT_HEAD' && !current.disabled) return current;
+    if (!current.managerId || seen.has(String(current.managerId))) return null;
+    seen.add(String(current.managerId));
+    current = byId.get(String(current.managerId));
+  }
+  return null;
+}
 export function draftForStorage(scope, form) {
   const { id, username, displayName, role, managerId, disabled, phone, idCard, birthDate, gender, hireDate, emergencyContact, emergencyPhone, address } = form;
   return { ...scope, form: Object.fromEntries(Object.entries({ id, username, displayName, role, managerId, disabled, phone, idCard, birthDate, gender, hireDate, emergencyContact, emergencyPhone, address }).filter(([, value]) => value !== undefined)) };

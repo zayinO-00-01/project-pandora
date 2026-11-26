@@ -29,11 +29,11 @@ object TaskDispatchValidation {
     }
     fun input(buffer: TaskDispatchBuffer): TaskCreateInput = TaskCreateInput(buffer.title.trim(),buffer.detail.trim(),buffer.priority,buffer.assigneeId ?: 0,
         editedTime(buffer.dueDate,buffer.originalDueAt),buffer.labelId.takeIf {buffer.taskId==null},
-        editedTime(buffer.startDate,buffer.originalStartAt),buffer.labelIds.takeIf {buffer.taskId==null})
+        editedTime(buffer.startDate,buffer.originalStartAt),buffer.labelIds.takeIf {buffer.taskId==null},buffer.assigneeIds?.takeIf {buffer.taskId==null && it.size>1})
     fun assigneeIds(buffer: TaskDispatchBuffer)=buffer.assigneeIds ?: listOfNotNull(buffer.assigneeId)
     fun error(buffer: TaskDispatchBuffer, members: List<UserSummary>): String? {
         val people=assigneeIds(buffer)
-        if(people.isEmpty() || people.size>100)return "请选择1至100位责任人"
+        if(people.isEmpty() || people.size>100 || people.distinct().size!=people.size || buffer.assigneeId !in people)return "请选择1至100位有效责任人"
         if(people.any {id->id!=buffer.userId && members.none {it.id==id && it.role in AppRoles.business}})return "请选择当前公司的有效业务成员"
         if(buffer.assigneeId!=buffer.userId && members.none {it.id==buffer.assigneeId && it.role in AppRoles.business})return "请选择当前公司的业务成员（包括本人）"
         val value=try {input(buffer)} catch(_:Exception) {return "时间无效，请重新选择有效的日期和时间"}

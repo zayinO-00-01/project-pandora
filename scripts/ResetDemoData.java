@@ -12,7 +12,7 @@ public class ResetDemoData {
     static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
     static final List<String> DELETE_ORDER = List.of("task_notes", "task_reviews", "task_keywords", "task_events",
             "notifications", "personal_todo_labels", "personal_todo_requests", "personal_todos", "personal_priorities",
-            "personal_priority_lists", "content_label_sets", "work_logs", "dispatch_tasks");
+            "personal_priority_lists", "content_label_sets", "work_logs", "task_assignees", "dispatch_tasks");
     static final List<String> PROFILE_COLUMNS = List.of("display_name", "phone", "id_card", "birth_date", "gender",
             "hire_date", "emergency_contact", "emergency_phone", "address", "avatar");
     static final List<String> PRESERVED = List.of("users", "work_labels", "company_notices", "company_notice_notes",
@@ -90,9 +90,9 @@ public class ResetDemoData {
     static void verifySchema(Connection c) throws Exception {
         try(var s=c.createStatement();var r=s.executeQuery("select version,success from flyway_schema_history where version is not null")) {
             boolean latest=false;
-            while(r.next()) { if(!r.getBoolean(2))throw new IllegalStateException("Failed migration exists"); if("26".equals(r.getString(1)))latest=true;
-                if(Double.parseDouble(r.getString(1).replace('_','.'))>26)throw new IllegalStateException("Schema newer than V26; review this tool before use"); }
-            if(!latest)throw new IllegalStateException("Deploy and migrate current main through V26 before using this tool");
+            while(r.next()) { if(!r.getBoolean(2))throw new IllegalStateException("Failed migration exists"); if("28".equals(r.getString(1)))latest=true;
+                if(Double.parseDouble(r.getString(1).replace('_','.'))>28)throw new IllegalStateException("Schema newer than V28; review this tool before use"); }
+            if(!latest)throw new IllegalStateException("Deploy and migrate through V28 before using this tool");
         }
         for(var table:DELETE_ORDER) count(c,table);
         if(c.getMetaData().getDatabaseProductName().equalsIgnoreCase("MySQL")) {
@@ -138,6 +138,7 @@ public class ResetDemoData {
                     area+" · "+titles[i],"演示任务："+titles[i]+"。\n目标：明确交付范围，记录过程与结果。\n完成标准：资料可追溯、问题有结论，相关负责人确认。\n下一步：按计划检查进度，并在任务中补充反馈。",
                     i%3==0?"high":i%3==1?"normal":"low",due,start,state,progress,state.equals("todo")?"":"已完成资料梳理与初步核对，剩余问题按清单跟进。",m.id(),m.id(),created,now,approval,
                     rejected?"请补充验收标准后重新提交":pending?"":"演示数据中已完成初审",pending?null:manager==null?null:manager.id(),pending?null:created.plusSeconds(1800),"none",single,0L);
+            update(c,"insert into task_assignees(task_id,user_id) values(?,?)",task,m.id());
             update(c,"insert into task_events(task_id,event_type,actor_id,note,created_at) values(?,?,?,?,?)",task,"created",m.id(),"演示数据：创建任务",created);
             if(pending) notify(c,manager.id(),task,"task_approval_pending","任务创建待审批",titles[i],now);
             else if("approved".equals(approval)) notify(c,m.id(),task,"task_assigned","演示任务已生效",titles[i],now);

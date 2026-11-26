@@ -55,11 +55,12 @@ class ApiClient(address: String) {
     private val json=GsonBuilder().serializeNulls().create()
     fun todos(session: Session): List<DailyTodo> = request("/personal-todos","GET",null,session,object:TypeToken<List<DailyTodo>>(){}.type)
     fun saveTodo(session: Session,todo: DailyTodo,creating: Boolean,original: DailyTodo?=null): DailyTodo {
-        val body=mutableMapOf<String,Any>("title" to todo.title,"date" to todo.date,"completed" to todo.completed)
+        val body=mutableMapOf<String,Any?>("title" to todo.title,"date" to todo.date,"completed" to todo.completed,
+            "startAt" to todo.startAt,"endAt" to todo.endAt)
         todo.labelIds?.let {body["labelIds"]=it}
         if(creating)body["requestId"]=todo.id
         original?.let {body["base"]=mapOf("title" to it.title,"date" to it.date,"completed" to it.completed,
-            "labelIds" to it.labels.orEmpty().map {label->label.id})}
+            "startAt" to it.startAt,"endAt" to it.endAt,"labelIds" to it.labels.orEmpty().map {label->label.id})}
         return request("/personal-todos"+if(creating)"" else "/${todo.id}",if(creating)"POST" else "PUT",body,session,DailyTodo::class.java)
     }
     fun deleteTodo(session: Session,id: String): DailyTodo = request("/personal-todos/$id","DELETE",null,session,DailyTodo::class.java)
@@ -121,7 +122,7 @@ class ApiClient(address: String) {
         if(!AppRoles.canCreateTask(session.role))throw ApiException(403,"仅业务成员可创建任务")
         (TaskDispatchValidation.inputError(input,session.userId) ?: TaskDispatchValidation.creationDateError(input))?.let {throw IllegalArgumentException(it)}
         val result: DispatchTask=request("/tasks","POST",input,session,DispatchTask::class.java)
-        if(result.id<=0 || result.assigneeId!=input.assigneeId || result.createdBy!=session.userId)throw ApiException(502,"服务器返回的任务信息不一致，请刷新确认后重试")
+        if(result.id<=0 || result.assigneeId!=input.assigneeId || result.createdBy!=session.userId || result.responsibleIds()!=(input.assigneeIds ?: listOf(input.assigneeId)).toSet())throw ApiException(502,"服务器返回的任务信息不一致，请刷新确认后重试")
         return result
     }
     fun withdrawTask(session: Session,id: Long): DispatchTask = request("/tasks/$id/withdraw","POST",null,session,DispatchTask::class.java)

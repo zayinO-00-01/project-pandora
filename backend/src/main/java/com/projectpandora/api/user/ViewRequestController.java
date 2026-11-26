@@ -45,7 +45,11 @@ public class ViewRequestController {
         var r=requests.findByRequesterIdAndTargetId(me.getId(),target.getId()).orElseGet(ViewRequestEntity::new);
         if("pending".equals(r.status) || "approved".equals(r.status)) throw new ApiException(409,"已有待审批或已批准的申请");
         r.requesterId=me.getId();r.targetId=target.getId();r.reason=input.reason().trim();r.status="pending";r.updatedAt=Instant.now();
-        requests.saveAndFlush(r);notifications.send(r.targetId,"查看申请待审批",me.getUsername()+" 申请查看你的工作信息","view-request",r.id);return response(r);
+        requests.saveAndFlush(r);
+        var result=response(r);
+        var display=result.requester().displayName();
+        notifications.send(r.targetId,"查看申请待审批",(display==null || display.isBlank()?result.requester().username():display)+" 申请查看你的工作信息","view-request",r.id);
+        return result;
     }
     @PutMapping("/{id}")
     @Transactional

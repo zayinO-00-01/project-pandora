@@ -30,7 +30,8 @@ class DispatchContractTest {
             assertEquals("/api/v1/tasks",request.path)
             assertEquals("Bearer leader-token",request.getHeader("Authorization"))
             val body=JsonParser.parseString(request.body.readUtf8()).asJsonObject
-            assertEquals(setOf("title","detail","priority","assigneeId","dueAt","labelId","startAt","labelIds"),body.keySet())
+            assertEquals(setOf("title","detail","priority","assigneeId","dueAt","labelId","startAt","labelIds","assigneeIds"),body.keySet())
+            assertTrue(body["assigneeIds"].isJsonNull)
             assertEquals("核对合同",body["title"].asString)
             assertEquals("high",body["priority"].asString)
             assertEquals(3L,body["assigneeId"].asLong)

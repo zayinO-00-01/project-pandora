@@ -8,11 +8,16 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "dispatch_tasks")
@@ -40,6 +45,11 @@ public class TaskEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "assignee_id", nullable = false, updatable = false)
     private UserEntity assignee;
+    @ManyToMany
+    @JoinTable(name = "task_assignees", joinColumns = @JoinColumn(name = "task_id"),
+        inverseJoinColumns = @JoinColumn(name = "user_id"))
+    @org.hibernate.annotations.BatchSize(size = 50)
+    private Set<UserEntity> assignees = new LinkedHashSet<>();
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)
@@ -79,12 +89,14 @@ public class TaskEntity {
     @jakarta.persistence.OrderBy("id ASC")
     private java.util.List<TaskKeyword> keywords=new java.util.ArrayList<>();
     public java.util.List<TaskKeyword> getKeywords(){return keywords;}
-    void keywordsChanged(){updatedAt=Instant.now();}
+    void touch(){updatedAt=Instant.now();}
     protected TaskEntity() {}
 
-    TaskEntity(CreateTaskRequest request, UserEntity creator, UserEntity assignee) {
+    TaskEntity(CreateTaskRequest request, UserEntity creator, List<UserEntity> assignees) {
         title = request.title(); detail = request.detail(); priority = request.priority();
-        dueAt = request.dueAt(); startAt = request.startAt(); this.creator = creator; this.assignee = assignee;
+        dueAt = request.dueAt(); startAt = request.startAt(); this.creator = creator;
+        this.assignee = assignees.get(0);
+        this.assignees.addAll(assignees);
     }
 
     @PrePersist
@@ -119,6 +131,17 @@ public class TaskEntity {
     public String getProgressNote() { return progressNote; }
     public UserEntity getCreator() { return creator; }
     public UserEntity getAssignee() { return assignee; }
+    List<UserEntity> getAssignees() {
+        // Keep the primary first, including rows written by older versions.
+        var result = new java.util.ArrayList<UserEntity>();
+        result.add(assignee);
+        assignees.stream().filter(user -> !assignee.getId().equals(user.getId()))
+            .sorted(java.util.Comparator.comparing(UserEntity::getId)).forEach(result::add);
+        return result;
+    }
+    boolean hasAssignee(Long id) {
+        return assignee.getId().equals(id) || assignees.stream().anyMatch(user -> user.getId().equals(id));
+    }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 

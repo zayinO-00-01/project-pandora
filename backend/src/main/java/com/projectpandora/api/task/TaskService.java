@@ -53,12 +53,17 @@ public class TaskService {
                 .anyMatch(review->me.getId().equals(currentReviewerId(review)));
     }
     private boolean normallyVisible(TaskEntity task,UserPrincipal me) {
-        boolean participant=me.getId().equals(task.getCreator().getId()) || me.getId().equals(task.getAssignee().getId());
-        if(participant && initialVisible(task,me.getId(),me.getRole())) return true;
-        // Member-task views also include an approved request to view one's current direct manager.
         if(!initialVisible(task,me.getId(),me.getRole())) return false;
-        try {access.assertCanViewUserLogs(task.getAssignee().getId());return true;}
-        catch(ApiException e) {if(e.getStatus()==403) return false;throw e;}
+        if(isParticipant(task,me.getId())) return true;
+        // Member-task views also include an approved request to view one's current direct manager.
+        for(var assignee:task.getAssignees()) {
+            try {access.assertCanViewUserLogs(assignee.getId());return true;}
+            catch(ApiException e) {if(e.getStatus()!=403) throw e;}
+        }
+        return false;
+    }
+    private boolean isParticipant(TaskEntity task,Long userId) {
+        return task.getCreator().getId().equals(userId) || task.hasAssignee(userId);
     }
     private void assertNoteAccess(Long id) {
         var me=access.assertBusiness();var task=activeTask(id);
@@ -81,6 +86,8 @@ public class TaskService {
     @Transactional
     public List<TaskResponse> createBatch(List<CreateTaskRequest> requests) {
         if(requests.isEmpty() || requests.size()>100)throw new ApiException(400,"请选择1至100位责任人");
+        if(requests.stream().anyMatch(r->r.assigneeIds()!=null && r.assigneeIds().size()!=1))
+            throw new ApiException(400,"共享任务请使用单次创建");
         if(requests.stream().map(CreateTaskRequest::assigneeId).distinct().count()!=requests.size())throw new ApiException(400,"责任人不能重复");
         return requests.stream().map(this::create).toList();
     }
@@ -122,23 +129,38 @@ public class TaskService {
     @Transactional
     public TaskResponse create(CreateTaskRequest request) {
         organization.lock();var me=access.assertBusiness();
-        var assignee=users.findById(request.assigneeId()).orElseThrow(()->new ApiException(404,"责任人不存在"));
-        boolean self=me.getId().equals(assignee.getId());
-        access.assertCanDispatch(assignee);
+        var people=assigneeIds(request).stream().map(id->users.findById(id)
+            .orElseThrow(()->new ApiException(404,"责任人不存在"))).toList();
+        people.forEach(access::assertCanDispatch);
+        boolean self=people.size()==1 && me.getId().equals(request.assigneeId());
         var creator=users.findById(me.getId()).orElseThrow(()->new ApiException(401,"账号不可用，请重新登录"));
         if(me.getRole()!=Role.FOUNDER && managerFor(creator)==null)
             throw new ApiException(400,"创建任务需要有效直属上级审批，请联系管理员配置直属上级");
         assertTaskTimes(request);
-        var task=new TaskEntity(request,creator,assignee);
-        task.setLabel(labels.resolve(request.labelId(),null));
+        var task=new TaskEntity(request,creator,people);
+        var requestedLabels=request.labelIds()==null?null:contentLabels.validate("task",null,request.labelIds());
+        if(request.labelIds()==null) task.setLabel(labels.resolve(request.labelId(),null));
         if(me.getRole()!=Role.FOUNDER) task.requireApproval();
         tasks.saveAndFlush(task);
-        contentLabels.save("task",task.getId(),request.labelIds());
+        if(requestedLabels!=null) {
+            applyLabels(task,requestedLabels);
+            tasks.flush();
+        }
         logEvent(task.getId(),"created",me.getId(),self?"自主创建任务":"创建派发任务");
         if("pending".equals(task.getApprovalStatus())) notifyUser(creator.getManagerId(),me.getId(),"task_approval_pending","任务创建待你审批",
             displayName(creator)+" 提交任务「"+task.getTitle()+"」，请审批。",task.getId());
         else notifyAssignment(task,me.getId());
         return TaskResponse.from(task);
+    }
+    private Set<Long> assigneeIds(CreateTaskRequest request) {
+        var ids=new LinkedHashSet<Long>();
+        ids.add(request.assigneeId());
+        if(request.assigneeIds()!=null) {
+            ids.addAll(request.assigneeIds());
+            if(ids.size()!=request.assigneeIds().size() || new HashSet<>(request.assigneeIds()).size()!=ids.size())
+                throw new ApiException(400,"责任人不能重复，且列表必须包含主责任人");
+        }
+        return ids;
     }
     private void assertTaskTimes(CreateTaskRequest request) {
         assertSchedule(request.startAt(),request.dueAt());
@@ -167,8 +189,7 @@ public class TaskService {
         if(me.getRole()==Role.FOUNDER){
             applySchedule(task,new ScheduleChange(change.dueAt(),start));
             logEvent(id,"reschedule_approved",me.getId(),"创始人直接修改截止时间");
-            new HashSet<>(List.of(task.getCreator().getId(),task.getAssignee().getId())).forEach(recipient->
-                notifyUser(recipient,me.getId(),"task","任务已改期",task.getTitle(),id));
+            notifyParticipants(task,me.getId(),"task","任务已改期",task.getTitle());
             return TaskResponse.from(tasks.saveAndFlush(task));
         }
         var applicant=users.findById(me.getId()).orElseThrow(()->new ApiException(401,"账号不可用，请重新登录"));
@@ -176,7 +197,7 @@ public class TaskService {
         return TaskResponse.from(task);
     }
     private void assertCanReschedule(TaskEntity task,Long userId,Role role) {
-        if(role!=Role.FOUNDER && !task.getCreator().getId().equals(userId) && !task.getAssignee().getId().equals(userId))
+        if(role!=Role.FOUNDER && !isParticipant(task,userId))
             throw new ApiException(403,"仅创建人、责任人和创始人可申请改期");
         if(!"approved".equals(task.getApprovalStatus()))throw new ApiException(409,"任务审批通过后才能改期");
     }
@@ -185,7 +206,11 @@ public class TaskService {
     }
 
     private void notifyAssignment(TaskEntity task,Long actor) {
-        notifyUser(task.getAssignee().getId(),actor,"task_assigned","收到新任务","「"+task.getTitle()+"」已分配给你，请查看。",task.getId());
+        var assignees=task.getAssignees();
+        for(var assignee:assignees) {
+            if(assignees.size()>1 || !actor.equals(assignee.getId()))
+                notifications.notifyUser(assignee.getId(),"task_assigned","收到新任务",displayName(task.getCreator())+" 给你分配了任务「"+task.getTitle()+"」，请查看。",task.getId());
+        }
     }
     @Transactional
     public TaskResponse review(Long id,TaskApprovalRequest request) {
@@ -214,16 +239,17 @@ public class TaskService {
     @Transactional
     public TaskResponse updateProgress(Long id,ProgressRequest request) {
         organization.lock();var me=access.assertBusiness();var task=activeTask(id);
-        if(!task.getAssignee().getId().equals(me.getId())) throw new ApiException(403,"只有责任人可以更新进度");
+        if(!task.hasAssignee(me.getId())) throw new ApiException(403,"只有责任人可以更新进度");
         if(!"approved".equals(task.getApprovalStatus())) throw new ApiException(409,"任务审批通过后才能更新进度");
         noPending(task);
         String state=request.resolvedStatus();
         if(me.getRole()==Role.FOUNDER) {
             applyProgress(task,new ProgressRequest(request.progress(),request.progressNote(),state),me.getId());
             logEvent(id,"progress_approved",me.getId(),"创始人本人更新进度");
+            notifyParticipants(task,me.getId(),"task","任务进度已更新",task.getTitle());
             return TaskResponse.from(tasks.saveAndFlush(task));
         }
-        request(task,task.getAssignee(),"PROGRESS",new ProgressRequest(request.progress(),request.progressNote(),state));
+        request(task,users.findById(me.getId()).orElseThrow(),"PROGRESS",new ProgressRequest(request.progress(),request.progressNote(),state));
         return TaskResponse.from(task);
     }
     private void applyProgress(TaskEntity task,ProgressRequest progress,Long reviewer) {
@@ -236,21 +262,27 @@ public class TaskService {
         boolean creator=task.getCreator().getId().equals(me.getId());
         if(!creator && me.getRole()!=Role.FOUNDER) throw new ApiException(403,"只有创建人或创始人可以修改任务");
         if(!creator && !"approved".equals(task.getApprovalStatus())) throw new ApiException(403,"未生效任务仅申请人可以编辑");
-        if(!task.getAssignee().getId().equals(request.assigneeId())) throw new ApiException(400,"变更不能修改责任人");
+        if(!task.getAssignee().getId().equals(request.assigneeId())
+                || (request.assigneeIds()!=null && !assigneeIds(request).equals(assigneeIds(task))))
+            throw new ApiException(400,"变更不能修改责任人");
         if("pending".equals(task.getApprovalStatus())) throw new ApiException(409,"请先撤回创建申请再编辑");
         if(scheduleChanged(task,request.startAt(),request.dueAt()) ||
                 !"approved".equals(task.getApprovalStatus()))assertTaskTimes(request);
-        noPending(task);labels.resolve(request.labelId(),task.getLabel());
+        noPending(task);
+        var requestedLabels=requestedLabelIds(task,request.labelId(),request.labelIds());
         if(!"approved".equals(task.getApprovalStatus())) {
             if(me.getRole()!=Role.FOUNDER && managerFor(task.getCreator())==null) throw new ApiException(400,"创建任务需要有效直属上级审批");
-            task.applyDefinition(request.title(),request.detail(),request.priority(),request.dueAt(),request.startAt());task.setLabel(labels.resolve(request.labelId(),task.getLabel()));contentLabels.save("task",task.getId(),request.labelIds());
+            task.applyDefinition(request.title(),request.detail(),request.priority(),request.dueAt(),request.startAt());
+            applyLabels(task,requestedLabels);
             if(me.getRole()==Role.FOUNDER) task.review("approved","创始人重新提交",me.getId());
             else {task.requireApproval();notifyUser(task.getCreator().getManagerId(),me.getId(),"task_approval_pending","任务创建待你审批",task.getTitle(),id);}
             logEvent(id,"approval_resubmitted",me.getId(),"编辑后重新提交创建申请");
         } else if(me.getRole()==Role.FOUNDER) {
-            task.applyDefinition(request.title(),request.detail(),request.priority(),request.dueAt(),request.startAt());task.setLabel(labels.resolve(request.labelId(),task.getLabel()));contentLabels.save("task",task.getId(),request.labelIds());
+            task.applyDefinition(request.title(),request.detail(),request.priority(),request.dueAt(),request.startAt());
+            applyLabels(task,requestedLabels);
             task.setReviewStatus("none");task.setReviewReason(null);task.setReviewedBy(me.getId());task.setLifecycleReviewedAt(Instant.now());
             logEvent(id,"approved",me.getId(),"创始人直接修改任务");
+            notifyParticipants(task,me.getId(),"task","任务已更新",task.getTitle());
         } else {
             var manager=reviewer(task.getCreator());
             task.setPendingChange(payloadJson(request));task.setReviewStatus("pending_change");task.setReviewReason(null);
@@ -287,12 +319,12 @@ public class TaskService {
         task.setReviewReason(note);task.setReviewedBy(me.getId());task.setLifecycleReviewedAt(Instant.now());
         logEvent(id,"approved",me.getId(),note==null||note.isBlank()?"审核通过":note);
         switch(rs) {
-            case "pending_done" -> notifyUser(task.getAssignee().getId(),me.getId(),"done_approved","验收通过",
-                "你的任务「"+task.getTitle()+"」已通过验收。",task.getId());
-            case "pending_change" -> notifyUser(task.getCreator().getId(),me.getId(),"change_approved","变更已通过",
-                "「"+task.getTitle()+"」的修改已通过。",task.getId());
-            case "pending_delete" -> notifyUser(task.getCreator().getId(),me.getId(),"delete_approved","删除已通过",
-                "「"+task.getTitle()+"」的删除申请已通过。",task.getId());
+            case "pending_done" -> notifyAssignees(task,me.getId(),"done_approved","验收通过",
+                "你的任务「"+task.getTitle()+"」已通过验收。");
+            case "pending_change" -> notifyParticipants(task,me.getId(),"change_approved","变更已通过",
+                "「"+task.getTitle()+"」的修改已通过。");
+            case "pending_delete" -> notifyParticipants(task,me.getId(),"delete_approved","删除已通过",
+                "「"+task.getTitle()+"」的删除申请已通过。");
             default -> {}
         }
         return TaskResponse.from(tasks.saveAndFlush(task));
@@ -314,8 +346,8 @@ public class TaskService {
         task.setReviewReason(request.note());task.setReviewedBy(me.getId());task.setLifecycleReviewedAt(Instant.now());
         logEvent(id,"rejected",me.getId(),request.note());
         switch(rs) {
-            case "pending_done" -> notifyUser(task.getAssignee().getId(),me.getId(),"done_rejected","验收被驳回",
-                "你的任务「"+task.getTitle()+"」被驳回："+request.note(),task.getId());
+            case "pending_done" -> notifyAssignees(task,me.getId(),"done_rejected","验收被驳回",
+                "你的任务「"+task.getTitle()+"」被驳回："+request.note());
             case "pending_change" -> notifyUser(task.getCreator().getId(),me.getId(),"change_rejected","变更被驳回",
                 "「"+task.getTitle()+"」的修改被驳回："+request.note(),task.getId());
             case "pending_delete" -> notifyUser(task.getCreator().getId(),me.getId(),"delete_rejected","删除被驳回",
@@ -331,8 +363,8 @@ public class TaskService {
         if(me.getRole()==Role.FOUNDER) {
             softDelete(task,me.getId());task.setReviewStatus("approved");
             logEvent(id,"deleted",me.getId(),"创始人删除任务");
-            if("approved".equals(task.getApprovalStatus())) notifyUser(task.getAssignee().getId(),me.getId(),"task_deleted","任务已删除",
-                "任务「"+task.getTitle()+"」已被创始人删除。",task.getId());
+            if("approved".equals(task.getApprovalStatus())) notifyAssignees(task,me.getId(),"task_deleted","任务已删除",
+                "任务「"+task.getTitle()+"」已被创始人删除。");
             tasks.saveAndFlush(task);return;
         }
         if(!task.getCreator().getId().equals(me.getId())) throw new ApiException(403,"只有派发人或创始人可以删除任务");
@@ -343,16 +375,16 @@ public class TaskService {
         if(untouched) {
             softDelete(task,me.getId());
             logEvent(id,"deleted",me.getId(),"删除未开始的任务");
-            if("approved".equals(task.getApprovalStatus())) notifyUser(task.getAssignee().getId(),me.getId(),"task_deleted","任务已删除",
-                "任务「"+task.getTitle()+"」已被派发人删除。",task.getId());
+            if("approved".equals(task.getApprovalStatus())) notifyAssignees(task,me.getId(),"task_deleted","任务已删除",
+                "任务「"+task.getTitle()+"」已被派发人删除。");
             tasks.saveAndFlush(task);return;
         }
         Long reviewer=superiorOf(task.getCreator());
         if(reviewer==null) {
             softDelete(task,me.getId());task.setReviewStatus("approved");
             logEvent(id,"deleted",me.getId(),"无上级可审，自动删除");
-            if("approved".equals(task.getApprovalStatus())) notifyUser(task.getAssignee().getId(),me.getId(),"task_deleted","任务已删除",
-                "任务「"+task.getTitle()+"」已被删除。",task.getId());
+            if("approved".equals(task.getApprovalStatus())) notifyAssignees(task,me.getId(),"task_deleted","任务已删除",
+                "任务「"+task.getTitle()+"」已被删除。");
             tasks.saveAndFlush(task);return;
         }
         task.setReviewStatus("pending_delete");task.setReviewReason(null);
@@ -406,7 +438,7 @@ public class TaskService {
             var p=json.readValue(pending,TaskChangePayload.class);
             if(scheduleChanged(task,p.startAt(),p.dueAt()))assertSchedule(p.startAt(),p.dueAt());
             task.applyDefinition(p.title(),p.detail(),p.priority(),p.dueAt(),p.startAt());
-            task.setLabel(labels.resolve(p.labelId(),task.getLabel()));contentLabels.save("task",task.getId(),p.labelIds());
+            applyLabels(task,requestedLabelIds(task,p.labelId(),p.labelIds()));
         } catch(ApiException e) { throw e; }
           catch(Exception e) { throw new ApiException(500,"待审变更数据损坏"); }
         task.setPendingChange(null);
@@ -417,6 +449,21 @@ public class TaskService {
     }
     private void logEvent(Long taskId,String type,Long actorId,String note) {
         events.save(new TaskEventEntity(taskId,type,actorId,note));
+    }
+    private Set<Long> assigneeIds(TaskEntity task) {
+        return task.getAssignees().stream().map(UserEntity::getId)
+            .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+    }
+    private Set<Long> participantIds(TaskEntity task) {
+        var recipients=assigneeIds(task);
+        recipients.add(task.getCreator().getId());
+        return recipients;
+    }
+    private void notifyAssignees(TaskEntity task,Long actor,String type,String title,String body) {
+        assigneeIds(task).forEach(id->notifyUser(id,actor,type,title,body,task.getId()));
+    }
+    private void notifyParticipants(TaskEntity task,Long actor,String type,String title,String body) {
+        participantIds(task).forEach(id->notifyUser(id,actor,type,title,body,task.getId()));
     }
     private void notifyUser(Long recipient,Long actor,String type,String title,String body,Long taskId) {
         if(recipient==null || recipient.equals(actor)) return;
@@ -432,15 +479,15 @@ public class TaskService {
     private TaskEntity task(Long id){return tasks.findById(id).filter(t->!t.isDeleted()).orElseThrow(()->new ApiException(404,"任务不存在"));}
     private void noPending(TaskEntity task){if(PENDING.contains(task.getReviewStatus()) || keywordReviews.existsByTaskIdAndStatus(task.getId(),"pending"))throw new ApiException(409,"任务已有待审核变更，请先完成审核");}
     private void request(TaskEntity task,UserEntity applicant,String operation,Object payload){
-        if(!Set.of("KEYWORD_EDIT","KEYWORD_DELETE","PROGRESS","RESCHEDULE").contains(operation)) throw new ApiException(400,"未知任务审核操作");
+        if(!Set.of("KEYWORD_EDIT","KEYWORD_DELETE","PROGRESS","RESCHEDULE","LABELS").contains(operation)) throw new ApiException(400,"未知任务审核操作");
         noPending(task);var manager=reviewer(applicant);var review=new TaskReview();review.taskId=task.getId();review.applicantId=applicant.getId();review.reviewerId=manager.getId();review.operation=operation;review.baseVersion=task.getVersion();
         try{review.payload=json.writeValueAsString(payload);}catch(Exception e){throw new ApiException(400,"变更内容无效");}
-        keywordReviews.saveAndFlush(review);logEvent(task.getId(),"review_requested",applicant.getId(),operationLabel(operation));notifications.send(manager.getId(),"任务待审核",applicant.getUsername()+" 提交了"+operationLabel(operation)+"："+task.getTitle(),"task-review",task.getId());
+        keywordReviews.saveAndFlush(review);logEvent(task.getId(),"review_requested",applicant.getId(),operationLabel(operation));notifications.send(manager.getId(),"任务待审核",displayName(applicant)+" 提交了"+operationLabel(operation)+"："+task.getTitle(),"task-review",task.getId());
     }
-    private String operationLabel(String operation){return switch(operation){case "CREATE"->"创建任务";case "EDIT"->"编辑任务";case "DELETE"->"删除任务";case "KEYWORD_EDIT"->"修改他人关键词";case "KEYWORD_DELETE"->"删除他人关键词";case "RESCHEDULE"->"任务改期";default->"更新进度";};}
+    private String operationLabel(String operation){return switch(operation){case "CREATE"->"创建任务";case "EDIT"->"编辑任务";case "DELETE"->"删除任务";case "KEYWORD_EDIT"->"修改他人关键词";case "KEYWORD_DELETE"->"删除他人关键词";case "RESCHEDULE"->"任务改期";case "LABELS"->"修改任务标签";default->"更新进度";};}
     private void participant(TaskEntity task,UserEntity me){
         if(!"approved".equals(task.getApprovalStatus()))throw new ApiException(409,"任务需先获批才能协作制定关键词");
-        if(me.getRole()!=Role.FOUNDER && !task.getCreator().getId().equals(me.getId()) && !task.getAssignee().getId().equals(me.getId()))throw new ApiException(403,"仅任务创建人和执行人可协作制定关键词");
+        if(me.getRole()!=Role.FOUNDER && !isParticipant(task,me.getId()))throw new ApiException(403,"仅任务创建人和执行人可协作制定关键词");
     }
     private String keywordText(String input){
         var text=input==null?"":input.strip();
@@ -454,8 +501,49 @@ public class TaskService {
         organization.lock();var me=users.findById(access.assertBusiness().getId()).orElseThrow();var task=task(id);participant(task,me);noPending(task);
         var text=keywordText(input);uniqueKeyword(task,text,null);
         if(task.getKeywords().size()>=12)throw new ApiException(400,"每个任务最多12个关键词");
-        var keyword=keywords.saveAndFlush(new TaskKeyword(id,me.getId(),text));task.getKeywords().add(keyword);task.keywordsChanged();tasks.saveAndFlush(task);
+        var keyword=keywords.saveAndFlush(new TaskKeyword(id,me.getId(),text));task.getKeywords().add(keyword);task.touch();tasks.saveAndFlush(task);
         keywordNotice(task,me,"新增关键词："+text);return "关键词已添加";
+    }
+    public record LabelChange(List<Long> labelIds) {}
+    public record LabelChangeResult(List<Long> labelIds,String status) {}
+    @Transactional
+    public LabelChangeResult changeLabels(Long id,List<Long> ids) {
+        organization.lock();var me=access.assertBusiness();
+        var task=tasks.findById(id).filter(t->!t.isDeleted()).orElseThrow(()->new ApiException(403,"无权修改此内容标签"));
+        boolean effective="approved".equals(task.getApprovalStatus());
+        if(!(isParticipant(task,me.getId()) || (effective && me.getRole()==Role.FOUNDER)) || !canReadDetail(task,me))
+            throw new ApiException(403,"无权修改此内容标签");
+        var requested=contentLabels.validate("task",id,ids);
+        var current=contentLabels.ids("task",id);
+        if(new HashSet<>(current).equals(new HashSet<>(requested)))return new LabelChangeResult(current,"applied");
+        noPending(task);
+        if(effective && me.getRole()!=Role.FOUNDER) {
+            request(task,users.findById(me.getId()).orElseThrow(),"LABELS",new LabelChange(requested));
+            return new LabelChangeResult(current,"pending");
+        }
+        applyLabels(task,requested);
+        tasks.flush();
+        if(effective) {
+            logEvent(id,"labels_approved",me.getId(),"创始人直接修改任务标签");
+            notifyParticipants(task,me.getId(),"task","任务标签已更新",task.getTitle());
+        }
+        return new LabelChangeResult(requested,"applied");
+    }
+    private List<Long> requestedLabelIds(TaskEntity task,Long legacyId,List<Long> ids) {
+        if(ids!=null)return contentLabels.validate("task",task.getId(),ids);
+        Long prior=task.getLabel()==null?null:task.getLabel().getId();
+        if(legacyId==null || legacyId.equals(prior) || (legacyId==0 && prior==null))return null;
+        // A legacy client changes the single label it knows about; leave other selected labels in place.
+        var requested=new LinkedHashSet<Long>();
+        if(legacyId!=0)requested.add(legacyId);
+        contentLabels.ids("task",task.getId()).stream().filter(id->!id.equals(prior)).forEach(requested::add);
+        return contentLabels.validate("task",task.getId(),List.copyOf(requested));
+    }
+    private void applyLabels(TaskEntity task,List<Long> ids) {
+        if(ids==null)return;
+        contentLabels.save("task",task.getId(),ids);
+        task.setLabel(ids.isEmpty()?null:labels.find(ids.get(0)).orElseThrow());
+        task.touch();
     }
     public record KeywordChange(Long keywordId,String keywordBefore,String keywordText,boolean remove) {}
     @Transactional public String changeKeyword(Long id,Long keywordId,String input,boolean remove){
@@ -473,10 +561,10 @@ public class TaskService {
         if(!keyword.getText().equals(change.keywordBefore()))throw new ApiException(409,"关键词已变化，请重新提交");
         if(change.remove()){task.getKeywords().remove(keyword);keywords.delete(keyword);keywords.flush();}
         else {var text=keywordText(change.keywordText());uniqueKeyword(task,text,keyword.getId());keyword.setText(text);keywords.saveAndFlush(keyword);}
-        task.keywordsChanged();
+        task.touch();
     }
     private void keywordNotice(TaskEntity task,UserEntity me,String message){
-        var recipients=new HashSet<Long>(List.of(task.getCreator().getId(),task.getAssignee().getId()));recipients.remove(me.getId());
+        var recipients=participantIds(task);recipients.remove(me.getId());
         recipients.forEach(id->notifications.send(id,"任务关键词已更新",task.getTitle()+" · "+message,"task",task.getId()));
     }
     public record ReviewResponse(Long id,Long taskId,String taskTitle,Long applicantId,String applicantName,Long reviewerId,String reviewerName,String operation,String payload,String status,java.time.Instant createdAt,java.time.Instant decidedAt) {}
@@ -487,7 +575,7 @@ public class TaskService {
     private ReviewResponse response(TaskReview review) {
         Long reviewerId="pending".equals(review.status)?currentReviewerId(review):review.reviewerId;
         return new ReviewResponse(review.id,review.taskId,tasks.findById(review.taskId).map(TaskEntity::getTitle).orElse("已删除任务"),review.applicantId,
-            users.findById(review.applicantId).map(UserEntity::getUsername).orElse(""),reviewerId,reviewerId==null?"":users.findById(reviewerId).map(UserEntity::getUsername).orElse(""),
+            users.findById(review.applicantId).map(TaskService::displayName).orElse(""),reviewerId,reviewerId==null?"":users.findById(reviewerId).map(TaskService::displayName).orElse(""),
             review.operation,readablePayload(review.payload),review.status,review.createdAt,review.decidedAt);
     }
     public List<ReviewResponse> keywordReviews() {
@@ -499,8 +587,12 @@ public class TaskService {
     }
     private String readablePayload(String payload){
         try {var data=(com.fasterxml.jackson.databind.node.ObjectNode)json.readTree(payload);
-            if(data.hasNonNull("assigneeId"))users.findById(data.get("assigneeId").asLong()).ifPresent(u->data.put("assigneeName",u.getDisplayName()==null?u.getUsername():u.getDisplayName()));
-            if(data.hasNonNull("labelId")){long id=data.get("labelId").asLong();if(id==0)data.put("labelName","不使用标签");else {var label=labels.resolve(id,null);data.put("labelName",label.getName());data.put("labelColor",label.getColor());}}
+            if(data.hasNonNull("assigneeId"))users.findById(data.get("assigneeId").asLong()).ifPresent(u->data.put("assigneeName",displayName(u)));
+            if(data.hasNonNull("labelId")){long id=data.get("labelId").asLong();if(id==0)data.put("labelName","不使用标签");else labels.find(id).ifPresent(label->{data.put("labelName",label.getName());data.put("labelColor",label.getColor());});}
+            if(data.path("labelIds").isArray()){
+                var names=data.putArray("labelNames");
+                data.get("labelIds").forEach(id->labels.find(id.asLong()).ifPresent(label->names.add(label.getName())));
+            }
             return json.writeValueAsString(data);
         }catch(Exception e){return payload;}
     }
@@ -526,7 +618,7 @@ public class TaskService {
         if("approved".equals(decision)){
             try{switch(review.operation){
                 case "PROGRESS" -> {
-                    if(!task.getAssignee().getId().equals(review.applicantId) || !"approved".equals(task.getApprovalStatus())) throw new ApiException(409,"任务责任或审批状态已变化");
+                    if(!task.hasAssignee(review.applicantId) || !"approved".equals(task.getApprovalStatus())) throw new ApiException(409,"任务责任或审批状态已变化");
                     if(task.getVersion()!=review.baseVersion) throw new ApiException(409,"任务已变化，请撤回后重新提交进度");
                     applyProgress(task,json.readValue(review.payload,ProgressRequest.class),me.getId());
                 }
@@ -537,6 +629,12 @@ public class TaskService {
                     assertSchedule(change.startAt(),change.dueAt());
                     applySchedule(task,change);
                 }
+                case "LABELS" -> {
+                    if(!isParticipant(task,applicant.getId()) || !"approved".equals(task.getApprovalStatus()))
+                        throw new ApiException(409,"任务责任或审批状态已变化");
+                    if(task.getVersion()!=review.baseVersion)throw new ApiException(409,"任务已变化，请撤回后重新提交标签");
+                    applyLabels(task,json.readValue(review.payload,LabelChange.class).labelIds());
+                }
                 case "KEYWORD_EDIT", "KEYWORD_DELETE" -> {participant(task,applicant);var input=json.readValue(review.payload,KeywordChange.class);if(input.remove()!=review.operation.equals("KEYWORD_DELETE"))throw new ApiException(400,"关键词操作不匹配");applyKeyword(task,input);}
                 default -> throw new ApiException(400,"未知变更类型");
             }}catch(ApiException e){throw e;}catch(Exception e){throw new ApiException(400,"审核内容无效");}
@@ -546,7 +644,7 @@ public class TaskService {
         String result="approved".equals(decision)?"已批准":"已拒绝";
         notifications.send(review.applicantId,"任务审核"+result,operationLabel(review.operation)+"："+task.getTitle(),"task-review",task.getId());
         if("approved".equals(decision)){
-            var recipients=new HashSet<Long>(List.of(task.getAssignee().getId(),task.getCreator().getId()));recipients.remove(review.applicantId);recipients.remove(me.getId());
+            var recipients=participantIds(task);recipients.remove(review.applicantId);recipients.remove(me.getId());
             recipients.forEach(recipient->notifications.send(recipient,"任务已更新",operationLabel(review.operation)+"："+task.getTitle(),"task",task.getId()));
         }
         return keywordReviews().stream().filter(r->r.id().equals(id)).findFirst().orElseThrow();
