@@ -5,6 +5,7 @@ export const roles = [
   { value: 'TEAM_LEAD', label: '团队负责人' },
   { value: 'STAFF', label: '员工' },
 ];
+export const requiresManager = role => ['DEPT_HEAD', 'TEAM_LEAD', 'STAFF'].includes(role);
 const rank = { FOUNDER: 0, DEPT_HEAD: 1, TEAM_LEAD: 2, STAFF: 3 };
 export function eligibleManagers(users, role, userId) {
   return users.filter(user => !user.disabled && String(user.id) !== String(userId)
@@ -95,10 +96,10 @@ export function inspectIdCard(input) {
   const value = (input ?? '').trim().toUpperCase();
   if (!value) return { value, birthDate: '', error: '' };
   const invalid = error => ({ value, birthDate: '', error });
-  if (!/^(\d{15}|\d{17}[0-9X])$/.test(value) || value.startsWith('000000')) return invalid('请输入 15 位或 18 位有效身份证号。');
-  if (value.length === 18 && value[17] !== '10X98765432'[idWeights.reduce((sum, weight, i) => sum + Number(value[i]) * weight, 0) % 11])
+  if (!/^[0-9]{17}[0-9X]$/.test(value) || value.startsWith('000000')) return invalid('请输入 18 位有效身份证号，末位可为数字或 X。');
+  if (value[17] !== '10X98765432'[idWeights.reduce((sum, weight, i) => sum + Number(value[i]) * weight, 0) % 11])
     return invalid('身份证校验位不正确。');
-  const digits = value.length === 15 ? '19' + value.slice(6,12) : value.slice(6,14);
+  const digits = value.slice(6,14);
   const birthDate = digits.slice(0,4) + '-' + digits.slice(4,6) + '-' + digits.slice(6);
   const parsed = new Date(birthDate + 'T00:00:00Z');
   const now = new Date();
@@ -116,6 +117,13 @@ export function emergencyPhoneError(form, original) {
     ? '紧急联系电话请输入有效的 11 位手机号或带区号的座机。' : '';
 }
 export function profileInputError(form, original) {
-  return phoneError(form,original) || emergencyPhoneError(form,original)
-    || (fieldChanged(form,original,'idCard') ? inspectIdCard(form.idCard).error : '');
+  if (!(form.displayName ?? '').trim()) return '请填写姓名。';
+  if (!(form.phone ?? '').trim()) return '请填写账号手机号。';
+  const phone = phoneError({ phone: form.phone });
+  if (phone) return phone;
+  const identity = inspectIdCard(form.idCard);
+  if (!identity.value) return '请填写身份证号。';
+  if (identity.error) return identity.error;
+  if (requiresManager(form.role) && !form.managerId) return '请选择直属上级。';
+  return emergencyPhoneError(form, original);
 }

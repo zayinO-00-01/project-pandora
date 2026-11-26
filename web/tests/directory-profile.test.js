@@ -4,14 +4,20 @@ import * as state from '../src/admin-state.js';
 
 test('ID validates the calendar and checksum and reads the birth date', () => {
   assert.deepEqual(state.inspectIdCard(' 11010519491231002x '), { value: '11010519491231002X', birthDate: '1949-12-31', error: '' });
-  assert.equal(state.inspectIdCard('130503900101001').birthDate, '1990-01-01');
+  assert.match(state.inspectIdCard('130503900101001').error, /18 位/);
   assert.ok(state.inspectIdCard('110105194912310021').error);
   assert.ok(state.inspectIdCard('130503900230001').error);
 });
 
-test('profile save preserves unchanged legacy values but validates any replacement', () => {
-  const original = { id: 55, idCard: '000000198001010001', emergencyPhone: '123', birthDate: '1980-01-01' };
-  const form = { id: 55, ...state.editableProfile(original) };
+test('profile save requires complete account data and preserves an unchanged legacy emergency phone', () => {
+  const original = { id: 55, displayName: '测试员工', role: 'STAFF', managerId: 1, phone: '13812345678',
+    idCard: '11010519491231002X', emergencyPhone: '123', birthDate: '1949-12-31' };
+  const form = { ...original, ...state.editableProfile(original) };
+  for (const [field, label] of [['displayName', '姓名'], ['phone', '手机号'], ['idCard', '身份证'], ['managerId', '直属上级']]) {
+    assert.match(state.profileInputError({ ...form, [field]: '' }, original), new RegExp(label));
+  }
+  assert.match(state.profileInputError({ ...form, phone: original.phone + '9' }, original), /11 位/);
+  assert.equal(state.profileInputError({ ...form, role: 'FOUNDER', managerId: '' }, original), '');
   assert.equal(state.profileInputError(form, original), '');
   assert.ok(!('idCard' in state.profileForSave(form, original)));
   assert.ok(!('emergencyPhone' in state.profileForSave(form, original)));

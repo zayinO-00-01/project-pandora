@@ -134,6 +134,8 @@ class PandoraApplicationTests {
     void disabledUserCannotLogin() throws Exception {
         String adminToken = login("admin");
         String username = "disabled_case_" + System.currentTimeMillis();
+        Number manager = JsonPath.read(mockMvc.perform(get("/api/v1/users/me")
+                .header("Authorization", "Bearer " + login("team_lead"))).andReturn().getResponse().getContentAsString(), "$.id");
         MvcResult created =
                 mockMvc.perform(
                                 post("/api/v1/admin/users")
@@ -142,7 +144,9 @@ class PandoraApplicationTests {
                                         .content(
                                                 "{\"username\":\""
                                                         + username
-                                                        + "\",\"password\":\"demo1234\",\"role\":\"STAFF\",\"disabled\":true,\"phone\":\"13900000001\"}"))
+                                                        + "\",\"password\":\"demo1234\",\"role\":\"STAFF\",\"disabled\":true,\"phone\":\"13900000001\""
+                                                        + ",\"displayName\":\"Test account\",\"idCard\":\"" + TestIdentity.card(420)
+                                                        + "\",\"managerId\":" + manager.longValue() + "}"))
                         .andExpect(status().isCreated())
                         .andReturn();
         Number id = JsonPath.read(created.getResponse().getContentAsString(), "$.id");

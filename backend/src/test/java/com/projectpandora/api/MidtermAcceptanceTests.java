@@ -340,7 +340,8 @@ class MidtermAcceptanceTests {
             }
             case "AdminUserController.create" -> {
                 var b = json.createObjectNode().put("username", v == 0 ? "acceptance" : v == 1 ? "abc" : "ab")
-                        .put("password", "demo1234").put("role", "STAFF").put("phone", "13900009999").put("managerId", uid("team_lead"));
+                        .put("password", "demo1234").put("role", "STAFF").put("phone", "13900009999").put("managerId", uid("team_lead"))
+                        .put("displayName", "验收成员").put("idCard", TestIdentity.card(440 + v));
                 var r = call("POST", "/api/v1/admin/users", "admin", b, v == 2 ? 400 : 201);
                 if (v != 2) assertThat(r.path("username").asText()).isEqualTo(b.path("username").asText());
             }
