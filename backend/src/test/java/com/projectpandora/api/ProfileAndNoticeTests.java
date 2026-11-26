@@ -131,14 +131,35 @@ class ProfileAndNoticeTests {
             .content(json.writeValueAsString(Map.of("username", "bad_id_user", "password", "demo1234", "role", "STAFF",
                 "phone", "13800002222", "idCard", "123")))).andExpect(status().isBadRequest());
         mvc.perform(post("/api/v1/admin/users").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("username", "wrong_checksum", "password", "demo1234", "role", "STAFF",
+                "phone", "13800002222", "idCard", "110105194912310021")))).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/v1/admin/users").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON)
             .content(json.writeValueAsString(Map.of("username", "future_birth_user", "password", "demo1234", "role", "STAFF",
                 "phone", "13800003333", "birthDate", "2999-01-01")))).andExpect(status().isBadRequest());
         mvc.perform(post("/api/v1/admin/users").header("Authorization", token(admin)).contentType(MediaType.APPLICATION_JSON)
             .content(json.writeValueAsString(Map.of("username", "good_profile_user", "password", "demo1234", "role", "STAFF",
-                "phone", "13800004444", "idCard", "11010519491231002X", "birthDate", "1990-05-01", "gender", "FEMALE"))))
+                "phone", "13800004444", "idCard", "11010519491231002x", "gender", "FEMALE", "emergencyPhone", "13900004444"))))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.idCard").value("11010519491231002X"))
-            .andExpect(jsonPath("$.gender").value("FEMALE"));
+            .andExpect(jsonPath("$.gender").value("FEMALE"))
+            .andExpect(jsonPath("$.birthDate").value("1949-12-31"))
+            .andExpect(jsonPath("$.emergencyPhone").value("13900004444"));
+    }
+
+    @Test void changedEmergencyPhonesAreValidatedInBothEditorsWhileExistingValuesAreKept() throws Exception {
+        var admin=login("admin"); var staff=login("staff");
+        String path="/api/v1/admin/users/"+staff.path("userId").asLong();
+        db.update("update users set id_card=?,emergency_phone=? where username='staff'", "000000198001010001", "123");
+        mvc.perform(patch(path).header("Authorization",token(admin)).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"idCard\":\"000000198001010001\",\"emergencyPhone\":\"123\"}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.emergencyPhone").value("123"));
+        mvc.perform(patch(path).header("Authorization",token(admin)).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"emergencyPhone\":\"12012345678\"}")).andExpect(status().isBadRequest());
+        mvc.perform(put("/api/v1/users/me").header("Authorization",token(staff)).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"emergencyPhone\":\"1391234567\"}")).andExpect(status().isBadRequest());
+        mvc.perform(put("/api/v1/users/me").header("Authorization",token(staff)).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"emergencyPhone\":\"13912345678\"}")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.emergencyPhone").value("13912345678"));
     }
 
     @Test void ownerReadsOwnFullProfile() throws Exception {

@@ -51,11 +51,11 @@ class WorkspaceRevisionTests {
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
         assertThat(mine.findValues("id").stream().mapToLong(JsonNode::asLong).boxed().toList()).contains(id);
     }
-    @Test void directoryIsCompanyWideButContainsNoPrivatePersonnelFields() throws Exception {
+    @Test void directoryContainsNoPrivatePersonnelFields() throws Exception {
         var staff=users.findByUsername("staff").orElseThrow();staff.setPhone("13800001234");users.saveAndFlush(staff);
-        var response=mvc.perform(get("/api/v1/directory").header("Authorization",token("staff"))).andExpect(status().isOk()).andReturn();
+        var response=mvc.perform(get("/api/v1/directory").header("Authorization",token("founder"))).andExpect(status().isOk()).andReturn();
         var contacts=json.readTree(response.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
-        assertThat(contacts.findValuesAsText("username")).contains("staff","team_lead","leader","founder").doesNotContain("admin");
+        assertThat(contacts.findValuesAsText("username")).contains("staff","team_lead","leader").doesNotContain("admin","founder");
         assertThat(contacts.toString()).doesNotContain("passwordHash","idCard","birthDate","emergencyPhone","address");
         assertThat(contacts.findValuesAsText("phone")).contains("13800001234");
         mvc.perform(get("/api/v1/directory")).andExpect(status().isUnauthorized());

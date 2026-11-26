@@ -35,6 +35,12 @@ public class UserEntity {
     @Column(name = "manager_id")
     private Long managerId;
 
+    @Column(name = "department_name", length = 64)
+    private String departmentName;
+
+    public String getDepartmentName() { return departmentName; }
+    public void setDepartmentName(String departmentName) { this.departmentName = departmentName; }
+
     @Column(nullable = false)
     private Boolean disabled = false;
 

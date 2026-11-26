@@ -21,7 +21,11 @@ import com.projectpandora.app.data.Profile
     val changingPhone=phone.trim()!=originalPhone
     val invalidPhone=changingPhone && !Regex("1[3-9][0-9]{9}").matches(phone.trim())
     var contact by rememberSaveable {mutableStateOf(profile.emergencyContact.orEmpty())}
-    var emergencyPhone by rememberSaveable {mutableStateOf(profile.emergencyPhone.orEmpty())}
+    val formerEmergencyPhone=rememberSaveable {profile.emergencyPhone.orEmpty().trim()}
+    var emergencyPhone by rememberSaveable {mutableStateOf(formerEmergencyPhone)}
+    val currentEmergencyPhone=emergencyPhone.trim()
+    val invalidEmergencyPhone=currentEmergencyPhone.isNotEmpty() && currentEmergencyPhone!=formerEmergencyPhone &&
+        !Regex("1[3-9][0-9]{9}|0[1-9][0-9]{1,2}[- ]?[1-9][0-9]{6,7}").matches(currentEmergencyPhone)
     var address by rememberSaveable {mutableStateOf(profile.address.orEmpty())}
     AlertDialog(onDismissRequest={if(!state.saving)onClose()},title={Text("编辑本人档案")},text={
         Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -32,9 +36,11 @@ import com.projectpandora.app.data.Profile
                 supportingText=if(invalidPhone) {{Text("请输入有效的 11 位手机号")}} else null,
                 singleLine=true,enabled=!state.saving)
             OutlinedTextField(contact,{contact=it.take(64)},label={Text("紧急联系人")},singleLine=true,enabled=!state.saving)
-            OutlinedTextField(emergencyPhone,{emergencyPhone=it.take(20)},label={Text("紧急联系电话")},singleLine=true,enabled=!state.saving)
+            OutlinedTextField(emergencyPhone,{emergencyPhone=it.take(20)},label={Text("紧急联系电话")},singleLine=true,enabled=!state.saving,
+                keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Phone),isError=invalidEmergencyPhone,
+                supportingText={Text(if(invalidEmergencyPhone)"请输入有效的 11 位手机号或带区号的座机" else "选填：手机号或带区号的座机")})
             OutlinedTextField(address,{address=it.take(255)},label={Text("联系地址")},enabled=!state.saving)
             state.profileError?.let {Hint(it,true)}
         }
-    },confirmButton={ControlTextButton(onClick={model.updateOwnProfile(OwnProfileInput(contact.trim(),emergencyPhone.trim(),address.trim(),phone.trim().takeIf {changingPhone}),onClose)},enabled=!state.saving && !invalidPhone) {Text("保存")}},dismissButton={ControlTextButton(onClick=onClose,enabled=!state.saving) {Text("取消")}})
+    },confirmButton={ControlTextButton(onClick={model.updateOwnProfile(OwnProfileInput(contact.trim(),emergencyPhone.trim(),address.trim(),phone.trim().takeIf {changingPhone}),onClose)},enabled=!state.saving && !invalidPhone && !invalidEmergencyPhone) {Text("保存")}},dismissButton={ControlTextButton(onClick=onClose,enabled=!state.saving) {Text("取消")}})
 }
