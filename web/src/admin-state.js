@@ -14,8 +14,9 @@ export function departmentFor(users, person) {
   const byId = users instanceof Map ? users : new Map(users.map(user => [String(user.id), user]));
   const seen = new Set();
   let current = person;
-  while (current && !current.disabled && rank[current.role] !== undefined) {
-    if (current.role === 'DEPT_HEAD') return current;
+  if (current?.disabled) return null;
+  while (current && rank[current.role] !== undefined) {
+    if (current.role === 'DEPT_HEAD' && !current.disabled) return current;
     if (!current.managerId || seen.has(String(current.managerId))) return null;
     seen.add(String(current.managerId));
     current = byId.get(String(current.managerId));

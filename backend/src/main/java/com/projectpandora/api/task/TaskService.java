@@ -209,7 +209,7 @@ public class TaskService {
         var assignees=task.getAssignees();
         for(var assignee:assignees) {
             if(assignees.size()>1 || !actor.equals(assignee.getId()))
-                notifications.notifyUser(assignee.getId(),"task_assigned","收到新任务","「"+task.getTitle()+"」已分配给你，请查看。",task.getId());
+                notifications.notifyUser(assignee.getId(),"task_assigned","收到新任务",displayName(task.getCreator())+" 给你分配了任务「"+task.getTitle()+"」，请查看。",task.getId());
         }
     }
     @Transactional

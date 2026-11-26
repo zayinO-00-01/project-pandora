@@ -10,6 +10,8 @@ test('department follows the selected reporting line and changes when the direct
     { id: 4, role: 'TEAM_LEAD', managerId: 2 },
   ];
   assert.equal(accounts.departmentFor(users, { role: 'STAFF', managerId: '4' }).id, 2);
+  const disabledLead = users.map(user => user.id === 4 ? { ...user, disabled: true } : user);
+  assert.equal(accounts.departmentFor(disabledLead, { role: 'STAFF', managerId: '4' })?.id, 2);
   assert.equal(accounts.departmentFor(users, { role: 'STAFF', managerId: '3' }).id, 3);
   assert.equal(accounts.departmentFor(users, { id: 3, role: 'DEPT_HEAD', managerId: '1' }).id, 3);
   assert.equal(accounts.departmentFor(users, { role: 'STAFF', managerId: '1' }), null);

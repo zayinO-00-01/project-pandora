@@ -36,7 +36,10 @@ class SharedTaskTests {
         assertThat(taskCount()).isEqualTo(before + 1);
         assertThat(original.path("assigneeId").asLong()).isEqualTo(primary);
         assertThat(original.path("assigneeIds")).extracting(JsonNode::asLong).containsExactly(primary,secondary);
-        assertThat(db.queryForObject("select count(*) from notifications where task_id=? and type='task_assigned'",Long.class,id)).isEqualTo(2);
+        String founderName = db.queryForObject("select display_name from users where username='founder'", String.class);
+        assertThat(founderName).isNotBlank();
+        assertThat(db.queryForList("select body from notifications where task_id=? and type='task_assigned'",String.class,id))
+            .hasSize(2).allSatisfy(body -> assertThat(body).contains(founderName, "Shared task"));
         TaskPolicyTestSupport.task(mvc,json,id,"team_lead");
         mvc.perform(get("/api/v1/tasks").param("userId",String.valueOf(secondary)).header("Authorization",token("leader")))
             .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.id == " + id + ")]").isNotEmpty());

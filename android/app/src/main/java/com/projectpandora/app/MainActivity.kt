@@ -72,7 +72,8 @@ class MainActivity: ComponentActivity() {
         val target = pendingInbox ?: return
         if (target != (session.server to session.userId)) {
             pendingInbox = null
-        } else if (!state.saving && state.editor == null && state.taskEditor == null && !state.dispatchOpen) {
+        } else if (!state.saving && state.editor == null && !state.dispatchOpen &&
+            (state.taskEditor == null || state.taskEditor.taskId != state.selectedTaskId)) {
             pendingInbox = null
             model.screen("notifications")
         }
