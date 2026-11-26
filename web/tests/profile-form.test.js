@@ -27,3 +27,13 @@ test('editing unrelated account details does not validate or submit the unchange
   assert.equal('phone' in profileForSave(form, source), false);
   assert.ok(phoneError({ ...form, phone: '020-12345678' }, source));
 });
+
+test('editing a staff profile preserves and can clear the emergency contact independently of the account phone', () => {
+  const source = { id: 5, phone: '13800000000', emergencyContact: '同事', emergencyPhone: '010-12345678' };
+  const form = { id: source.id, ...editableProfile(source) };
+  assert.equal(form.emergencyPhone, '010-12345678');
+  const next = profileForSave({ ...form, emergencyContact: ' 新联系人 ', emergencyPhone: ' ' }, source);
+  assert.equal(next.emergencyContact, '新联系人');
+  assert.equal(next.emergencyPhone, '');
+  assert.equal('phone' in next, false);
+});

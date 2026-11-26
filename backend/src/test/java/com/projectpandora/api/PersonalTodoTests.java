@@ -72,4 +72,75 @@ class PersonalTodoTests {
       .andExpect(status().isConflict());
   mvc.perform(get("/api/v1/personal-todos").header("Authorization",staff)).andExpect(jsonPath("$[0].title").value("买工作用书"));
  }
+ @Test void shanghaiLocalScheduleRoundTripsAndRejectsInvalidRanges() throws Exception {
+  String staff=TaskPolicyTestSupport.token(mvc,json,"staff");
+  var body=json.createObjectNode().put("title","Travel").put("date","2026-11-19")
+      .put("startAt","2026-11-19T09:12:34").put("endAt","2026-11-21T13:45:56")
+      .put("requestId","3d8d1634-9561-4f0b-a947-d759263bc125");
+  var first=mvc.perform(post("/api/v1/personal-todos").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+      .andExpect(status().isCreated()).andExpect(jsonPath("$.startAt").value("2026-11-19T09:12:34"))
+      .andExpect(jsonPath("$.endAt").value("2026-11-21T13:45:56")).andReturn();
+  String id=json.readTree(first.getResponse().getContentAsString()).get("id").asText();
+  mvc.perform(post("/api/v1/personal-todos").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+      .andExpect(status().isCreated()).andExpect(jsonPath("$.id").value(id));
+  mvc.perform(get("/api/v1/personal-todos").header("Authorization",staff))
+      .andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].endAt").value("2026-11-21T13:45:56"));
+  body.remove("requestId");
+  body.put("startAt","2026-11-19T09:12:34Z");
+  mvc.perform(post("/api/v1/personal-todos").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+      .andExpect(status().isBadRequest());
+  body.put("startAt","2026-11-20T09:12:34");
+  mvc.perform(post("/api/v1/personal-todos").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+      .andExpect(status().isBadRequest());
+  body.put("startAt","2026-11-19T11:00").put("endAt","2026-11-19T10:00");
+  mvc.perform(post("/api/v1/personal-todos").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+      .andExpect(status().isBadRequest());
+  body.remove("startAt");
+  body.put("endAt","2026-11-18T23:59");
+  mvc.perform(post("/api/v1/personal-todos").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+      .andExpect(status().isBadRequest());
+  body.put("endAt","2026-11-20T08:00:04");
+  mvc.perform(post("/api/v1/personal-todos").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+      .andExpect(status().isCreated()).andExpect(jsonPath("$.startAt").doesNotExist())
+      .andExpect(jsonPath("$.endAt").value("2026-11-20T08:00:04"));
+ }
+ @Test void legacyUpdateShiftsTheWholeScheduleAndExplicitNullClearsOnlyThatEndpoint() throws Exception {
+  String staff=TaskPolicyTestSupport.token(mvc,json,"staff");
+  var base=json.createObjectNode().put("title","Travel").put("date","2026-11-19").put("completed",false);
+  base.putArray("labelIds");
+  var original=base.deepCopy().put("startAt","2026-11-19T09:12:34").put("endAt","2026-11-21T13:45:56");
+  var result=mvc.perform(post("/api/v1/personal-todos").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(original.toString()))
+      .andExpect(status().isCreated()).andReturn();
+  String path="/api/v1/personal-todos/"+json.readTree(result.getResponse().getContentAsString()).get("id").asText();
+  var move=base.deepCopy().put("date","2026-11-20").set("base",base);
+  mvc.perform(put(path).header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(move.toString()))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.date").value("2026-11-20"))
+      .andExpect(jsonPath("$.startAt").value("2026-11-20T09:12:34")).andExpect(jsonPath("$.endAt").value("2026-11-22T13:45:56"));
+  var moved=original.deepCopy().put("date","2026-11-20").put("startAt","2026-11-20T09:12:34").put("endAt","2026-11-22T13:45:56");
+  var clear=moved.deepCopy().putNull("startAt");
+  clear.remove("endAt");
+  clear.set("base",moved);
+  mvc.perform(put(path).header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(clear.toString()))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.startAt").doesNotExist())
+      .andExpect(jsonPath("$.endAt").value("2026-11-22T13:45:56"));
+ }
+ @Test void independentEndpointEditsMergeButCannotMakeAnInvertedRange() throws Exception {
+  String staff=TaskPolicyTestSupport.token(mvc,json,"staff");
+  var base=json.createObjectNode().put("title","Meeting").put("date","2026-11-19")
+      .put("startAt","2026-11-19T09:00:01").put("endAt","2026-11-19T15:00:01");
+  base.putArray("labelIds");
+  var result=mvc.perform(post("/api/v1/personal-todos").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(base.toString()))
+      .andExpect(status().isCreated()).andReturn();
+  String path="/api/v1/personal-todos/"+json.readTree(result.getResponse().getContentAsString()).get("id").asText();
+  var laterStart=base.deepCopy().put("startAt","2026-11-19T11:00:01").set("base",base);
+  mvc.perform(put(path).header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(laterStart.toString()))
+      .andExpect(status().isOk());
+  var tooEarlyEnd=base.deepCopy().put("endAt","2026-11-19T10:00:01").set("base",base);
+  mvc.perform(put(path).header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(tooEarlyEnd.toString()))
+      .andExpect(status().isConflict());
+  var earlierEnd=base.deepCopy().put("endAt","2026-11-19T13:00:01").set("base",base);
+  mvc.perform(put(path).header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(earlierEnd.toString()))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.startAt").value("2026-11-19T11:00:01"))
+      .andExpect(jsonPath("$.endAt").value("2026-11-19T13:00:01"));
+ }
 }

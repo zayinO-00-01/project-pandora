@@ -2,6 +2,7 @@ package com.projectpandora.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.projectpandora.app.AppState
 import com.projectpandora.app.PandoraViewModel
 import com.projectpandora.app.data.*
+import java.time.LocalDate
 
 @Composable fun DirectoryScreen(state: AppState,model: PandoraViewModel) {
     val me=state.session ?: return
@@ -29,11 +31,13 @@ import com.projectpandora.app.data.*
     var section by rememberSaveable(me.userId) {mutableStateOf("home")}
     var selectedId by rememberSaveable(me.userId) {mutableStateOf<Long?>(null)}
     val selected=state.directory.firstOrNull {it.id==selectedId}
+    var calendarDate by rememberSaveable(key,selectedId) {mutableStateOf(today().toString())}
     val contactsById=state.directory.associateBy {it.id}
     fun canReadWork(person: DirectoryContact): Boolean {
         if(person.id==me.userId)return false
         if(me.role=="FOUNDER")return true
         if(!AppRoles.canViewDown(me.role))return false
+        if(me.role=="DEPT_HEAD" && person.departmentId==me.userId)return true
         val seen=mutableSetOf<Long>()
         var parent=person.managerId
         while(parent!=null && seen.add(parent)) {
@@ -64,6 +68,7 @@ import com.projectpandora.app.data.*
                 HorizontalDivider()
                 ContactInfo("账号",selected.username)
                 ContactInfo("职位",AppRoles.label(selected.role))
+                if(selected.role!="FOUNDER")ContactInfo("所属部门",selected.departmentName ?: "未分配部门")
                 ContactInfo("直属上级",selected.managerName)
                 ContactInfo("工作联系电话",selected.phone)
             }}}
@@ -76,8 +81,25 @@ import com.projectpandora.app.data.*
                     else {
                         item {Text("已提交日志 · ${state.memberLogs.size}",style=MaterialTheme.typography.titleMedium)}
                         items(state.memberLogs,key={"contact-log-${it.id}"}) {log->Column {Text(log.logDate,style=MaterialTheme.typography.labelMedium);Text(log.content)}}
-                        item {Text("任务 · ${state.memberTasks.size}",style=MaterialTheme.typography.titleMedium)}
-                        items(orderedTasks(state.memberTasks),key={"contact-task-${it.id}"}) {task->Column {Text(task.title,style=MaterialTheme.typography.titleSmall);Text(taskFeedbackLabel(task));if(task.detail.isNotBlank())Text(task.detail);if(task.progressNote.isNotBlank())Text(task.progressNote)}}
+                        item {Text("任务月历 · ${state.memberTasks.size} 项",style=MaterialTheme.typography.titleMedium)}
+                        val tasksByDay=orderedTasks(state.memberTasks).groupBy {taskDate(it)}
+                        val workDay=LocalDate.parse(calendarDate)
+                        item {WorkspaceCalendar(workDay,onDate={calendarDate=it.toString()}) {date->
+                            val tasks=tasksByDay[date].orEmpty()
+                            tasks.take(if(tasks.size>2)1 else 2).forEach {task->
+                                CalendarItemChip(task.title,contentTags(state,"task",task.id,task.label),Modifier.clickable(enabled=!state.saving) {calendarDate=date.toString();model.openTask(task.id)})
+                            }
+                            if(tasks.size>2)CalendarOverflow(tasks.size-1) {calendarDate=date.toString()}
+                        }}
+                        val dayTasks=tasksByDay[workDay].orEmpty()
+                        item {Text("${workDay.monthValue}月${workDay.dayOfMonth}日 · ${dayTasks.size} 项任务",style=MaterialTheme.typography.titleSmall)}
+                        if(dayTasks.isEmpty())item {Text("当天暂无任务",color=MaterialTheme.colorScheme.onSurfaceVariant)}
+                        items(dayTasks,key={"contact-task-${it.id}"}) {task->Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                            ControlTextButton(onClick={model.openTask(task.id)}) {Text(task.title,style=MaterialTheme.typography.titleSmall)}
+                            Text(taskFeedbackLabel(task))
+                            if(task.detail.isNotBlank())Text(task.detail)
+                            if(task.progressNote.isNotBlank())Text(task.progressNote)
+                        }}
                     }
                 }
             }
@@ -85,7 +107,7 @@ import com.projectpandora.app.data.*
             item {OutlinedTextField(query,{query=it},singleLine=true,label={Text("搜索姓名、账号或联系电话")},modifier=Modifier.fillMaxWidth())}
             if(section=="home" && query.isBlank()) {
                 item {ScreenHeading("公司通讯录","${state.directory.size} 位组织内联系人")}
-                item {DirectoryEntry("组织内联系人", "按直属上级分组 · ${state.directory.size} 位") {section="organization"}}
+                item {DirectoryEntry("组织内联系人", "按部门分组 · ${state.directory.size} 位") {section="organization"}}
                 item {DirectoryEntry("★ 星标联系人","${state.directory.count {it.id.toString() in stars}} 位常用联系人 · 仅保存在本机") {section="starred"}}
             } else {
                 val people=state.directory.filter {person->
@@ -94,7 +116,9 @@ import com.projectpandora.app.data.*
                 }
                 item {Text(if(query.isNotBlank())"搜索结果 · ${people.size} 位" else if(section=="starred")"星标联系人 · ${people.size} 位" else "组织内联系人 · ${people.size} 位",style=MaterialTheme.typography.titleMedium)}
                 if(people.isEmpty() && !state.directoryLoading)item {EmptyCard("暂无匹配的联系人","可以搜索姓名，或在联系人详情中添加星标。")}
-                people.groupBy {it.managerName?.let {name->"$name 的团队"} ?: "组织负责人"}.forEach {(group,members)->
+                people.groupBy {person->person.departmentId to (person.departmentName ?: if(person.role=="FOUNDER")"公司负责人" else "未分配部门")}.forEach {entry->
+                    val group=entry.key.second
+                    val members=entry.value
                     item {Text(group,style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.secondary,modifier=Modifier.padding(top=8.dp))}
                     items(members,key={it.id}) {person->Surface(onClick={selectedId=person.id},color=MaterialTheme.colorScheme.surface.copy(alpha=.9f),shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth()) {
                         Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)) {

@@ -64,7 +64,7 @@ import androidx.compose.ui.text.font.FontWeight
             }
         }
         Row(Modifier.fillMaxWidth(),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
-            val heading=if(mode=="week")"${dates.first().year}年${dates.first().monthValue}月${dates.first().dayOfMonth}日 — ${dates.last().year}年${dates.last().monthValue}月${dates.last().dayOfMonth}日" else "${selected.year} 年 ${selected.monthValue} 月"
+            val heading=when(mode) {"week"->"${dates.first().year}年${dates.first().monthValue}月${dates.first().dayOfMonth}日 — ${dates.last().year}年${dates.last().monthValue}月${dates.last().dayOfMonth}日";"day"->"${selected.year} 年 ${selected.monthValue} 月 ${selected.dayOfMonth} 日";else->"${selected.year} 年 ${selected.monthValue} 月"}
             Column(Modifier.weight(1f).heightIn(min=48.dp).clickable(role=Role.Button,onClickLabel="选择年月",onClick={feedback();showDateJump=true}).semantics(mergeDescendants=true) {contentDescription="$heading，选择年月"}.padding(vertical=6.dp)) {
                 Text(heading,style=MaterialTheme.typography.titleMedium.copy(fontWeight=FontWeight.Medium,fontFeatureSettings="tnum"))
                 Text("选择年月 ▾",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.secondary)

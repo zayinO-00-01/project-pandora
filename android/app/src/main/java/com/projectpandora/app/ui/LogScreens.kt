@@ -80,7 +80,7 @@ import androidx.compose.ui.semantics.contentDescription
             items(tasks,key={"log-calendar-task-${it.id}"}) {task->
                 Column {
                     TaskSummary(task,!state.saving) {model.openTask(task.id)}
-                    LabelLines(contentTags(state,"task",task.id,task.label))
+                    CalendarLabelNames(contentTags(state,"task",task.id,task.label),onClick={model.openTask(task.id)})
                 }
             }
             item {Text("当天日志 · ${logs.size} 条",style=MaterialTheme.typography.titleMedium,modifier=Modifier.padding(top=12.dp))}

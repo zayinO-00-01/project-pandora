@@ -1,10 +1,12 @@
 package com.projectpandora.api.label;
 import com.projectpandora.api.common.ApiException;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 @Service
 public class LabelService {
     private final LabelRepository labels;
     public LabelService(LabelRepository labels){this.labels=labels;}
+    public Optional<WorkLabel> find(Long id) {return labels.findById(id);}
     public WorkLabel resolve(Long id,WorkLabel existing) {
         if(id==null)return existing;
         if(id==0)return null;

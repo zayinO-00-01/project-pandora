@@ -464,7 +464,7 @@ paths:
           type: integer
           format: int64
     post:
-      summary: 创建自主任务或向实际下级派发
+      summary: 创建一条自主或共享任务
       responses:
         '201':
           description: 成功
@@ -484,7 +484,7 @@ paths:
           $ref: '#/components/responses/Error409'
       security:
       - bearer: []
-      description: 所有业务成员可选全公司有效业务成员为责任人，包括自己；非创始人创建均待创建者当前有效直属上级批准，创始人直接生效。待批准只对创建者和有效审核人可见；不扩大日志权限。
+      description: 所有业务成员可选全公司的有效业务成员，包括自己。传多个责任人只创建一条共享任务，责任人共享状态与进度。非创始人的申请由创建者当前有效直属上级审核，创始人直接生效。待批准只对创建者和有效审核人可见；不扩大日志权限。
       requestBody:
         required: true
         content:
@@ -1072,7 +1072,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/KeywordReview'
-      description: PROGRESS、KEYWORD_EDIT、KEYWORD_DELETE。审核权随申请人的当前有效直属上级变化。初审仍走/tasks/pending-approvals，定义变更/删除审核走/tasks/reviews。
+      description: PROGRESS、KEYWORD_EDIT、KEYWORD_DELETE、RESCHEDULE、LABELS。审核权随申请人的当前有效直属上级变化。初审仍走/tasks/pending-approvals，定义变更/删除审核走/tasks/reviews。
   /task-reviews/{id}:
     parameters:
     - in: path
@@ -1196,8 +1196,8 @@ paths:
           $ref: '#/components/responses/Error403'
   /content-labels/{kind}/{id}:
     put:
-      summary: 独立保存内容标签，无需审批
-      description: 任务创建人和责任人须有读取权限；创始人可以维护可读的已通过任务标签。本人日志可独立修改分类，其他人的日志为只读。个人事项由本人维护，公司事项标签由创始人维护。
+      summary: 保存内容标签（已生效任务的修改可进入审批）
+      description: 已生效任务的创建人和责任人可申请增删或替换标签，由操作人的当前直属上级审批；待审时返回原标签及 pending，创始人直接生效。本人日志可独立修改分类，其他人的日志为只读。个人事项由本人维护，公司事项标签由创始人维护。
       security:
       - bearer: []
       parameters:
@@ -1229,7 +1229,7 @@ paths:
                     format: int64
       responses:
         '200':
-          description: 保存后的标签
+          description: 当前生效的标签。任务响应的 status 表示已应用或等待上级审核。
           content:
             application/json:
               schema:
@@ -1619,7 +1619,7 @@ paths:
   /directory:
     get:
       summary: 公司通讯录（仅业务成员）
-      description: 列出有效业务账号的姓名、职位、直属上级、电话和头像。不包含身份证、住址、生日及紧急联系人，不授予任务或日志访问权限。
+      description: 列出全公司有效业务账号的姓名、职位、直属上级、电话、头像与按汇报关系推算出的部门。不包含身份证、住址、生日及紧急联系人，不授予任务或日志访问权限。
       security:
       - bearer: []
       responses:
@@ -1637,7 +1637,7 @@ paths:
           $ref: '#/components/responses/Error403'
   /tasks/batch:
     post:
-      summary: 为多位责任人分别创建独立任务（原子提交）
+      summary: 旧客户端兼容批量创建（每项请求创建一条任务，原子提交）
       security:
       - bearer: []
       requestBody:
@@ -1704,6 +1704,14 @@ components:
           type: string
           nullable: true
         avatarData:
+          type: string
+          nullable: true
+        departmentId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 直属上级链上最近的有效部门负责人编号。
+        departmentName:
           type: string
           nullable: true
     UserSummary:
@@ -2067,6 +2075,16 @@ components:
           maxItems: 12
           items: {type: integer, format: int64}
           description: 省略时保留已有标签；空数组清除。
+        startAt:
+          type: string
+          nullable: true
+          example: '2026-11-26T09:00:00'
+          description: 上海本地日期和时间，不带时区偏移。指定开始时间时，其日期须等于 date；PUT 显式 null 清除。
+        endAt:
+          type: string
+          nullable: true
+          example: '2026-11-27T12:00:00'
+          description: 上海本地日期和时间，不得早于开始时间或事项日期；PUT 显式 null 清除。
         requestId:
           type: string
           format: uuid
@@ -2079,6 +2097,8 @@ components:
             title: {type: string, minLength: 1, maxLength: 200}
             date: {type: string, format: date}
             completed: {type: boolean}
+            startAt: {type: string, nullable: true}
+            endAt: {type: string, nullable: true}
             labelIds:
               type: array
               maxItems: 12
@@ -2287,6 +2307,14 @@ components:
         assigneeId:
           type: integer
           format: int64
+          description: 主责任人字段，供旧客户端继续使用。
+        assigneeIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: {type: integer, format: int64, minimum: 1}
+          description: 可选的共享责任人列表，必须包含 assigneeId。省略时使用原有单责任人规则。
         dueAt:
           type: string
           format: date-time
@@ -2301,7 +2329,12 @@ components:
           type: integer
           format: int64
           nullable: true
-          description: 标签ID；更新时null保留原标签，0清除标签。创建时null不使用标签。
+          description: 旧单标签字段；更新时 null 保留、0 清除。
+        labelIds:
+          type: array
+          maxItems: 12
+          items: {type: integer, format: int64}
+          description: 多标签字段；省略时保留，空数组清除，已生效任务修改须遵守审批规则。
       required:
       - title
       - assigneeId
@@ -2329,6 +2362,11 @@ components:
         assigneeId:
           type: integer
           format: int64
+          description: 主责任人，兼容旧客户端。
+        assigneeIds:
+          type: array
+          items: {type: integer, format: int64}
+          description: 该任务的所有责任人编号，主责任人排在第一位。
         dueAt:
           type: string
           format: date-time
@@ -2681,6 +2719,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Label'
+        status:
+          type: string
+          enum: [applied, pending]
+          description: 仅任务标签保存响应提供。
     KeywordReview:
       type: object
       properties:
@@ -2710,9 +2752,11 @@ components:
           - PROGRESS
           - KEYWORD_EDIT
           - KEYWORD_DELETE
+          - RESCHEDULE
+          - LABELS
         payload:
           type: string
-          description: JSON字符串；PROGRESS含拟议status/progressNote，可选progress；关键词含原词/新词及操作。
+          description: JSON 字符串。PROGRESS 含拟议状态与说明；关键词含原词和新词；LABELS 含拟议的 labelIds 与可显示的 labelNames。
         status:
           type: string
           enum:

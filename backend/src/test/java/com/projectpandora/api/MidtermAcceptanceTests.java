@@ -293,7 +293,19 @@ class MidtermAcceptanceTests {
                 var t = task("founder", "staff"); var ids = new ArrayList<Long>();
                 for (int i = 0; i < (v == 0 ? 1 : v == 1 ? 12 : 13); i++) ids.add(label());
                 var r = call("PUT", "/api/v1/content-labels/task/" + t.path("id").asLong(), "staff", Map.of("labelIds", ids), v == 2 ? 400 : 200);
-                if (v != 2) assertThat(r.path("labels").size()).isEqualTo(ids.size());
+                if (v != 2) {
+                    long taskId = t.path("id").asLong();
+                    assertThat(r.path("status").asText()).isEqualTo("pending");
+                    assertThat(r.path("labels").size()).isZero();
+                    var previousLabel = call("GET", "/api/v1/tasks/" + taskId, "staff", null, 200).path("label");
+                    assertThat(previousLabel.isMissingNode() || previousLabel.isNull()).isTrue();
+                    TaskPolicyTestSupport.decide(mvc, json, taskId, "team_lead", "approved");
+                    var entries = call("GET", "/api/v1/content-labels", "staff", null, 200);
+                    var entry = java.util.stream.StreamSupport.stream(entries.spliterator(), false)
+                            .filter(e -> "task".equals(e.path("kind").asText()) && e.path("contentId").asLong() == taskId)
+                            .findFirst().orElseThrow();
+                    assertThat(entry.path("labels").size()).isEqualTo(ids.size());
+                }
             }
             case "UserController.updateOwnProfile" -> {
                 String name = call("GET", "/api/v1/users/me", "staff", null, 200).path("displayName").asText();

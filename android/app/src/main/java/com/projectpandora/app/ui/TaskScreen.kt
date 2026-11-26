@@ -71,7 +71,7 @@ import java.time.format.DateTimeFormatter
     LazyColumn(Modifier.fillMaxSize().imePadding().padding(horizontal=20.dp),
         verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=28.dp)) {
         item {Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
-            BackdropTextButton(onClick=model::closeTask,enabled=!state.saving) {Text("← 返回任务列表")}
+            BackdropTextButton(onClick=model::closeTask,enabled=!state.saving) {Text(when(state.screen) {"day"->"← 返回公司";"home","ai"->"← 返回首页";"logs"->"← 返回日志";"inbox"->"← 返回通知与审核";"directory"->"← 返回通讯录";"organization"->"← 返回组织";else->"← 返回任务列表"})}
             ScreenHeading("任务详情","查看责任、时间节点与最新进度。")
             if(state.taskLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
             state.taskError?.let {Hint("任务读取失败：$it\n请刷新；已显示的任务可能是上次读取的内容。",true)}
@@ -104,9 +104,9 @@ import java.time.format.DateTimeFormatter
                 Text(task.detail.ifBlank {"暂无任务说明"},style=MaterialTheme.typography.bodyLarge)
                 HorizontalDivider()
                 Text("创建人：${task.creatorName}\n责任人：${task.assigneeName}\n开始时间：${task.startAt?.let {dueLabel(it)} ?: "未指定"}\n截止时间：${dueLabel(task.dueAt)}",style=MaterialTheme.typography.bodyMedium)
-                LabelLines(contentTags(state,"task",task.id,task.label))
+                CalendarLabelNames(contentTags(state,"task",task.id,task.label))
             }}}
-            if(task.createdBy==mine || task.assigneeId==mine || isFounder)item {
+            if(!task.deleted && !pendingReview && (task.createdBy==mine || task.isResponsible(mine) || isFounder))item {
                 var chosen by remember(task.id,state.contentLabels) {mutableStateOf(contentTags(state,"task",task.id,task.label).map {it.id})}
                 Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                     MultiLabelPicker(state.labels,chosen,!state.saving) {chosen=it}
@@ -114,7 +114,7 @@ import java.time.format.DateTimeFormatter
                     state.workspaceError?.let {Hint(it,true)}
                 }
             }
-            item {TaskKeywords(task,state,model)}
+            if(!task.keywords.isNullOrEmpty())item {TaskKeywords(task)}
             if(taskIsApproved(task) && !task.deleted && state.taskNote.taskId==task.id)item {PrivateTaskNote(state,model)}
             if(!taskIsApproved(task))item {Hint(if(task.approvalStatus=="pending")"等待创建人当前直属上级审核，批准后才能开始反馈进度。" else "此任务未获批准，请根据审核意见重新安排。")}
             if(!task.approvalNote.isNullOrBlank())item {Hint("审核意见：${task.approvalNote}")}
@@ -172,7 +172,7 @@ import java.time.format.DateTimeFormatter
             }}}
             if(!ordinaryDetail)item {Hint("当前通过审核申请查看此任务，仅供阅读和处理该申请。") }
             else if(pendingReview)item {Hint("此任务已有待审申请，处理或撤回后可再次反馈进度。") }
-            else if(task.assigneeId!=state.session?.userId)item {Hint("仅当前责任人可反馈进度，你可以查看任务详情。")}
+            else if(!task.isResponsible(state.session?.userId))item {Hint("仅当前责任人可反馈进度，你可以查看任务详情。")}
             else if(buffer?.taskId==selected) {
                 item {Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                     Text("工作状态",style=MaterialTheme.typography.titleMedium)
@@ -231,15 +231,16 @@ internal fun dueLabel(value: String?): String = if(value==null)"未设置" else 
     if(discard)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={discard=false},title={Text("放弃未提交的任务？")},text={Text("本机保存的任务输入将被清除。")},
         confirmButton={ControlTextButton(onClick={discard=false;model.discardDispatch()}) {Text("放弃")}},dismissButton={ControlTextButton(onClick={discard=false}) {Text("继续填写")}})
     LazyColumn(Modifier.fillMaxSize().imePadding().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=28.dp)) {
-        item {BackdropTextButton(onClick=model::closeDispatch,enabled=enabled) {Text("返回任务工作台 · 保留输入")}}
+        item {BackdropTextButton(onClick=model::closeDispatch,enabled=enabled) {Text("返回 · 保留输入")}}
         item {ScreenHeading(if(draft.taskId==null)"新建任务" else "编辑任务","")}
         item {OutlinedTextField(value=draft.title,onValueChange={model.changeDispatch(title=it.take(128))},enabled=enabled,label={Text("事项名称（必填）")},singleLine=true,supportingText={Text("${draft.title.length} / 128")},modifier=Modifier.fillMaxWidth())}
         item {Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
             state.workspaceError?.let {Hint("标签或审核连接异常：$it",true)}
-            Text("责任人（必选，可多选）",style=MaterialTheme.typography.labelLarge)
+            Text(if(draft.taskId==null)"责任人（必选，可多选）" else "责任人",style=MaterialTheme.typography.labelLarge)
+            if(draft.taskId==null)Text("多位责任人共同处理一条任务，共用状态和进度。",style=MaterialTheme.typography.bodySmall)
             if(state.dispatchLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
             ControlOutlinedButton(onClick={assigneesExpanded=true},enabled=enabled && draft.taskId==null && !state.dispatchLoading,modifier=Modifier.fillMaxWidth()) {
-                Text(if(selectedIds.isEmpty())"从通讯录选择责任人" else "已选 ${selectedIds.size} 人 · "+state.dispatchMembers.filter {it.id in selectedIds}.joinToString("、") {it.displayName ?: it.username},maxLines=2,overflow=TextOverflow.Ellipsis)
+                Text(if(selectedIds.isEmpty())"从通讯录选择责任人" else if(draft.taskId!=null)state.selectedTaskDetail?.assigneeName ?: selected?.displayName ?: selected?.username.orEmpty() else "已选 ${selectedIds.size} 人 · "+state.dispatchMembers.filter {it.id in selectedIds}.joinToString("、") {it.displayName ?: it.username},maxLines=2,overflow=TextOverflow.Ellipsis)
             }
             if(!state.dispatchLoading && state.dispatchMembers.isEmpty())Text("人员列表尚未加载，请刷新或检查网络。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             BackdropTextButton(onClick=model::loadDispatchMembers,enabled=enabled && !state.dispatchLoading) {Text("刷新通讯录")}

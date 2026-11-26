@@ -19,7 +19,7 @@ import com.projectpandora.app.data.*
 @Composable fun InboxScreen(state: AppState,model: PandoraViewModel) {
     val me=state.session ?: return
     val canReview=AppRoles.canReview(me.role)
-    var tab by rememberSaveable(me.userId,me.role) {mutableStateOf(if(canReview)"reviews" else "messages")}
+    val tab=state.inboxTab ?: if(canReview)"reviews" else "messages"
     val reviewing=canReview && tab=="reviews"
     val colors=MaterialTheme.colorScheme
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),verticalArrangement=Arrangement.spacedBy(10.dp),
@@ -28,7 +28,7 @@ import com.projectpandora.app.data.*
         if(canReview)item {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 listOf("reviews" to "任务审核","messages" to "通知 · "+state.unreadCount).forEachIndexed {index,(key,label)->
-                    SegmentedButton(selected=tab==key,onClick={tab=key},shape=SegmentedButtonDefaults.itemShape(index,2)) {Text(label)}
+                    SegmentedButton(selected=tab==key,onClick={model.selectInboxTab(key)},shape=SegmentedButtonDefaults.itemShape(index,2)) {Text(label)}
                 }
             }
         }
@@ -55,7 +55,7 @@ import com.projectpandora.app.data.*
                 item {InboxHeading("任务变更",changes.size)}
                 items(changes,key={"lifecycle-"+it.id}) {task->ReviewTaskCard(task,!state.saving) {model.openTask(task.id)}}
             }
-            if(records.isNotEmpty())item {InboxHeading("进度、改期与关键词",records.size)}
+            if(records.isNotEmpty())item {InboxHeading("进度、改期与标签",records.size)}
             items(records.sortedBy {it.status!="pending"},key={"review-"+it.id}) {review->InboxCard {
                 Text(review.taskTitle,style=MaterialTheme.typography.titleMedium)
                 Text(reviewOperation(review.operation)+" · "+reviewStatus(review.status),style=MaterialTheme.typography.labelMedium,color=colors.secondary)
@@ -127,7 +127,10 @@ import com.projectpandora.app.data.*
 
 internal fun reviewDetails(payload: String): String=runCatching {
     val data=com.google.gson.JsonParser.parseString(payload).asJsonObject
-    listOf("title" to "事项","detail" to "说明","priority" to "优先级","assigneeName" to "责任人","startAt" to "开始时间","dueAt" to "截止时间","status" to "进度状态","progressNote" to "进度说明","progress" to "百分比","labelId" to "品牌标签编号","labelName" to "品牌标签","labelColor" to "背景颜色","keywordBefore" to "原关键词","keywordText" to "新关键词").mapNotNull {(key,title)->
+    val fields=listOf("title" to "事项","detail" to "说明","priority" to "优先级","assigneeName" to "责任人","startAt" to "开始时间","dueAt" to "截止时间","status" to "进度状态","progressNote" to "进度说明","progress" to "百分比","labelId" to "品牌标签编号","labelName" to "品牌标签","labelColor" to "背景颜色","keywordBefore" to "原关键词","keywordText" to "新关键词").mapNotNull {(key,title)->
         data[key]?.takeUnless {it.isJsonNull}?.asString?.takeIf {it.isNotBlank()}?.let {value->"$title：${when(key){"priority"->taskPriorityLabel(value);"status"->taskStatusLabel(value);"dueAt","startAt"->timestamp(value);else->value}}"}
-    }.joinToString("\n")
+    }
+    val labels=data["labelNames"]?.takeIf {it.isJsonArray}?.asJsonArray
+        ?.mapNotNull {it.takeIf {name->name.isJsonPrimitive}?.asString}
+    (fields+listOfNotNull(labels?.let {"修改后标签：${it.joinToString("、").ifBlank {"无"}}"})).joinToString("\n")
 }.getOrDefault("无法读取变更说明，请刷新后重试。")

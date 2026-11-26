@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.unit.dp
@@ -118,7 +120,7 @@ private data class CalendarScheduleRequest(val task: DispatchTask,val target: Lo
                         val canMove=canRescheduleTask(state,task)
                         CalendarItemChip(task.title,contentTags(state,"task",task.id,task.label),
                             Modifier.calendarDrag(itemDrag,task.title,date,if(canMove){{target->move(task,target)}} else null)
-                                .clickable {model.selectDate(date.toString())})
+                                .clickable(enabled=!state.saving) {feedback();model.selectDate(date.toString());model.openTask(task.id)})
                     }
                     if(tasks.size>2)CalendarOverflow(tasks.size-1) {model.selectDate(date.toString())}
                 }
@@ -130,9 +132,10 @@ private data class CalendarScheduleRequest(val task: DispatchTask,val target: Lo
         item {HorizontalDivider(Modifier.padding(top=12.dp),color=MaterialTheme.colorScheme.outlineVariant)}
         if(state.loading)item {LinearProgressIndicator(Modifier.fillMaxWidth())}
         state.taskError?.let {item {Hint("任务读取失败：$it。请同步后重试。",true)}}
+        val timeline=if(mode=="day")companyTimeline(selected,state.tasks) else emptyList()
         val agendaDates=listOf(selected)
         agendaDates.forEach {agendaDate->
-            val tasks=orderedTasks(state.tasks.filter {taskIsApproved(it) && !it.deleted && taskDate(it)==agendaDate})
+            val tasks=if(mode=="day")timeline.map {it.task} else tasksByDay[agendaDate].orEmpty()
             item {Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface.copy(alpha=0.96f),MaterialTheme.shapes.medium).panelOutline().padding(12.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("${agendaDate.monthValue} 月 ${agendaDate.dayOfMonth} 日 · 周${listOf("一","二","三","四","五","六","日")[agendaDate.dayOfWeek.value-1]}",style=MaterialTheme.typography.titleMedium)
@@ -147,6 +150,9 @@ private data class CalendarScheduleRequest(val task: DispatchTask,val target: Lo
                     Text("这一天暂无任务",style=MaterialTheme.typography.titleLarge.copy(fontWeight=androidx.compose.ui.text.font.FontWeight.Medium))
                     Spacer(Modifier.height(8.dp))
                 }
+            }
+            if(mode=="day")item(key="company-hours") {
+                CompanyDayTimeline(agendaDate,timeline,state,onTask={feedback();model.openTask(it)})
             }
             tasks.forEach {task->
                 item(key="${agendaDate}-task-${task.id}") {
@@ -168,8 +174,50 @@ private data class CalendarScheduleRequest(val task: DispatchTask,val target: Lo
             model.moveTaskDate(request.task,due,start)
         }
     }
-    if(showHelp)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={showHelp=false},title={Text("日历怎么用")},text={Text("点日期看当天全部任务，点年月可直接跳转。长按任务标签或下方的任务卡片可拖到新日期，也可以点“改期”。创建人和责任人可申请改期，由本人直属上级审核；创始人改期直接生效。")},confirmButton={ControlTextButton(onClick={showHelp=false}) {Text("关闭")}})
+    if(showHelp)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={showHelp=false},title={Text("日历怎么用")},text={Text("点日期看当天全部任务，点击任务标签打开详情，日视图按小时查看。点年月可直接跳转。长按任务标签或下方的任务卡片可拖到新日期，也可以点“改期”。创建人和责任人可申请改期，由本人直属上级审核；创始人改期直接生效。")},confirmButton={ControlTextButton(onClick={showHelp=false}) {Text("关闭")}})
 }
+@Composable private fun CompanyDayTimeline(day: LocalDate,items: List<CompanyTimelineItem>,state: AppState,onTask: (Long)->Unit) {
+    var wholeDay by rememberSaveable(day.toString()) {mutableStateOf(false)}
+    val fromHour=if(wholeDay)0 else minOf(8,(items.minOfOrNull {it.startMinute} ?: (8*60))/60)
+    val fixedEnd=maxOf(20,((items.maxOfOrNull {it.layoutEnd} ?: (20*60))+59)/60)
+    val throughHour=if(wholeDay)24 else fixedEnd
+    val hourHeight=72.dp
+    val minuteHeight=hourHeight/60
+    val titleWidth=47.dp
+    Surface(shape=MaterialTheme.shapes.medium,color=MaterialTheme.colorScheme.surface,modifier=Modifier.fillMaxWidth().panelOutline()) {
+        Column(Modifier.padding(horizontal=10.dp,vertical=6.dp)) {
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+                Text("小时日程",style=MaterialTheme.typography.titleSmall)
+                if(wholeDay || fromHour!=0 || throughHour!=24)ControlTextButton(onClick={wholeDay=!wholeDay}) {Text(if(wholeDay)"收起非工作时段" else "显示全天")}
+            }
+            BoxWithConstraints(Modifier.fillMaxWidth().height(hourHeight*(throughHour-fromHour)+22.dp)) {
+                val contentWidth=(maxWidth-titleWidth).coerceAtLeast(0.dp)
+                for(hour in fromHour..throughHour) {
+                    val y=hourHeight*(hour-fromHour)
+                    Text(hour.toString().padStart(2,'0')+":00",modifier=Modifier.offset(y=y).width(titleWidth),
+                        style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    HorizontalDivider(Modifier.offset(x=titleWidth,y=y+7.dp).width(contentWidth),color=MaterialTheme.colorScheme.outlineVariant)
+                }
+                items.forEach {item->
+                    val task=item.task
+                    val width=contentWidth/item.laneCount
+                    val x=titleWidth+width*item.lane
+                    val y=minuteHeight*(item.startMinute-fromHour*60)+7.dp
+                    val tags=contentTags(state,"task",task.id,task.label)
+                    Surface(onClick={onTask(task.id)},enabled=!state.saving,shape=MaterialTheme.shapes.small,
+                        color=MaterialTheme.colorScheme.secondaryContainer,contentColor=MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier=Modifier.offset(x=x,y=y).width(width).height(minuteHeight*(item.layoutEnd-item.startMinute)).padding(end=3.dp,bottom=1.dp).clipToBounds()) {
+                        Column(Modifier.padding(horizontal=5.dp,vertical=2.dp)) {
+                            Text(task.title,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.labelMedium)
+                            if(tags.isNotEmpty()) Text(tags.joinToString(" · ") {it.name},maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable private fun TaskScheduleDialog(request: CalendarScheduleRequest,onDismiss: ()->Unit,onConfirm: (String,String?)->Unit) {
     val task=request.task
     val oldDue=Instant.parse(task.dueAt).atZone(TaskDispatchValidation.zone).toLocalDateTime()
@@ -212,7 +260,7 @@ private data class CalendarScheduleRequest(val task: DispatchTask,val target: Lo
                 TaskPriorityText(task.priority,onLabel=false)
                 if(task.detail.isNotBlank())Text(task.detail,style=MaterialTheme.typography.bodyMedium)
                 if(task.progressNote.isNotBlank())Text("进度：${task.progressNote}",style=MaterialTheme.typography.bodySmall)
-                CalendarLabelNames(contentTags(state,"task",task.id,task.label))
+                CalendarLabelNames(contentTags(state,"task",task.id,task.label),onClick=onClick.takeIf {enabled})
             }
             if(onMove!=null)ControlTextButton(onClick=onMove,enabled=enabled) {Text("改期")}
         }

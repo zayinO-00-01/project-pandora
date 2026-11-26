@@ -44,10 +44,13 @@ public class ResetDemoDataTest {
             ResetDemoData.execute(c,backups,day,true);
             String assignments=String.join(",",ResetDemoData.PROFILE_COLUMNS.stream().map(column->column+"=NULL").toList());
             ResetDemoData.update(c,"update users set "+assignments);
-            long oldTask=ResetDemoData.ids(c,"select id from dispatch_tasks order by id").get(0);
+            long oldTask=ResetDemoData.ids(c,"select id from dispatch_tasks where assignee_id<>"+staff+" order by id").get(0);
+            ResetDemoData.update(c,"insert into task_assignees(task_id,user_id) values(?,?)",oldTask,staff);
             ResetDemoData.update(c,"insert into task_reviews(task_id,applicant_id,reviewer_id,operation,payload,status,base_version,created_at) values(?,?,?,?,?,?,?,?)",oldTask,staff,founder,"change","{}","pending",0L,Instant.now());
             try(var s=c.createStatement();var r=s.executeQuery("select id from personal_todos where owner_id="+staff+" order by id limit 1")) {
-                r.next();ResetDemoData.update(c,"insert into personal_todo_requests(owner_id,request_id,todo_id) values(?,?,?)",staff,UUID.randomUUID().toString(),r.getString(1));
+                r.next();var todoId=r.getString(1);
+                ResetDemoData.update(c,"insert into personal_todo_requests(owner_id,request_id,todo_id) values(?,?,?)",staff,UUID.randomUUID().toString(),todoId);
+                ResetDemoData.update(c,"update personal_todos set start_at=?, end_at=? where id=?",day.atTime(9,0),day.plusDays(1).atTime(11,30),todoId);
             }
             ResetDemoData.update(c,"update users set display_name=?,phone=?,id_card=?,address=? where id=?","原姓名","19900000001","000000199001010001","已有地址：O'Reilly\\资料",staff);
             ResetDemoData.update(c,"insert into work_logs(user_id,log_date,content,status) values(?,?,?,?)",staff,day.minusDays(20),"原日志 O'Reilly\\资料\n中文","submitted");
@@ -69,6 +72,9 @@ public class ResetDemoDataTest {
             try(var s=c.createStatement();var r=s.executeQuery("select count(*) from notifications where task_id is null")){r.next();check(r.getInt(1)==1,"unrelated notification retained");}
             try(var s=c.createStatement();var r=s.executeQuery("select count(*) from users where phone='19900000001'")){r.next();check(r.getInt(1)==1,"generated phones avoid existing unique values");}
             check(ResetDemoData.count(c,"personal_todo_labels")==result.todos(),"generated todo labels reference existing dictionary");
+            try(var s=c.createStatement();var r=s.executeQuery("select count(*) from dispatch_tasks t join task_assignees a on a.task_id=t.id and a.user_id=t.assignee_id")) {
+                r.next();check(r.getInt(1)==result.tasks() && ResetDemoData.count(c,"task_assignees")==result.tasks(),"generated tasks have one primary assignee relation each");
+            }
             try(var s=c.createStatement();var r=s.executeQuery("select label_ids from content_label_sets where kind='company' and content_id="+company)){check(r.next()&&r.getString(1).equals("["+label+"]"),"company content labels retained");}
             try(var s=c.createStatement();var r=s.executeQuery("select count(*) from content_label_sets where kind='task' and label_ids like '%,%'")){r.next();check(r.getInt(1)==result.tasks(),"generated task multi-label sets are populated");}
             try(var reader=Files.newBufferedReader(result.backup())){RunScript.execute(c,reader);}
@@ -90,7 +96,7 @@ public class ResetDemoDataTest {
             check(failed&&before.equals(fullSnapshot(c)),"no active business members refuses reset without deletion");
         }
         try(var c=database()) {
-            ResetDemoData.update(c,"delete from flyway_schema_history where version='26'");
+            ResetDemoData.update(c,"delete from flyway_schema_history where version='28'");
             var before=fullSnapshot(c);boolean failed=false;
             try{ResetDemoData.execute(c,backups,day,true);}catch(IllegalStateException expected){failed=true;}
             check(failed&&before.equals(fullSnapshot(c)),"outdated schema refuses reset without deletion");

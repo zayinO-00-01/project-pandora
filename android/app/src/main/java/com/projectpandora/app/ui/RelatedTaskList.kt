@@ -28,7 +28,7 @@ import com.projectpandora.app.data.*
         prefs.edit().putStringSet(pinKey,pins).apply()
     }
     val tasks=relatedTasks(state.tasks,me.userId).filter {
-        (filter!="created" || it.createdBy==me.userId) && (filter!="assigned" || it.assigneeId==me.userId) &&
+        (filter!="created" || it.createdBy==me.userId) && (filter!="assigned" || it.isResponsible(me.userId)) &&
         (query.isBlank() || it.title.contains(query.trim(),true) || it.assigneeName.contains(query.trim(),true))
     }.sortedByDescending {it.id.toString() in pins}
     Column(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {

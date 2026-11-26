@@ -29,6 +29,14 @@ class TaskStatusMigrationTests {
                 }
                 assertThat(index).isEqualTo(3);
             }
+            try(var rows=s.executeQuery("SELECT a.task_id,a.user_id,t.assignee_id FROM task_assignees a JOIN dispatch_tasks t ON a.task_id=t.id ORDER BY a.task_id")) {
+                int index=0;
+                while(rows.next()) {
+                    assertThat(rows.getString(1)).isEqualTo(before.get(index++).get(0));
+                    assertThat(rows.getLong(2)).isEqualTo(rows.getLong(3));
+                }
+                assertThat(index).isEqualTo(3);
+            }
             s.executeUpdate("UPDATE dispatch_tasks SET status='doing',progress=NULL WHERE title='旧任务0'");
             try(var rows=s.executeQuery("SELECT status,progress FROM dispatch_tasks WHERE title='旧任务0'")) {
                 assertThat(rows.next()).isTrue();assertThat(rows.getString(1)).isEqualTo("doing");assertThat(rows.getObject(2)).isNull();

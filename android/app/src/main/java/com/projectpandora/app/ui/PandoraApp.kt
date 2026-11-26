@@ -70,9 +70,10 @@ import java.time.format.DateTimeFormatter
     val pageTitle=when {
         state.editor!=null -> "潘多拉"
         state.screen=="home" || state.screen=="ai" -> "首页"
-        state.dispatchOpen -> "新建任务"
+        state.dispatchOpen -> if(state.dispatchEditor?.taskId==null)"新建任务" else "编辑任务"
         state.screen=="functions" -> "职能"
-        state.screen=="tasks" -> if(state.selectedTaskId==null)"任务列表" else "任务详情"
+        state.selectedTaskId!=null -> "任务详情"
+        state.screen=="tasks" -> "任务列表"
         state.screen=="directory" -> "通讯录"
         state.screen=="organization" -> AppRoles.scopeLabel(state.session.role)
         state.screen=="logs" -> "工作日志"
@@ -90,7 +91,7 @@ import java.time.format.DateTimeFormatter
         if(state.screen!="profile")IconButton(onClick={feedback();model.loadNotifications();model.screen("inbox")},enabled=!state.saving,modifier=Modifier.size(width=56.dp,height=48.dp)) {
             Box(Modifier.fillMaxSize()) {
                 Icon(painterResource(R.drawable.console_bell),contentDescription="消息",modifier=Modifier.align(Alignment.CenterStart).padding(start=9.dp).size(21.dp))
-                if(state.unreadCount>0)Badge(modifier=Modifier.align(Alignment.TopEnd).padding(top=3.dp,end=2.dp)) {
+                if(state.unreadCount>0)Badge(modifier=Modifier.align(Alignment.TopStart).padding(start=23.dp,top=5.dp)) {
                     Text(if(state.unreadCount>99)"99+" else state.unreadCount.toString(),maxLines=1)
                 }
             }
@@ -101,7 +102,7 @@ import java.time.format.DateTimeFormatter
         if(homeHeader && readFailures.isNotEmpty())Text("同步失败 · ${if(retained)"上次内容" else "查看原因"} ›",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.error,maxLines=2)
         if(state.developmentPreview)Text("本地预览",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }},actions={
-        if(state.screen=="day")Row(Modifier.padding(end=12.dp),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+        if(state.screen=="day" && state.selectedTaskId==null && !state.dispatchOpen)Row(Modifier.padding(end=12.dp),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
             listOf("tasks" to "全部任务","directory" to "通讯录").forEach {(destination,label)->
                 BackdropTextButton(onClick={model.screen(destination)},modifier=Modifier.size(width=76.dp,height=40.dp),
                     enabled=!state.saving,contentPadding=PaddingValues(horizontal=4.dp,vertical=4.dp)) {
@@ -139,6 +140,7 @@ import java.time.format.DateTimeFormatter
             overviewTransition(origin)
         },label="workspace-page-expand") {page->
         if(page.editor!=null)EditorScreen(page,model)
+        else if(page.selectedTaskId!=null || page.dispatchOpen)TaskScreen(page,model)
         else when(page.screen) {
             "home" -> HomeScreen(page,model)
             "logs" -> LogsScreen(page,model)
