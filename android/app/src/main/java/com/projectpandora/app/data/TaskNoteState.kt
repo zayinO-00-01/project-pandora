@@ -15,8 +15,11 @@ data class TaskNoteState(val taskId: Long? = null,val content: String = "",val u
 fun taskNoteDraftKey(server: String,userId: Long,taskId: Long)="task-note:${server.length}:$server:$userId:$taskId"
 
 data class NotificationDestination(val screen: String,val taskId: Long? = null,val referenceId: Long? = null)
+internal const val CRM_SERVICE_TRANSFER = "crm-service-transfer"
 fun notificationDestination(n: AppNotification): NotificationDestination = when {
     n.type=="view-request" -> NotificationDestination("organization",referenceId=n.referenceId)
+    n.type==CRM_SERVICE_TRANSFER -> n.referenceId?.takeIf { it > 0 }
+        ?.let { NotificationDestination("crm-service",referenceId=it) } ?: NotificationDestination("inbox")
     n.taskId!=null -> NotificationDestination("tasks",taskId=n.taskId)
     else -> NotificationDestination("inbox")
 }

@@ -27,6 +27,7 @@ data class AppState(
     val tasks: List<DispatchTask> = emptyList(), val taskLoading: Boolean = false,
     val reviews: List<DispatchTask> = emptyList(), val reviewsLoading: Boolean = false,
     val notifications: List<AppNotification> = emptyList(), val unreadCount: Long = 0, val notificationsLoading: Boolean = false, val notificationsReady: Boolean = false, val inboxTab: String? = null,
+    val notifiedCrmServiceId: Long? = null,
     val taskError: String? = null, val selectedTaskId: Long? = null,
     val selectedTaskDetail: DispatchTask? = null,val taskDetailLoading: Boolean = false,val taskDetailError: String? = null,
     val taskNote: TaskNoteState = TaskNoteState(),
@@ -471,11 +472,11 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     fun screen(destination: String) = navigate(destination)
     fun openTaskLabel(label: WorkLabel) = navigate("tasks",label)
     fun clearTaskLabelFilter() {mutable.update {it.copy(taskLabelFilter=null)}}
-    private fun navigate(destination: String,taskLabel: WorkLabel?=null) {
+    private fun navigate(destination: String,taskLabel: WorkLabel?=null,crmServiceId: Long?=null) {
         val name=when(destination) {"functions"->"day";"notifications"->"inbox";else->destination}
         if(state.value.saving || state.value.editor!=null)return
         taskSelectionGeneration++;taskDetailJob?.cancel();taskNoteJob?.cancel()
-        mutable.update {it.copy(screen=name,taskLabelFilter=taskLabel,inboxTab=if(destination=="notifications")"messages" else it.inboxTab,selectedTaskId=null,selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=null,taskNote=TaskNoteState(),dispatchOpen=false,notice=null,viewRequestsOpen=false,selectedViewRequestId=null)}
+        mutable.update {it.copy(screen=name,taskLabelFilter=taskLabel,inboxTab=if(destination=="notifications")"messages" else it.inboxTab,notifiedCrmServiceId=crmServiceId,selectedTaskId=null,selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=null,taskNote=TaskNoteState(),dispatchOpen=false,notice=null,viewRequestsOpen=false,selectedViewRequestId=null)}
         if(name=="directory")loadDirectory()
         if(name=="organization")loadOrganization()
         if(name=="profile")loadProfile()
@@ -643,7 +644,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     fun closeTask() {
         if(state.value.saving)return
         taskSelectionGeneration++;taskDetailJob?.cancel();taskNoteJob?.cancel()
-        mutable.update {it.copy(screen=when(it.screen) {"directory","logs"->it.screen;else->"day"},taskLabelFilter=null,selectedTaskId=null,selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=null,taskNote=TaskNoteState(),taskEditorError=null)}
+        mutable.update {it.copy(screen=when(it.screen) {"directory","logs","crm-service"->it.screen;else->"day"},taskLabelFilter=null,selectedTaskId=null,selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=null,taskNote=TaskNoteState(),taskEditorError=null)}
     }
     fun loadSelectedTaskDetail() {
         val me=state.value.session ?: return
@@ -896,9 +897,12 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         }
     }
     fun openNotification(n: AppNotification) {
-        if(state.value.session==null)return
+        if(state.value.session==null || state.value.saving || state.value.editor!=null)return
         val destination=notificationDestination(n)
         if(destination.taskId!=null)openTask(destination.taskId)
+        else if(destination.screen=="crm-service" && destination.referenceId!=null) {
+            navigate("crm-service",crmServiceId=destination.referenceId)
+        }
         else if(destination.screen=="organization") {
             screen("organization")
             mutable.update {it.copy(viewRequestsOpen=true,selectedViewRequestId=destination.referenceId)}

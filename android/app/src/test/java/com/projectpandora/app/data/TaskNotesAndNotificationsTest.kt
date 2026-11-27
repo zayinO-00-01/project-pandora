@@ -43,6 +43,21 @@ class TaskNotesAndNotificationsTest {
   val confirmed=NotificationList(listOf(original,arrived),2).confirmRead(setOf(1))
   assertTrue(confirmed.items[0].read); assertFalse(confirmed.items[1].read); assertEquals(1L,confirmed.unreadCount)
  }
+ @Test fun handoverNotificationUsesCrmDetailUnderCurrentAuthorization() { MockWebServer().use {s ->
+  s.enqueue(MockResponse().setBody("""{"items":[{"id":8,"type":"crm-service-transfer","title":"有服务转交给你","body":"","referenceId":42,"read":false,"createdAt":"now"}],"unreadCount":1}"""))
+  s.enqueue(MockResponse().setResponseCode(404).setBody("""{"message":"记录不存在或无权查看"}"""))
+  s.start(); val api=ApiClient(s.url("/").toString()); val me=Session(api.server,"token",4,"STAFF",null,"staff")
+  val notification=api.notifications(me).items.single()
+  val destination=notificationDestination(notification)
+  assertEquals(NotificationDestination("crm-service",referenceId=42),destination)
+  assertEquals(NotificationDestination("inbox"),notificationDestination(notification.copy(referenceId=null)))
+  try {api.crmService(me,requireNotNull(destination.referenceId));fail("a stale handover must not bypass service access")}
+  catch(e:ApiException) {assertEquals(404,e.status)}
+  assertEquals("/api/v1/notifications",s.takeRequest().path)
+  val request=s.takeRequest()
+  assertEquals("/api/v1/crm/services/42",request.path)
+  assertEquals("Bearer token",request.getHeader("Authorization"))
+ } }
  @Test fun detailLoadsWithoutListMembership() { MockWebServer().use {s ->
   s.enqueue(MockResponse().setBody("""{"id":42,"title":"审核详情","detail":"内容","priority":"normal","status":"todo","progressNote":"","createdBy":2,"assigneeId":3,"creatorName":"甲","assigneeName":"乙","createdAt":"now","updatedAt":"now"}"""))
   s.start(); val api=ApiClient(s.url("/").toString()); val me=Session(api.server,"token",4,"TEAM_LEAD",null,"manager")

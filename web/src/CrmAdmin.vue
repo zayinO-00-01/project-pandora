@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { api } from './api';
+import { cashSubmission } from './cash-submission';
 
 const props = defineProps({ session: Object, capabilities: Object, users: Array });
 const emit = defineEmits(['expired']);
@@ -32,7 +33,7 @@ const centsFor = yuan => {
 };
 const controller = new AbortController();
 onBeforeUnmount(() => controller.abort());
-const request = (path, options = {}) => api(`/crm${path}`, { ...options, token: props.session.token, signal: controller.signal });
+const request = (path, options = {}) => api(`/crm${path}`, { signal: controller.signal, ...options, token: props.session.token });
 async function run(action) {
   if (busy.value) return;
   busy.value = true; error.value = ''; success.value = '';
@@ -106,6 +107,24 @@ function reviewCustomer() {
 const month = ref(shanghaiToday().slice(0, 7)), revenue = ref(null), receivables = ref([]), cash = ref([]), shopCash = ref([]);
 const selectedService = ref(null), due = ref('');
 const booking = reactive({ direction: 'RECEIPT', amount: '', bookedOn: shanghaiToday(), note: '' });
+async function postCash({ serviceId, body }) {
+  const deadline = new AbortController();
+  const stop = () => deadline.abort();
+  controller.signal.addEventListener('abort', stop, { once: true });
+  const timer = setTimeout(stop, 15000);
+  try {
+    await request(`/admin/receivables/${serviceId}/cash`, { method: 'POST', body, signal: deadline.signal });
+  } catch (reason) {
+    if (reason.name === 'AbortError' && !controller.signal.aborted) throw new Error('登记超时。请重试确认这笔流水。');
+    throw reason;
+  } finally {
+    clearTimeout(timer);
+    controller.signal.removeEventListener('abort', stop);
+  }
+}
+const submission = cashSubmission(window.sessionStorage, props.session.userId, postCash);
+const pendingCash = ref(submission.pending());
+const retryingCash = computed(() => pendingCash.value?.serviceId === selectedService.value);
 async function getRevenue() {
   const filter = `?month=${encodeURIComponent(month.value)}`;
   [revenue.value, shopCash.value] = await Promise.all([
@@ -118,11 +137,18 @@ async function getReceivables() {
 }
 function chooseService(row) {
   run(async () => {
-    selectedService.value = null; cash.value = [];
+    selectedService.value = row.id; cash.value = [];
+    due.value = row.receivableCents == null ? '' : (row.receivableCents / 100).toFixed(2);
+    const draft = retryingCash.value ? pendingCash.value.body : null;
+    Object.assign(booking, draft ? {
+      direction: draft.direction, amount: (draft.amountCents / 100).toFixed(2), bookedOn: draft.bookedOn, note: draft.note,
+    } : { direction: 'RECEIPT', amount: '', bookedOn: shanghaiToday(), note: '' });
     cash.value = await request(`/admin/receivables/${row.id}/cash`);
-    selectedService.value = row.id; due.value = (row.receivableCents / 100).toFixed(2);
-    Object.assign(booking, { direction: 'RECEIPT', amount: '', bookedOn: shanghaiToday(), note: '' });
   });
+}
+function openPendingCash() {
+  const id = pendingCash.value?.serviceId;
+  if (id) chooseService(receivables.value.find(row => row.id === id) ?? { id });
 }
 function saveDue() {
   run(async () => {
@@ -132,11 +158,15 @@ function saveDue() {
 }
 function addCash() {
   run(async () => {
+    const id = selectedService.value;
     const { direction, amount, bookedOn, note } = booking;
-    await request(`/admin/receivables/${selectedService.value}/cash`, { method: 'POST', body: { direction, amountCents: centsFor(amount), bookedOn, note } });
+    const draft = retryingCash.value ? pendingCash.value
+      : submission.prepare(id, { direction, amountCents: centsFor(amount), bookedOn, note });
+    pendingCash.value = draft;
+    try { await submission.submit(draft); }
+    finally { pendingCash.value = submission.pending(); }
     booking.amount = ''; booking.note = ''; success.value = '已登记流水。';
-    cash.value = await request(`/admin/receivables/${selectedService.value}/cash`);
-    await Promise.all([getRevenue(), getReceivables()]);
+    await Promise.all([getRevenue(), getReceivables(), request(`/admin/receivables/${id}/cash`).then(lines => { cash.value = lines; })]);
   });
 }
 
@@ -295,6 +325,11 @@ onMounted(() => activate(tab.value));
       </section>
       <section v-if="permissions('FINANCE')" class="panel crm-block">
         <h2>线下服务台账</h2>
+        <p v-if="pendingCash" role="status">
+          有一笔流水待确认（服务 #{{ pendingCash.serviceId }}）。
+          <button v-if="!retryingCash" type="button" class="text-button" :disabled="busy" @click="openPendingCash">打开待确认流水</button>
+          <span v-else>点击「重试确认」可继续登记同一笔流水。</span>
+        </p>
         <p v-if="receivables.length === 0">暂无线下服务。</p>
         <div v-else class="table-scroll"><table><thead><tr><th>客户与服务</th><th>应收</th><th>净实收</th><th>操作</th></tr></thead>
           <tbody><tr v-for="row in receivables" :key="row.id"><td>#{{ row.id }} {{ row.customerName }} · {{ kindNames[row.kind] }}</td>
@@ -305,11 +340,11 @@ onMounted(() => activate(tab.value));
           <form class="crm-actions" @submit.prevent="saveDue"><label>应收（元）<input v-model="due" inputmode="decimal" required></label>
             <button class="button secondary">保存应收</button></form>
           <form class="crm-actions" @submit.prevent="addCash">
-            <label>类型<select v-model="booking.direction"><option value="RECEIPT">收款</option><option value="REFUND">退款</option></select></label>
-            <label>金额（元）<input v-model="booking.amount" inputmode="decimal" required></label>
-            <label>实际发生日期<input v-model="booking.bookedOn" type="date" :max="shanghaiToday()" required></label>
-            <label>款项说明<input v-model.trim="booking.note" maxlength="500" required></label>
-            <button class="button primary">登记流水</button>
+            <label>类型<select v-model="booking.direction" :disabled="!!pendingCash"><option value="RECEIPT">收款</option><option value="REFUND">退款</option></select></label>
+            <label>金额（元）<input v-model="booking.amount" :disabled="!!pendingCash" inputmode="decimal" required></label>
+            <label>实际发生日期<input v-model="booking.bookedOn" :disabled="!!pendingCash" type="date" :max="shanghaiToday()" required></label>
+            <label>款项说明<input v-model.trim="booking.note" :disabled="!!pendingCash" maxlength="500" required></label>
+            <button class="button primary" :disabled="!!pendingCash && !retryingCash">{{ retryingCash ? '重试确认' : '登记流水' }}</button>
           </form>
           <ul><li v-for="entry in cash" :key="entry.id">{{ entry.bookedOn }} {{ entry.direction === 'RECEIPT' ? '收款' : '退款' }} {{ money(entry.amountCents) }} · {{ entry.note }}</li></ul>
         </fieldset>

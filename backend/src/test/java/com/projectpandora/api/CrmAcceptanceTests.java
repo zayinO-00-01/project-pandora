@@ -11,6 +11,7 @@ import com.projectpandora.api.user.*;
 import java.nio.charset.StandardCharsets;
 import java.time.*;
 import java.util.*;
+import java.util.concurrent.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -173,6 +174,37 @@ class CrmAcceptanceTests {
         crm(operator, "POST", "/orders/" + orderId + "/uses", Map.of("serviceId", complete(operator, customer, "SHOW")), 409);
     }
 
+    @Test void handoverNotifiesNewOwnerButAnOldNotificationDoesNotGrantAccess() throws Exception {
+        var owner = user("handover-owner", Role.STAFF, null);
+        var recipient = user("handover-recipient", Role.STAFF, null);
+        var next = user("handover-next", Role.STAFF, null);
+        long customer = crm(owner, "POST", "/customers", company("交接演示企业", "19900000024"), 201).path("id").asLong();
+        long sid = crm(owner, "POST", "/services", service(customer, "VISIT"), 201).path("service").path("id").asLong();
+        String path = "/services/" + sid;
+        crm(owner, "POST", path + "/transfer", Map.of("ownerId", recipient.getId(), "reason", "跨部门交接"), 200);
+        var inbox = call(recipient, "GET", "/notifications", null, 200);
+        assertThat(inbox.path("items").size()).isEqualTo(1);
+        var notice = inbox.path("items").get(0);
+        assertThat(notice.path("type").asText()).isEqualTo("crm-service-transfer");
+        assertThat(notice.path("taskId").isNull()).isTrue();
+        assertThat(notice.path("referenceId").asLong()).isEqualTo(sid);
+        assertThat(notice.toString()).doesNotContain("交接演示企业", "19900000024", "跨部门交接");
+        assertThat(call(next, "GET", "/notifications", null, 200).path("items").isEmpty()).isTrue();
+        assertThat(crm(recipient, "GET", path, null, 200).path("service").path("owner").path("id").asLong())
+            .isEqualTo(recipient.getId());
+
+        crm(recipient, "POST", path + "/transfer", Map.of("ownerId", next.getId(), "reason", "再次交接"), 200);
+        var oldNotice = call(recipient, "GET", "/notifications", null, 200).path("items").get(0);
+        crm(recipient, "GET", "/services/" + oldNotice.path("referenceId").asLong(), null, 404);
+        call(recipient, "POST", "/notifications/" + oldNotice.path("id").asLong() + "/read", null, 204);
+        assertThat(call(recipient, "GET", "/notifications", null, 200).path("unreadCount").asLong()).isZero();
+        crm(next, "GET", path, null, 200);
+    }
+
+    private Map<String, Object> cashInput(String direction, int amount, LocalDate date, String note) {
+        return Map.of("direction", direction, "amountCents", amount, "bookedOn", date, "note", note, "requestId", UUID.randomUUID());
+    }
+
     @Test void receiptAndRefundDoNotDependOnServiceCompletion() throws Exception {
         var admin = user("cash-admin", Role.ADMIN, null);
         var founder = user("cash-founder", Role.FOUNDER, null);
@@ -190,15 +222,51 @@ class CrmAcceptanceTests {
         crm(founder, "GET", ledger + "/cash", null, 403);
         crm(admin, "GET", "/admin/revenue", null, 403);
         var today = LocalDate.now(ZONE);
-        crm(finance, "POST", ledger + "/cash", Map.of("direction", "RECEIPT", "amountCents", 300_000, "bookedOn", today, "note", "参访已到账"), 204);
-        crm(finance, "POST", ledger + "/cash", Map.of("direction", "REFUND", "amountCents", 50_000, "bookedOn", today, "note", "退回部分款项"), 204);
-        crm(finance, "POST", ledger + "/cash", Map.of("direction", "REFUND", "amountCents", 260_000, "bookedOn", today, "note", "超过实收"), 409);
+        var receipt = cashInput("RECEIPT", 300_000, today, "参访已到账");
+        crm(finance, "POST", ledger + "/cash", receipt, 204);
+        crm(finance, "POST", ledger + "/cash", receipt, 204);
+        var refund = cashInput("REFUND", 50_000, today, "退回部分款项");
+        crm(finance, "POST", ledger + "/cash", refund, 204);
+        crm(finance, "POST", ledger + "/cash", refund, 204);
+        crm(finance, "POST", ledger + "/cash", cashInput("REFUND", 260_000, today, "超过实收"), 409);
         assertThat(crm(finance, "GET", ledger + "/cash", null, 200).size()).isEqualTo(2);
         var byKind = crm(founder, "GET", "/admin/revenue", null, 200).path("byKind");
         var visit = new ArrayList<JsonNode>();
         byKind.forEach(row -> { if (row.path("kind").asText().equals("VISIT")) visit.add(row); });
         assertThat(visit).hasSize(1);
         assertThat(visit.get(0).path("receipts").asLong() - visit.get(0).path("refunds").asLong()).isEqualTo(250_000);
+    }
+
+    @Test void simultaneousCashRetriesWriteOnceAndIdenticalNewBookingsRemainIndependent() throws Exception {
+        var admin = user("cash-retry-admin", Role.ADMIN, null);
+        var finance = user("cash-retry-finance", Role.STAFF, null);
+        grants(admin, finance, "FINANCE");
+        long customer = crm(finance, "POST", "/customers", company("流水防重企业", "19900000025"), 201).path("id").asLong();
+        long sid = complete(finance, customer, "SALON");
+        long other = complete(finance, customer, "SALON");
+        String ledger = "/admin/receivables/" + sid;
+        String otherLedger = "/admin/receivables/" + other;
+        crm(finance, "PUT", ledger, Map.of("amountCents", 100_000), 204);
+        crm(finance, "PUT", otherLedger, Map.of("amountCents", 100_000), 204);
+        var date = LocalDate.now(ZONE);
+        var receipt = cashInput("RECEIPT", 10_000, date, "同额分笔到账");
+        var threads = Executors.newFixedThreadPool(2);
+        try {
+            Callable<JsonNode> attempt = () -> crm(finance, "POST", ledger + "/cash", receipt, 204);
+            for (var result : threads.invokeAll(List.of(attempt, attempt), 15, TimeUnit.SECONDS)) result.get();
+        } finally { threads.shutdownNow(); }
+        assertThat(crm(finance, "GET", ledger + "/cash", null, 200).size()).isEqualTo(1);
+        var changed = new HashMap<>(receipt);
+        changed.put("amountCents", 20_000);
+        crm(finance, "POST", ledger + "/cash", changed, 409);
+        crm(finance, "POST", otherLedger + "/cash", receipt, 409);
+        changed.remove("requestId");
+        crm(finance, "POST", ledger + "/cash", changed, 400);
+        crm(finance, "POST", ledger + "/cash", cashInput("RECEIPT", 10_000, date, "同额分笔到账"), 204);
+        assertThat(crm(finance, "GET", ledger + "/cash", null, 200).size()).isEqualTo(2);
+        assertThat(crm(finance, "GET", otherLedger + "/cash", null, 200).isEmpty()).isTrue();
+        grants(admin, finance);
+        crm(finance, "POST", ledger + "/cash", receipt, 403);
     }
 
     @Test void contractReadIsIndependentOfRoleAndReminderDoesNotRepeat() throws Exception {

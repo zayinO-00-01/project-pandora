@@ -7,6 +7,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -19,6 +20,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.projectpandora.app.data.AppNotification
+import com.projectpandora.app.data.CRM_SERVICE_TRANSFER
 import com.projectpandora.app.data.NewWorkNotifications
 import com.projectpandora.app.data.Session
 import kotlinx.coroutines.delay
@@ -35,7 +37,8 @@ class MainActivity: ComponentActivity() {
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
     private val arrival = NewWorkNotifications()
     private var account: Pair<String, Long>? = null
-    private var pendingInbox: Pair<String, Long>? = null
+    private data class InboxTarget(val server: String, val userId: Long, val handoverNoticeId: Long?)
+    private var pendingInbox: InboxTarget? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,18 +67,23 @@ class MainActivity: ComponentActivity() {
     private fun readInboxIntent(intent: Intent) {
         val server = intent.getStringExtra(INBOX_SERVER) ?: return
         val user = intent.getLongExtra(INBOX_USER, 0L)
-        if (user > 0L) pendingInbox = server to user
+        if (user > 0L) pendingInbox = InboxTarget(server, user, intent.getLongExtra(HANDOVER_NOTICE_ID, 0L).takeIf { it > 0 })
     }
 
     private fun maybeOpenInbox(state: AppState) {
         val session = state.session ?: return
         val target = pendingInbox ?: return
-        if (target != (session.server to session.userId)) {
+        if (target.server != session.server || target.userId != session.userId) {
             pendingInbox = null
         } else if (!state.saving && state.editor == null && !state.dispatchOpen &&
             (state.taskEditor == null || state.taskEditor.taskId != state.selectedTaskId)) {
+            if (target.handoverNoticeId != null && !state.notificationsReady) {
+                // After a cold start, resolve the notification from the signed-in user's inbox.
+                return
+            }
             pendingInbox = null
-            model.screen("notifications")
+            val handover = state.notifications.firstOrNull { it.id == target.handoverNoticeId && it.type == CRM_SERVICE_TRANSFER }
+            if (handover != null) model.openNotification(handover) else model.screen("notifications")
         }
     }
 
@@ -121,6 +129,11 @@ class MainActivity: ComponentActivity() {
     private fun showWorkNotification(manager: NotificationManager, session: Session, item: AppNotification) {
         val intent = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             .putExtra(INBOX_SERVER, session.server).putExtra(INBOX_USER, session.userId)
+        if (item.type == CRM_SERVICE_TRANSFER) {
+            // PendingIntent identity ignores extras, so give each handover its own URI.
+            intent.data = Uri.fromParts("pandora-handover", item.id.toString(), null)
+            intent.putExtra(HANDOVER_NOTICE_ID, item.id)
+        }
         val tap = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.console_bell)
             .setContentTitle(item.title).setContentText(item.body).setStyle(Notification.BigTextStyle().bigText(item.body))
@@ -132,5 +145,6 @@ class MainActivity: ComponentActivity() {
         const val CHANNEL = "work-alerts"
         const val INBOX_SERVER = "pandora.inbox.server"
         const val INBOX_USER = "pandora.inbox.user"
+        const val HANDOVER_NOTICE_ID = "pandora.handover.notice"
     }
 }

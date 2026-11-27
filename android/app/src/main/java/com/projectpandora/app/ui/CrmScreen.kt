@@ -28,7 +28,10 @@ internal fun crmTime(value: String?) = value?.replace('T', ' ')?.take(16).orEmpt
 private enum class CrmAction { CUSTOMER, SERVICE, COMPLETE, CANCEL, TRANSFER, NOTE, LINK, CORRECT, USE, REVERSE }
 
 @Composable
-internal fun CompanyBusinessScreen(state: AppState, model: PandoraViewModel) {
+internal fun CompanyBusinessScreen(
+    state: AppState, model: PandoraViewModel,
+    initialServiceId: Long? = null, onExit: (() -> Unit)? = null,
+) {
     val session = state.session ?: return
     if (state.developmentPreview) {
         Box(Modifier.padding(horizontal = 16.dp)) {
@@ -39,7 +42,9 @@ internal fun CompanyBusinessScreen(state: AppState, model: PandoraViewModel) {
     val api = remember(session.server) { ApiClient(session.server) }
     val scope = rememberCoroutineScope()
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    var routes by rememberSaveable { mutableStateOf(arrayListOf("list")) }
+    var routes by rememberSaveable(initialServiceId) {
+        mutableStateOf(arrayListOf(initialServiceId?.let { "service/$it" } ?: "list"))
+    }
     var search by rememberSaveable { mutableStateOf("") }
     var status by rememberSaveable { mutableStateOf("") }
     var employeeId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -64,7 +69,10 @@ internal fun CompanyBusinessScreen(state: AppState, model: PandoraViewModel) {
         val index = routes.indexOf(next)
         routes = if (index >= 0) ArrayList(routes.take(index + 1)) else ArrayList(routes + next)
     }
-    fun back() { if (!busy && routes.size > 1) routes = ArrayList(routes.dropLast(1)) }
+    fun back() {
+        if (busy) return
+        if (routes.size > 1) routes = ArrayList(routes.dropLast(1)) else onExit?.invoke()
+    }
     fun form(next: CrmAction) { actionError = null; action = next }
     fun <T> save(job: () -> T, after: (T) -> Unit = {}) {
         if (busy) return
@@ -84,7 +92,7 @@ internal fun CompanyBusinessScreen(state: AppState, model: PandoraViewModel) {
         }
     }
 
-    BackHandler(enabled = routes.size > 1) { back() }
+    BackHandler(enabled = routes.size > 1 || onExit != null) { back() }
     LaunchedEffect(session, route, revision) {
         loading = true
         error = null
@@ -120,7 +128,13 @@ internal fun CompanyBusinessScreen(state: AppState, model: PandoraViewModel) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            error = e.message ?: "暂时无法读取客户与业务，请重试"
+            if (e is ApiException && e.status in listOf(403, 404)) {
+                customer = null
+                service = null
+                error = if (route.startsWith("service/")) "服务不存在或你已无权查看。" else e.message
+            } else {
+                error = e.message ?: "暂时无法读取客户与业务，请重试"
+            }
         } finally { loading = false }
     }
 

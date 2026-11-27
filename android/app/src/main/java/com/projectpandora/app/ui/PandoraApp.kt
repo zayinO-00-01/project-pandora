@@ -72,6 +72,7 @@ import java.time.format.DateTimeFormatter
     val headerHeight=(if(homeHeader && (readFailures.isNotEmpty() || state.developmentPreview))96.dp else if(homeHeader)72.dp else if(state.developmentPreview)64.dp else 48.dp) * maxOf(1f,LocalDensity.current.fontScale)
     BackHandler(enabled=state.editor==null && state.selectedTaskId==null && state.screen!="home" && !state.dispatchOpen) {
         if(!state.saving)when {
+            state.screen=="crm-service" -> model.screen("notifications")
             state.screen=="logs" && showLogCalendar -> showLogCalendar=false
             state.screen=="day" && showCompanyBusiness -> showCompanyBusiness=false
             state.screen=="labels" -> model.screen("profile")
@@ -90,6 +91,7 @@ import java.time.format.DateTimeFormatter
         state.screen=="organization" -> AppRoles.scopeLabel(state.session.role)
         state.screen=="logs" -> "工作日志"
         state.screen=="day" -> "公司"
+        state.screen=="crm-service" -> "服务详情"
         state.screen=="profile" -> "我的"
         state.screen=="notifications" -> "消息中心"
         state.screen=="inbox" -> if(AppRoles.canReview(state.session.role))"通知与审核" else "消息通知"
@@ -132,7 +134,7 @@ import java.time.format.DateTimeFormatter
             HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
             Box(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {NavigationBar(containerColor=MaterialTheme.colorScheme.background,tonalElevation=0.dp,modifier=Modifier.widthIn(max=600.dp).fillMaxWidth().height(72.dp),windowInsets=WindowInsets(0,0,0,0)) {
                 val items=listOf(Triple("home","首页",R.drawable.console_home),Triple("day","公司",R.drawable.console_calendar),Triple("logs","日志",R.drawable.console_log),Triple("profile","我的",R.drawable.console_person))
-                items.forEach {(key,label,icon)->NavigationBarItem(selected=state.screen==key || (key=="day" && state.screen in listOf("tasks","organization","inbox","directory")) || (key=="profile" && state.screen=="labels") || (key=="home" && state.screen=="ai"),
+                items.forEach {(key,label,icon)->NavigationBarItem(selected=state.screen==key || (key=="day" && state.screen in listOf("tasks","organization","inbox","directory","crm-service")) || (key=="profile" && state.screen=="labels") || (key=="home" && state.screen=="ai"),
                     onClick={feedback();model.screen(key)},enabled=!state.saving,
                     icon={Icon(painterResource(icon),contentDescription=null,modifier=Modifier.size(21.dp))},label={Text(label,maxLines=1,softWrap=false,style=MaterialTheme.typography.labelSmall)},
                     colors=NavigationBarItemDefaults.colors(indicatorColor=androidx.compose.ui.graphics.Color.Transparent,
@@ -143,7 +145,7 @@ import java.time.format.DateTimeFormatter
     }) {padding->Box(Modifier.fillMaxSize(),contentAlignment=Alignment.TopCenter) {Column(Modifier.fillMaxHeight().widthIn(max=600.dp).fillMaxWidth().padding(padding)) {
         state.notificationReadError?.let {Box(Modifier.padding(horizontal=20.dp,vertical=8.dp)) {Hint(it,true,onRetry=model::retryNotificationRead,retryEnabled=!state.notificationReadBusy)}}
         state.notice?.takeUnless {state.developmentPreview && it.startsWith("开发预览：")}?.let {Box(Modifier.padding(horizontal=20.dp,vertical=8.dp)) {Hint(it)}}
-        AnimatedContent(targetState=state,modifier=Modifier.fillMaxSize(),contentKey={"${it.screen}:${it.editor!=null}:${it.selectedTaskId}:${it.dispatchOpen}"},transitionSpec={
+        AnimatedContent(targetState=state,modifier=Modifier.fillMaxSize(),contentKey={"${it.screen}:${it.editor!=null}:${it.selectedTaskId}:${it.dispatchOpen}:${it.notifiedCrmServiceId}"},transitionSpec={
             val origin=when {
                 initialState.screen=="home" && targetState.screen=="tasks"->TransformOrigin(1f,0f)
                 initialState.screen=="home" && targetState.screen=="logs"->TransformOrigin(1f,1f)
@@ -161,6 +163,11 @@ import java.time.format.DateTimeFormatter
             "tasks" -> TaskScreen(page,model)
             "day" -> pageState.SaveableStateProvider("company:${page.session?.server}:${page.session?.userId}") {
                 CompanyScreen(page,model,showCompanyBusiness) {showCompanyBusiness=it}
+            }
+            "crm-service" -> page.notifiedCrmServiceId?.let { id ->
+                key(page.session,id) {
+                    CompanyBusinessScreen(page,model,initialServiceId=id,onExit={model.screen("notifications")})
+                }
             }
             "ai" -> HomeScreen(page,model)
             "profile" -> ProfileScreen(page,model)

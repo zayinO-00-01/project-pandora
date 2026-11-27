@@ -47,7 +47,8 @@ class CrmCommerce {
     record CashLine(long id, String direction, long amountCents, LocalDate bookedOn, String note) {}
     record ShopCash(long id, String source, String orderNumber, String product, String direction, long amountCents, LocalDate bookedOn) {}
     record ReceivableInput(Long amountCents) {}
-    record CashInput(String direction, Long amountCents, LocalDate bookedOn, String note) {}
+    record CashInput(String direction, Long amountCents, LocalDate bookedOn, String note, UUID requestId) {}
+    private record CashRequest(long serviceId, String direction, long amountCents, LocalDate bookedOn, String note) {}
     record ImportEvent(long id, String detail, LocalDateTime recordedAt) {}
 
     private static LocalDate date(String text) {
@@ -321,13 +322,25 @@ class CrmCommerce {
         db.lock();
         var scope = access.requiredPermission(CrmAccess.FINANCE);
         var service = work.service(serviceId);
-        long amount = money(input.amountCents()), net = net(serviceId);
+        if (input.requestId() == null) throw bad("缺少流水登记编号，请刷新页面后重试");
+        String requestId = input.requestId().toString();
+        long amount = money(input.amountCents());
         if (amount == 0) throw bad("请输入大于零的金额");
-        var date = bookingDate(input.bookedOn());
         var note = required(input.note(), 500, "款项说明");
-        if ("RECEIPT".equals(input.direction())) {
+        String direction = input.direction();
+        var previous = db.one(CashRequest.class, """
+            SELECT service_id,direction,amount_cents,booked_on,note FROM crm_cash WHERE actor_id=? AND request_id=?
+            """, scope.id(), requestId);
+        if (previous.isPresent()) {
+            if (!previous.get().equals(new CashRequest(serviceId, direction, amount, input.bookedOn(), note)))
+                throw conflict("此登记编号已用于另一笔流水，请核对台账");
+            return;
+        }
+        var date = bookingDate(input.bookedOn());
+        long net = net(serviceId);
+        if ("RECEIPT".equals(direction)) {
             if (net + amount > service.receivableCents()) throw conflict("到账不能超过剩余应收");
-        } else if ("REFUND".equals(input.direction())) {
+        } else if ("REFUND".equals(direction)) {
             if (amount > net) throw conflict("退款不能超过当前实收");
             long balance = 0;
             for (var line : db.rows(CashLine.class, """
@@ -337,7 +350,10 @@ class CrmCommerce {
                 balance += line.direction().equals("RECEIPT") ? line.amountCents() : -line.amountCents();
             }
         } else throw bad("请选择收款或退款");
-        entry(scope.id(), serviceId, null, input.direction(), amount, date, note);
+        db.write("""
+            INSERT INTO crm_cash (service_id,direction,amount_cents,booked_on,actor_id,note,request_id)
+            VALUES (?,?,?,?,?,?,?)
+            """, serviceId, direction, amount, date, scope.id(), note, requestId);
     }
     private void entry(long actor, Long service, Long order, String direction, long amount, LocalDate date, String note) {
         db.write("""

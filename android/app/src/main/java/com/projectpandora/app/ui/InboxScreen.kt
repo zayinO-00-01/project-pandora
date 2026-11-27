@@ -78,7 +78,7 @@ import com.projectpandora.app.data.*
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("消息列表",style=MaterialTheme.typography.titleMedium)
-                        Text("任务分配、变更和审批",style=MaterialTheme.typography.bodySmall,color=colors.onSurfaceVariant)
+                        Text("任务、审批和服务交接",style=MaterialTheme.typography.bodySmall,color=colors.onSurfaceVariant)
                     }
                     ControlOutlinedButton(onClick=model::markAllNotificationsRead,enabled=!state.saving && !state.notificationReadBusy && state.unreadCount>0) {Text("全部已读")}
                 }

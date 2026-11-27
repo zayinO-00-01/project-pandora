@@ -3,6 +3,7 @@ package com.projectpandora.api.crm;
 import static com.projectpandora.api.crm.CrmStore.*;
 import com.projectpandora.api.crm.CrmAccess.Member;
 import com.projectpandora.api.crm.CrmAccess.Scope;
+import com.projectpandora.api.notification.NotificationService;
 import com.projectpandora.api.task.TaskService;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -15,11 +16,13 @@ class CrmWorkspace {
     private final CrmStore db;
     private final CrmAccess access;
     private final TaskService tasks;
+    private final NotificationService notifications;
 
-    CrmWorkspace(CrmStore db, CrmAccess access, TaskService tasks) {
+    CrmWorkspace(CrmStore db, CrmAccess access, TaskService tasks, NotificationService notifications) {
         this.db = db;
         this.access = access;
         this.tasks = tasks;
+        this.notifications = notifications;
     }
 
     record CustomerInput(String kind, String name, String contactName, String phone) {}
@@ -334,6 +337,8 @@ class CrmWorkspace {
         String reason = required(input.reason(), 500, "转交原因");
         db.write("UPDATE crm_services SET owner_id=? WHERE id=?", input.ownerId(), id);
         event(id, scope, "TRANSFERRED", scope.name(row.ownerId()) + " → " + scope.name(input.ownerId()) + "：" + reason);
+        notifications.notifyReference(input.ownerId(), "crm-service-transfer", "有服务转交给你",
+            "请打开详情查看并跟进服务。", id);
     }
     @Transactional
     public ServiceDetail addNote(long id, String note) {
