@@ -1619,7 +1619,7 @@ paths:
   /directory:
     get:
       summary: 公司通讯录（仅业务成员）
-      description: 列出全公司有效业务账号的姓名、职位、直属上级、电话、头像与按汇报关系推算出的部门。不包含身份证、住址、生日及紧急联系人，不授予任务或日志访问权限。
+      description: 按当前账号的通讯录权限列出可见业务成员。仅当直属上级本人在可见范围内才返回其名字和编号；配置状态由 hasManager 表示。通讯录不授予任务或日志访问权限。
       security:
       - bearer: []
       responses:
@@ -1714,6 +1714,9 @@ components:
         departmentName:
           type: string
           nullable: true
+        hasManager:
+          type: boolean
+          description: 是否已设置直属上级；上级不可见时仍可为 true。
     UserSummary:
       type: object
       properties:
@@ -2149,7 +2152,7 @@ components:
         emergencyPhone:
           type: string
           maxLength: 20
-          description: 可留空；非空至少3位数字，可包含加号、括号、空格、连字符。
+          description: 可留空；新增或修改时只接受有效的 11 位中国大陆手机号。
         address:
           type: string
           maxLength: 255

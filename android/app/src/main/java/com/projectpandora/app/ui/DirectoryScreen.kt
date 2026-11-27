@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,6 +32,8 @@ import java.time.LocalDate
     var section by rememberSaveable(me.userId) {mutableStateOf("home")}
     var selectedId by rememberSaveable(me.userId) {mutableStateOf<Long?>(null)}
     val selected=state.directory.firstOrNull {it.id==selectedId}
+    val listState=rememberLazyListState()
+    var logId by rememberSaveable(key,selectedId) {mutableStateOf<Long?>(null)}
     LaunchedEffect(state.directoryLoading,state.directory,selectedId) {
         if(!state.directoryLoading && selectedId!=null && selected==null)selectedId=null
     }
@@ -55,9 +58,24 @@ import java.time.LocalDate
         }
         return false
     }
-    fun back() {if(selectedId!=null)selectedId=null else if(section!="home")section="home" else model.screen("day")}
+    fun back() {if(logId!=null)logId=null else if(selectedId!=null)selectedId=null else if(section!="home")section="home" else model.screen("day")}
     BackHandler(onBack=::back)
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=24.dp)) {
+    if(logId!=null && selected!=null) {
+        val log=state.memberLogs.firstOrNull {state.member?.id==selected.id && it.id==logId && it.status=="submitted"}
+        LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=24.dp)) {
+            item {BackdropTextButton(onClick=::back) {Text("← 返回联系人")}}
+            item {ScreenHeading("日志详情",selected.displayName ?: selected.username)}
+            if(log!=null)item {Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                Text(logDateLabel(log.logDate,log.endDate),style=MaterialTheme.typography.titleMedium)
+                Text("创建时间  ${timestamp(log.createdAt)}",style=MaterialTheme.typography.bodySmall)
+                Text("最近修改  ${timestamp(log.updatedAt)}",style=MaterialTheme.typography.bodySmall)
+                CompactLabelRow(contentTags(state,"log",log.id,log.label))
+                Text(log.content)
+            }} else item {Text("该日志已不可查看。")}
+        }
+        return
+    }
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal=20.dp),state=listState,verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=24.dp)) {
         item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
             BackdropTextButton(onClick=::back) {Text(if(selectedId!=null)"← 返回联系人" else if(section!="home")"← 返回通讯录" else "← 返回公司")}
             BackdropTextButton(onClick=model::loadDirectory,enabled=!state.directoryLoading) {Text("刷新通讯录")}
@@ -78,11 +96,13 @@ import java.time.LocalDate
                 ContactInfo("账号",selected.username)
                 ContactInfo("职位",AppRoles.label(selected.role))
                 if(selected.role!="FOUNDER")ContactInfo("所属部门",selected.departmentName ?: "未分配部门")
-                ContactInfo("直属上级",selected.managerName)
+                ContactInfo("直属上级",directoryManagerLabel(selected,me.userId))
                 val manager=selected.managerId?.let(contactsById::get)
-                if(manager!=null)ControlTextButton(onClick={selectedId=manager.id}) {Text("查看直属上级")}
+                if(manager!=null)ControlTextButton(onClick={selectedId=manager.id}) {Text("查看上级联系人")}
                 ContactInfo("工作联系电话",selected.phone)
             }}}
+            if(me.role=="FOUNDER" && selected.id!=me.userId && selected.role in AppRoles.business && !state.developmentPreview)
+                item {ControlOutlinedButton(onClick={model.dispatchToContact(selected.id)},enabled=!state.saving) {Text("派发任务给此人")}}
             if(canReadWork(selected) && !state.developmentPreview) {
                 val loaded=state.member?.id==selected.id
                 item {ControlOutlinedButton(onClick={model.openMember(UserSummary(selected.id,selected.username,selected.displayName,selected.role))},enabled=!state.organizationLoading || !loaded) {Text(if(loaded)"刷新日志和任务" else "查看日志和任务")}}
@@ -91,7 +111,9 @@ import java.time.LocalDate
                     else if(state.organizationError!=null)item {Hint(state.organizationError,true)}
                     else {
                         item {Text("已提交日志 · ${state.memberLogs.size}",style=MaterialTheme.typography.titleMedium)}
-                        items(state.memberLogs,key={"contact-log-${it.id}"}) {log->Column {Text(log.logDate,style=MaterialTheme.typography.labelMedium);Text(log.content)}}
+                        items(state.memberLogs,key={"contact-log-${it.id}"}) {log->
+                            LogCard(log,state.saving,{logId=log.id},tags=contentTags(state,"log",log.id,log.label))
+                        }
                         item {Text("任务月历 · ${state.memberTasks.size} 项",style=MaterialTheme.typography.titleMedium)}
                         val tasksByDay=orderedTasks(state.memberTasks).groupBy {taskDate(it)}
                         val workDay=LocalDate.parse(calendarDate)
@@ -137,7 +159,8 @@ import java.time.LocalDate
                             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                                 Text(person.displayName ?: person.username,style=MaterialTheme.typography.titleSmall)
                                 Text(AppRoles.label(person.role),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                                person.managerName?.takeIf {it.isNotBlank()}?.let {Text("直属上级：$it",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+                                val managerLabel=directoryManagerLabel(person,me.userId)
+                                Text("直属上级：$managerLabel",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text(if(person.id.toString() in stars)"★  ›" else "›",color=MaterialTheme.colorScheme.secondary)
                         }

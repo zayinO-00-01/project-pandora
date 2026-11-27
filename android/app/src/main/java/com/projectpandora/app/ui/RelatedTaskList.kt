@@ -17,8 +17,8 @@ import com.projectpandora.app.data.*
 
 @Composable fun RelatedTaskList(state: AppState,model: PandoraViewModel) {
     val me=state.session ?: return
-    var query by rememberSaveable(me.userId) {mutableStateOf("")}
-    var filter by rememberSaveable(me.userId) {mutableStateOf("all")}
+    var query by rememberSaveable(me.userId,state.taskLabelFilter?.id) {mutableStateOf("")}
+    var filter by rememberSaveable(me.userId,state.taskLabelFilter?.id) {mutableStateOf("all")}
     val prefs=androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("task-pins",0)
     val pinKey=me.server+":"+me.userId
     var pins by remember(pinKey) {mutableStateOf(prefs.getStringSet(pinKey,emptySet()).orEmpty().toSet())}
@@ -27,7 +27,9 @@ import com.projectpandora.app.data.*
         pins=if(key in pins)pins-key else pins+key
         prefs.edit().putStringSet(pinKey,pins).apply()
     }
+    val selectedLabel=state.taskLabelFilter
     val tasks=relatedTasks(state.tasks,me.userId).filter {
+        (selectedLabel==null || contentTags(state,"task",it.id,it.label).any {label->label.id==selectedLabel.id}) &&
         (filter!="created" || it.createdBy==me.userId) && (filter!="assigned" || it.isResponsible(me.userId)) &&
         (query.isBlank() || it.title.contains(query.trim(),true) || it.assigneeName.contains(query.trim(),true))
     }.sortedByDescending {it.id.toString() in pins}
@@ -41,6 +43,8 @@ import com.projectpandora.app.data.*
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf("all" to "全部","assigned" to "我负责的","created" to "我创建的").forEach {(key,label)->FilterChip(selected=filter==key,onClick={filter=key},label={Text(label)})}
         }
+        if(selectedLabel!=null)InputChip(selected=true,onClick=model::clearTaskLabelFilter,label={Text(selectedLabel.name)},
+            trailingIcon={Text("×",Modifier.semantics {contentDescription="清除标签筛选"})})
         if(state.taskLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
         state.taskError?.let {Hint(it,true,onRetry=model::refresh)}
         Text("${tasks.size} 项",style=MaterialTheme.typography.labelSmall)
@@ -59,7 +63,7 @@ import com.projectpandora.app.data.*
                                 modifier=Modifier.semantics {contentDescription=(if(pinned)"取消置顶：" else "置顶：")+task.title}) {
                                 Text(if(pinned)"★" else "☆")
                             }
-                        };Column(Modifier.width(200.dp)) {TaskCell(task.title,200);LabelLines(contentTags(state,"task",task.id,task.label),Modifier.padding(start=8.dp,top=6.dp))};TaskCell(dueLabel(task.dueAt),155)
+                        };Column(Modifier.width(200.dp)) {TaskCell(task.title,200);CompactLabelRow(contentTags(state,"task",task.id,task.label),Modifier.padding(start=8.dp,top=4.dp,end=8.dp),compact=true,onClick=if(state.saving)null else model::openTaskLabel)};TaskCell(dueLabel(task.dueAt),155)
                         Box(Modifier.width(110.dp).padding(horizontal=8.dp)) {TaskPriorityText(task.priority,onLabel=false)}
                         TaskCell(taskFeedbackLabel(task),110);TaskCell(task.progressNote.ifBlank {"暂无进度说明"},230);TaskCell(task.assigneeName,160)
                     }}

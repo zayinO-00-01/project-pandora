@@ -2,6 +2,8 @@ package com.projectpandora.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,7 +25,7 @@ import com.projectpandora.app.data.*
     val enabled=!state.saving && !state.organizationLoading
     val member=state.member
     BackHandler(enabled=member!=null && !state.saving) {model.loadOrganization()}
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=32.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp).background(MaterialTheme.colorScheme.surface,MaterialTheme.shapes.medium).panelOutline().padding(horizontal=14.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=32.dp)) {
         item {BackdropTextButton(onClick={if(member!=null)model.loadOrganization() else model.screen("day")},enabled=!state.saving) {Text(if(member!=null)"返回组织" else "返回公司")}}
         if(state.organizationLoading)item {LinearProgressIndicator(Modifier.fillMaxWidth())}
         state.organizationError?.let {item {Hint(it,true,onRetry={if(member!=null)model.openMember(member) else model.loadOrganization()},retryEnabled=enabled)}}
@@ -38,13 +40,16 @@ import com.projectpandora.app.data.*
                 orderedTasks(state.memberTasks).forEach {task->item(key="task-${task.id}") {Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {Text(task.title,style=MaterialTheme.typography.bodyLarge);TaskPriorityText(task.priority);Text("${taskFeedbackLabel(task)} · ${task.progressNote.ifBlank {task.detail}}",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);HorizontalDivider()}}}
             }
         } else {
-            item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-                if(AppRoles.canViewDown(me.role))BackdropTextButton(onClick={section="members"}) {Text("下级工作")}
-                if(me.role!="FOUNDER")BackdropTextButton(onClick={section="manager"}) {Text("直属上级")}
-                if(AppRoles.canReview(me.role))BackdropTextButton(onClick={section="requests"}) {Text("查看申请")}
+            item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                val tabs=buildList {
+                    if(AppRoles.canViewDown(me.role))add("members" to "下级工作")
+                    if(me.role!="FOUNDER")add("manager" to "直属上级")
+                    if(AppRoles.canReview(me.role))add("requests" to "查看申请")
+                }
+                tabs.forEach {(key,label)->FilterChip(selected=section==key,onClick={section=key},modifier=Modifier.weight(1f),label={Text(label,maxLines=1)})}
             }}
             if(section=="members") {
-                item {ScreenHeading(AppRoles.scopeLabel(me.role),if(me.role=="FOUNDER")"查看全公司业务成员的已提交日志与任务，草稿不公开。" else "沿组织关系向下查看，其他部门与他人草稿不开放。")}
+                item {Text("成员工作",style=MaterialTheme.typography.titleLarge)}
                 val allMembers=state.organization?.members.orEmpty()
                 val members=filterMembers(allMembers,memberQuery)
                 item {OutlinedTextField(value=memberQuery,onValueChange={memberQuery=it},label={Text("搜索成员姓名")},placeholder={Text("输入姓名或账号")},singleLine=true,modifier=Modifier.fillMaxWidth(),trailingIcon={if(memberQuery.isNotEmpty())ControlTextButton(onClick={memberQuery=""}) {Text("清空")}})}
@@ -53,7 +58,17 @@ import com.projectpandora.app.data.*
                 if(allMembers.isEmpty() && !state.organizationLoading && state.organizationError==null)item {Text("暂无可查看的下级，请由管理员维护组织关系。",color=MaterialTheme.colorScheme.onSurfaceVariant)}
                 members.groupBy {it.role}.forEach {(role,users)->
                     item {Text(AppRoles.label(role),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-                    users.forEach {user->item(key="member-${user.id}") {ControlTextButton(onClick={model.openMember(user)},enabled=enabled,modifier=Modifier.fillMaxWidth(),contentPadding=PaddingValues(vertical=12.dp)) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text(user.displayName ?: user.username);Text("查看工作 ›")}}}}
+                    users.forEach {user->item(key="member-${user.id}") {
+                        Surface(onClick={model.openMember(user)},enabled=enabled,color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.45f),contentColor=MaterialTheme.colorScheme.onSurface,shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth().panelOutline()) {
+                            Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                                Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                                    Text(user.displayName ?: user.username,style=MaterialTheme.typography.titleSmall)
+                                    Text("账号：${user.username}",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Text("查看工作 ›",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.secondary)
+                            }
+                        }
+                    }}
                 }
             }
             if(section=="manager") {

@@ -45,7 +45,7 @@ import com.projectpandora.app.data.*
             item {Text("任务看板",style=MaterialTheme.typography.titleLarge)}
             val assigned=orderedTasks(state.tasks.filter {it.isResponsible(state.session?.userId) && taskIsApproved(it) && !it.deleted})
             if(assigned.isEmpty())item {Text("暂无派发任务")}
-            assigned.forEach {task->item(key=task.id) {TaskSummary(task,!state.saving) {model.openTask(task.id)}}}
+            assigned.forEach {task->item(key=task.id) {TaskSummary(task,!state.saving,contentTags(state,"task",task.id,task.label),onLabelClick=if(state.saving)null else model::openTaskLabel) {model.openTask(task.id)}}}
         }
     } else if(panel!=null) {
         PriorityScreen(state,model,panel=="公司十大事",initialSelectedId=if(panel=="公司十大事")selectedCompanyId else null,companyExamples=companyExamples) {selectedPanel=null}
@@ -70,7 +70,7 @@ import com.projectpandora.app.data.*
                     if(dispatch.isEmpty())OverviewEmpty(if(state.taskLoading)"正在读取任务…" else "暂无派发任务")
                     dispatch.take(2).forEachIndexed {index,entry->
                         val task=state.tasks.firstOrNull {it.id==entry.id}
-                        CompanyDepthCard(entry,index,compact=true,labels=tags("task",entry.id,task?.label),onLabels=if(task!=null && (task.createdBy==state.session?.userId || task.isResponsible(state.session?.userId) || state.session?.role=="FOUNDER"))({pick("task",entry.id,task?.label)}) else null) {model.openTask(entry.id)}
+                        CompanyDepthCard(entry,index,compact=true,labels=tags("task",entry.id,task?.label),onLabels=if(task!=null && (task.createdBy==state.session?.userId || task.isResponsible(state.session?.userId) || state.session?.role=="FOUNDER"))({pick("task",entry.id,task?.label)}) else null,onLabelClick=if(state.saving)null else model::openTaskLabel) {model.openTask(entry.id)}
                     }
                 }
             }}
@@ -95,13 +95,14 @@ import com.projectpandora.app.data.*
     }
 }
 
-@Composable fun TaskSummary(task: DispatchTask,enabled: Boolean,onClick: ()->Unit) {
+@Composable fun TaskSummary(task: DispatchTask,enabled: Boolean,tags: List<WorkLabel> = emptyList(),onLabelClick: ((WorkLabel)->Unit)?=null,onClick: ()->Unit) {
     Surface(onClick=onClick,enabled=enabled,color=MaterialTheme.colorScheme.surface,contentColor=MaterialTheme.colorScheme.onSurface,shape=MaterialTheme.shapes.small,modifier=Modifier.fillMaxWidth()) {
         Row(Modifier.padding(vertical=12.dp),horizontalArrangement=Arrangement.spacedBy(14.dp)) {
             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                 taskReviewLabel(task.reviewStatus)?.let {Text(it,style=MaterialTheme.typography.labelSmall)}
                 Text(task.title,style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {TaskPriorityText(task.priority,onLabel=false);Text("${task.assigneeName} · ${taskFeedbackLabel(task)}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+                CompactLabelRow(tags,compact=true,onClick=onLabelClick)
             }
         }
     }

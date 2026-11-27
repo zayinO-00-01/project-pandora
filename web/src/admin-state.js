@@ -160,8 +160,8 @@ export function fieldChanged(form, original, field) {
 }
 export function emergencyPhoneError(form, original) {
   const phone = (form.emergencyPhone ?? '').trim();
-  return phone && fieldChanged(form,original,'emergencyPhone') && !/^(1[3-9]\d{9}|0[1-9]\d{1,2}[- ]?[1-9]\d{6,7})$/.test(phone)
-    ? '紧急联系电话请输入有效的 11 位手机号或带区号的座机。' : '';
+  return phone && fieldChanged(form,original,'emergencyPhone') && !/^1[3-9]\d{9}$/.test(phone)
+    ? '紧急联系电话请输入有效的 11 位手机号。' : '';
 }
 export function profileInputError(form, original) {
   if (form.role !== 'ADMIN' && !(form.displayName ?? '').trim()) return '请填写姓名。';

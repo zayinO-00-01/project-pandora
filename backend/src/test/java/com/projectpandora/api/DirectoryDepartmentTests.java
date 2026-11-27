@@ -54,7 +54,9 @@ class DirectoryDepartmentTests {
         mvc.perform(get(file).header("Authorization",token("staff"))).andExpect(status().isOk())
             .andExpect(jsonPath("$[*].username", containsInAnyOrder("team_lead","local_peer","other_team_peer")))
             .andExpect(jsonPath("$[?(@.username == 'local_peer')].managerName", contains("张予安")))
-            .andExpect(jsonPath("$[?(@.username == 'other_team_peer')].managerName", not(hasItem("local_other_team"))));
+            .andExpect(jsonPath("$[?(@.username == 'other_team_peer')].managerName", not(hasItem("local_other_team"))))
+            .andExpect(jsonPath("$[?(@.username == 'other_team_peer')].managerId", not(hasItem(secondLead.getId().intValue()))))
+            .andExpect(jsonPath("$[?(@.username == 'other_team_peer')].hasManager", contains(true)));
         String leadToken = token("team_lead");
         mvc.perform(get(file).header("Authorization",leadToken)).andExpect(status().isOk())
             .andExpect(jsonPath("$[*].username", containsInAnyOrder("leader","local_other_team","other_department_team","staff","local_peer","other_team_peer")))
@@ -62,7 +64,8 @@ class DirectoryDepartmentTests {
             .andExpect(jsonPath("$[?(@.username == 'other_team_peer')].canViewWork", contains(false)));
         for (String viewer : new String[]{"leader","founder"}) {
             mvc.perform(get(file).header("Authorization",token(viewer))).andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].username", hasItems("staff","other_department_staff","unassigned_employee")));
+                .andExpect(jsonPath("$[*].username", hasItems("staff","other_department_staff","unassigned_employee")))
+                .andExpect(jsonPath("$[?(@.username == 'unassigned_employee')].hasManager", contains(false)));
         }
         mvc.perform(get(file).header("Authorization",token("unassigned_employee"))).andExpect(status().isOk())
             .andExpect(jsonPath("$", empty()));

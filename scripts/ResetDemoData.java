@@ -168,6 +168,7 @@ public class ResetDemoData {
     }
     static int rank(String role) {return switch(role){case "FOUNDER"->4;case "DEPT_HEAD"->3;case "TEAM_LEAD"->2;default->1;};}
     static void fillProfiles(Connection c,LocalDate day) throws Exception {
+        String[] contacts={"林雅婷","徐明杰","宋清禾","周欣","陈晓宁","郭宇航","许文静","顾雨彤","唐昱","苏婉晴","刘子谦","梁思语"};
         Set<String> phones=new HashSet<>(),cards=new HashSet<>();
         try(var s=c.createStatement();var r=s.executeQuery("select phone,id_card from users")) {
             while(r.next()){phones.add(r.getString(1));cards.add(r.getString(2));}
@@ -182,8 +183,8 @@ public class ResetDemoData {
                 values.put("display_name","演示成员"+ordinal);values.put("phone",phone);values.put("id_card",card);
                 values.put("birth_date",birth);values.put("gender",ordinal%2==0?"FEMALE":"MALE");
                 values.put("hire_date",day.minusYears(1+ordinal%4).minusDays(ordinal%90));
-                values.put("emergency_contact","演示联系人"+ordinal);values.put("emergency_phone",phone);
-                values.put("address","演示资料（虚构） · 示例市协作路"+ordinal+"号");values.put("avatar",ordinal%2==0?"🌿":"🌤️");
+                values.put("emergency_contact",contacts[(ordinal-1)%contacts.length]);values.put("emergency_phone",phone);
+                values.put("address","澄江市云溪区松云路"+(18+ordinal)+"号");values.put("avatar",ordinal%2==0?"🌿":"🌤️");
                 for(var entry:values.entrySet()) {
                     Object old=r.getObject(entry.getKey());
                     if(old!=null && (!(old instanceof String text)||!text.isBlank()))continue;

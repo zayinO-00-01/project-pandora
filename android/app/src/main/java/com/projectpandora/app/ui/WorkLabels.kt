@@ -3,6 +3,7 @@ package com.projectpandora.app.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.semantics.semantics
@@ -20,8 +21,30 @@ fun labelTextColor(label: WorkLabel?): Color {
     val c=labelColor(label)
     return if(0.2126*c.red+0.7152*c.green+0.0722*c.blue>0.55)Color(0xFF162C30) else Color.White
 }
-@Composable fun LabelBadge(label: WorkLabel?) {
-    if(label!=null)Surface(color=labelColor(label),contentColor=labelTextColor(label),shape=androidx.compose.foundation.shape.CircleShape) {Text(label.name,modifier=Modifier.padding(horizontal=8.dp,vertical=4.dp),style=MaterialTheme.typography.labelSmall)}
+@Composable fun LabelBadge(label: WorkLabel?,compact: Boolean=false) {
+    if(label!=null)Surface(color=labelColor(label),contentColor=labelTextColor(label),shape=androidx.compose.foundation.shape.CircleShape) {
+        Text(label.name,modifier=Modifier.padding(horizontal=if(compact)6.dp else 8.dp,vertical=if(compact)2.dp else 4.dp),
+            maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            style=MaterialTheme.typography.labelSmall.let {if(compact)it.copy(fontSize=10.sp,lineHeight=12.sp) else it})
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable internal fun CompactLabelRow(labels: List<WorkLabel>,modifier: Modifier=Modifier,compact: Boolean=false,scrollable: Boolean=false,onClick: ((WorkLabel)->Unit)?=null) {
+    val unique=labels.distinctBy {it.id}
+    val badge: @Composable (WorkLabel)->Unit={label->
+        if(onClick==null)LabelBadge(label,compact)
+        else Box(Modifier.clickable(onClickLabel="筛选${label.name}",role=androidx.compose.ui.semantics.Role.Button) {onClick(label)}) {LabelBadge(label,compact)}
+    }
+    if(scrollable) {
+        Row(modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+            unique.forEach {badge(it)}
+        }
+    } else if(unique.isNotEmpty()) {
+        FlowRow(modifier,horizontalArrangement=Arrangement.spacedBy(4.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+            unique.forEach {badge(it)}
+        }
+    }
 }
 @Composable fun LabelPicker(labels: List<WorkLabel>,selected: Long?,enabled: Boolean,onSelect: (Long)->Unit) {
     var open by remember {mutableStateOf(false)}
@@ -62,6 +85,9 @@ fun contentTags(state: com.projectpandora.app.AppState,kind: String,id: Long,fal
     var open by remember {mutableStateOf(false)}
     Column {
         ControlOutlinedButton(onClick={open=true},enabled=enabled,modifier=Modifier.fillMaxWidth()) {Text("选择标签 · 已选 ${selected.size} 个")}
+        val labelsById=labels.associateBy {it.id}
+        val selectedLabels=selected.map {id->labelsById[id] ?: WorkLabel(id,"已停用标签","#D0D5D5",active=false)}
+        CompactLabelRow(selectedLabels,Modifier.padding(top=6.dp),compact=true)
     }
     if(open)AlertDialog(containerColor=MaterialTheme.colorScheme.surface,onDismissRequest={open=false},title={Text("选择标签（可多选）")},text={Column(Modifier.heightIn(max=360.dp).verticalScroll(rememberScrollState())) {
         if(labels.isEmpty())Text("暂无可选标签，请由创始人维护。")

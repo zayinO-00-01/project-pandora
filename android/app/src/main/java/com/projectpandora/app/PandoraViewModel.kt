@@ -14,6 +14,7 @@ data class AppState(
     val labelError: String? = null, val labels: List<WorkLabel> = emptyList(),val taskReviewRecords: List<TaskReview> = emptyList(),val taskReviewRecordsReady: Boolean = false,val workspaceError: String? = null,
     val directory: List<DirectoryContact> = emptyList(), val directoryLoading: Boolean = false, val directoryError: String? = null,
     val contentLabels: List<ContentLabels> = emptyList(), val contentLabelError: String? = null,
+    val taskLabelFilter: WorkLabel? = null,
     val myProfile: MyProfile? = null,
     val session: Session? = null, val server: String = "", val username: String = "staff",
     val developmentPreview: Boolean = false,
@@ -254,7 +255,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     fun openMember(member: UserSummary) {
         val me=state.value.session ?: return
         val gen=generation
-        organizationJob?.cancel();dispatchJob?.cancel()
+        organizationJob?.cancel()
         mutable.update {it.copy(member=member,organizationLoading=true,organizationError=null,memberLogs=emptyList(),memberTasks=emptyList())}
         organizationJob=viewModelScope.launch {
             try {
@@ -467,11 +468,14 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     fun selectInboxTab(tab: String) {
         if(tab in setOf("reviews","messages"))mutable.update {it.copy(inboxTab=tab)}
     }
-    fun screen(destination: String) {
+    fun screen(destination: String) = navigate(destination)
+    fun openTaskLabel(label: WorkLabel) = navigate("tasks",label)
+    fun clearTaskLabelFilter() {mutable.update {it.copy(taskLabelFilter=null)}}
+    private fun navigate(destination: String,taskLabel: WorkLabel?=null) {
         val name=when(destination) {"functions"->"day";"notifications"->"inbox";else->destination}
         if(state.value.saving || state.value.editor!=null)return
         taskSelectionGeneration++;taskDetailJob?.cancel();taskNoteJob?.cancel()
-        mutable.update {it.copy(screen=name,inboxTab=if(destination=="notifications")"messages" else it.inboxTab,selectedTaskId=null,selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=null,taskNote=TaskNoteState(),dispatchOpen=false,notice=null,viewRequestsOpen=false,selectedViewRequestId=null)}
+        mutable.update {it.copy(screen=name,taskLabelFilter=taskLabel,inboxTab=if(destination=="notifications")"messages" else it.inboxTab,selectedTaskId=null,selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=null,taskNote=TaskNoteState(),dispatchOpen=false,notice=null,viewRequestsOpen=false,selectedViewRequestId=null)}
         if(name=="directory")loadDirectory()
         if(name=="organization")loadOrganization()
         if(name=="profile")loadProfile()
@@ -516,12 +520,24 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             }}
         }
     }
-    fun openDispatch() {
+    fun openDispatch() = openDispatchFor()
+    fun dispatchToContact(contactId: Long) {
+        val current=state.value
+        if(current.session?.role!="FOUNDER" || current.session.userId==contactId ||
+            current.directory.none {it.id==contactId && it.role in AppRoles.business})return
+        openDispatchFor(contactId)
+    }
+    private fun openDispatchFor(contactId: Long?=null) {
         val current=state.value
         val me=current.session ?: return
         if(current.saving || !AppRoles.canCreateTask(me.role))return
         if(current.developmentPreview) {mutable.update {it.copy(notice="请登录真实业务账号后派发任务。")};return}
-        val draft=current.dispatchEditor ?: TaskDispatchBuffer(me.server,me.userId,assigneeId=me.userId)
+        if(contactId!=null && current.dispatchEditor?.taskId!=null) {
+            mutable.update {it.copy(notice="请先完成或放弃正在编辑的任务。")}
+            return
+        }
+        val existing=current.dispatchEditor ?: TaskDispatchBuffer(me.server,me.userId,assigneeId=me.userId.takeUnless {me.role=="FOUNDER"})
+        val draft=if(contactId==null)existing else existing.copy(assigneeId=contactId,assigneeIds=listOf(contactId))
         store.saveDispatchBuffer(draft)
         taskSelectionGeneration++;taskDetailJob?.cancel();taskNoteJob?.cancel()
         mutable.update {it.copy(dispatchEditor=draft,dispatchOpen=true,pendingDispatchTarget=null,dispatchError=null,selectedTaskId=null,selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=null,taskNote=TaskNoteState(),notice=null)}
@@ -627,7 +643,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     fun closeTask() {
         if(state.value.saving)return
         taskSelectionGeneration++;taskDetailJob?.cancel();taskNoteJob?.cancel()
-        mutable.update {it.copy(selectedTaskId=null,selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=null,taskNote=TaskNoteState(),taskEditorError=null)}
+        mutable.update {it.copy(screen=when(it.screen) {"directory","logs"->it.screen;else->"day"},taskLabelFilter=null,selectedTaskId=null,selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=null,taskNote=TaskNoteState(),taskEditorError=null)}
     }
     fun loadSelectedTaskDetail() {
         val me=state.value.session ?: return

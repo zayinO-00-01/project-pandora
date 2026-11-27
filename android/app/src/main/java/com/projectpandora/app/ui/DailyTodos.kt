@@ -11,6 +11,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -64,6 +66,7 @@ private data class TodoConflict(val original: DailyTodo,val proposed: DailyTodo,
     var creating by remember {mutableStateOf(false)}
     var conflict by remember {mutableStateOf<TodoConflict?>(null)}
     var mode by rememberSaveable {mutableStateOf("month")}
+    var labelFilter by rememberSaveable {mutableStateOf<Long?>(null)}
     val scope=rememberCoroutineScope()
     val api=remember {if(preview)null else ApiClient(me.server)}
     fun openEditor(item: DailyTodo,new: Boolean=false,draft: DailyTodo=item) {
@@ -158,21 +161,31 @@ private data class TodoConflict(val original: DailyTodo,val proposed: DailyTodo,
                 }
                 if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())
                 if(editing==null && deleting==null)error?.let {Hint(it,true,onRetry=::refresh)}
-                val daily=todosOn(selected).sortedBy {it.completed}
-                if(daily.isEmpty() && loaded && !busy)Text("暂无个人事项",color=MaterialTheme.colorScheme.onSurfaceVariant)
+                val selectedLabel=labelFilter
+                if(selectedLabel!=null) {
+                    val name=labels.firstOrNull {it.id==selectedLabel}?.name
+                        ?: entries.asSequence().flatMap {it.labels.orEmpty().asSequence()}.firstOrNull {it.id==selectedLabel}?.name
+                        ?: "标签筛选"
+                    InputChip(selected=true,onClick={labelFilter=null},label={Text(name)},trailingIcon={Text("×",Modifier.semantics {contentDescription="清除标签筛选"})})
+                }
+                val daily=todosOn(selected).filter {item->selectedLabel==null || item.labels.orEmpty().any {it.id==selectedLabel}}.sortedBy {it.completed}
+                if(daily.isEmpty() && loaded && !busy)Text(if(selectedLabel==null)"暂无个人事项" else "当天没有此标签的事项",color=MaterialTheme.colorScheme.onSurfaceVariant)
                 daily.forEach {item->
                     Row(
                         Modifier.fillMaxWidth().calendarDrag(drag,item.title,selected,if(busy)null else {target->move(item,selected,target)},fromAgenda=true),
                         verticalAlignment=Alignment.CenterVertically
                     ) {
                         Checkbox(item.completed,{change(item.copy(completed=it,labelIds=null),original=item)},enabled=!busy)
-                        ControlTextButton(onClick={openEditor(item)},enabled=!busy,modifier=Modifier.weight(1f)) {
-                            Column {
-                                Text(item.title)
-                                item.startAt?.let {Text("开始 ${LocalDateTime.parse(it).format(todoAgendaFormat)}",style=MaterialTheme.typography.labelSmall)}
-                                item.endAt?.let {Text("结束 ${LocalDateTime.parse(it).format(todoAgendaFormat)}",style=MaterialTheme.typography.labelSmall)}
-                                CalendarLabelNames(item.labels.orEmpty())
+                        Column(Modifier.weight(1f)) {
+                            ControlTextButton(onClick={openEditor(item)},enabled=!busy,contentPadding=PaddingValues(horizontal=8.dp,vertical=6.dp)) {
+                                Column {
+                                    Text(item.title)
+                                    item.startAt?.let {Text("开始 ${LocalDateTime.parse(it).format(todoAgendaFormat)}",style=MaterialTheme.typography.labelSmall)}
+                                    item.endAt?.let {Text("结束 ${LocalDateTime.parse(it).format(todoAgendaFormat)}",style=MaterialTheme.typography.labelSmall)}
+                                }
                             }
+                            CompactLabelRow(item.labels.orEmpty(),Modifier.padding(start=8.dp,bottom=6.dp),
+                                onClick=if(busy)null else {label->labelFilter=label.id})
                         }
                         ControlTextButton(onClick={chooseDate(item)},enabled=!busy) {Text("改日期")}
                         ControlTextButton(onClick={error=null;deleting=item},enabled=!busy) {Text("删除")}

@@ -8,7 +8,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,19 +43,18 @@ import androidx.compose.ui.semantics.contentDescription
         val preview=if(nextStep>=0)detail.substring(0,nextStep).trim() else detail
         if(preview.isNotEmpty())Text(preview,style=MaterialTheme.typography.bodySmall.copy(lineHeight=18.sp),maxLines=2,overflow=TextOverflow.Ellipsis,color=MaterialTheme.colorScheme.onSurfaceVariant)
         if(nextStep>=0)Text(detail.substring(nextStep).trim(),style=MaterialTheme.typography.bodySmall.copy(lineHeight=18.sp),maxLines=1,overflow=TextOverflow.Ellipsis,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        LabelLines(tags)
+        CompactLabelRow(tags,compact=true)
 
     }}
 }
-@Composable fun LogsScreen(state: AppState, model: PandoraViewModel, dayOnly: Boolean=false) {
-    var allDates by rememberSaveable {mutableStateOf(true)}
+@Composable fun LogsScreen(state: AppState, model: PandoraViewModel, allDates: Boolean, onToggleDates: ()->Unit, dayOnly: Boolean=false) {
     val logs=if(!dayOnly && allDates)state.logs else state.logs.filter {it.covers(state.selectedDate)}
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=24.dp),contentPadding=PaddingValues(top=4.dp,bottom=32.dp)) {
         item {Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                 if(!dayOnly && allDates)Text("全部记录 · ${logs.size} 条",modifier=Modifier.padding(vertical=14.dp),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 else Text(state.selectedDate,modifier=Modifier.padding(vertical=14.dp),style=MaterialTheme.typography.labelMedium)
-                if(!dayOnly)ControlTextButton(onClick={allDates=!allDates},enabled=!state.saving,colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.secondary)) {Text(if(allDates)"日志月历" else "全部记录",style=MaterialTheme.typography.labelMedium)}
+                if(!dayOnly)BackdropTextButton(onClick=onToggleDates,enabled=!state.saving) {Text(if(allDates)"日志月历" else "全部记录",style=MaterialTheme.typography.labelMedium)}
             }
             if(dayOnly)Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                 ControlOutlinedButton(onClick={model.selectDate(LocalDate.parse(state.selectedDate).minusDays(1).toString())}) {Text("← 前一天")}
@@ -80,7 +78,7 @@ import androidx.compose.ui.semantics.contentDescription
             items(tasks,key={"log-calendar-task-${it.id}"}) {task->
                 Column {
                     TaskSummary(task,!state.saving) {model.openTask(task.id)}
-                    CalendarLabelNames(contentTags(state,"task",task.id,task.label),onClick={model.openTask(task.id)})
+                    CompactLabelRow(contentTags(state,"task",task.id,task.label),onClick=if(state.saving)null else model::openTaskLabel)
                 }
             }
             item {Text("当天日志 · ${logs.size} 条",style=MaterialTheme.typography.titleMedium,modifier=Modifier.padding(top=12.dp))}

@@ -55,7 +55,7 @@ public class UserController {
             user.setPhone(phone);
         }
         String emergencyPhone=ProfileRules.normalizeEmergencyPhone(request.emergencyPhone(),user.getEmergencyPhone());
-        user.setEmergencyContact(optionalText(request.emergencyContact()));
+        user.setEmergencyContact(ProfileRules.normalizeEmergencyContact(request.emergencyContact(),user.getEmergencyContact()));
         user.setEmergencyPhone(emergencyPhone);
         user.setAddress(optionalText(request.address()));
         users.saveAndFlush(user);

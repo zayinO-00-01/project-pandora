@@ -131,7 +131,7 @@ public class AdminUserController {
         user.setBirthDate(ProfileRules.validateBirthDate(birthDate));
         user.setGender(ProfileRules.normalizeGender(gender));
         user.setHireDate(hireDate);
-        user.setEmergencyContact(trimToNull(emergencyContact));
+        user.setEmergencyContact(ProfileRules.normalizeEmergencyContact(emergencyContact,null));
         user.setEmergencyPhone(ProfileRules.normalizeEmergencyPhone(emergencyPhone,null));
         user.setAddress(trimToNull(address));
     }
@@ -153,7 +153,7 @@ public class AdminUserController {
         }
         if(r.gender!=null) user.setGender(ProfileRules.normalizeGender(r.gender));
         if(r.hireDatePresent) user.setHireDate(r.hireDate);
-        if(r.emergencyContact!=null) user.setEmergencyContact(trimToNull(r.emergencyContact));
+        if(r.emergencyContact!=null) user.setEmergencyContact(ProfileRules.normalizeEmergencyContact(r.emergencyContact,user.getEmergencyContact()));
         if(r.emergencyPhone!=null) user.setEmergencyPhone(ProfileRules.normalizeEmergencyPhone(r.emergencyPhone,user.getEmergencyPhone()));
         if(r.address!=null) user.setAddress(trimToNull(r.address));
     }

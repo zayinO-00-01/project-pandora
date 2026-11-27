@@ -25,6 +25,21 @@ class OwnProfileAndDemoAccountsTests {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
 
+    @Test void emergencyContactRejectsDigitsAndPunctuationOnBothEditPaths() throws Exception {
+        String staff=TaskPolicyTestSupport.token(mvc,json,"staff_demo2");
+        String admin=TaskPolicyTestSupport.token(mvc,json,"admin");
+        long id=json.readTree(mvc.perform(get("/api/v1/users/me").header("Authorization",staff))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).get("id").asLong();
+        String invalid=json.writeValueAsString(Map.of("emergencyContact","李明8!"));
+        mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON)
+            .content(invalid)).andExpect(status().isBadRequest());
+        mvc.perform(patch("/api/v1/admin/users/"+id).header("Authorization",admin).contentType(MediaType.APPLICATION_JSON)
+            .content(invalid)).andExpect(status().isBadRequest());
+        mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("emergencyContact","Alice Chen"))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.emergencyContact").value("Alice Chen"));
+    }
+
     @Test void onlyAdminCanChangeDisplayName() throws Exception {
         String staff=TaskPolicyTestSupport.token(mvc,json,"staff_demo2");
         String admin=TaskPolicyTestSupport.token(mvc,json,"admin");
@@ -54,10 +69,15 @@ class OwnProfileAndDemoAccountsTests {
         mvc.perform(patch("/api/v1/admin/users/"+staffId).header("Authorization",admin).contentType(MediaType.APPLICATION_JSON)
             .content(json.writeValueAsString(Map.of("displayName","示例姓名","phone","13800007654","idCard","11010519491231002X"))))
             .andExpect(status().isOk()).andExpect(jsonPath("$.idCard").value("11010519491231002X"));
-        String request=json.writeValueAsString(Map.of("emergencyContact","示例联系人","emergencyPhone","010-12345678","address","示例地址","role","FOUNDER"));
+        String landline=json.writeValueAsString(Map.of("emergencyPhone","010-12345678"));
+        mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(landline))
+            .andExpect(status().isBadRequest());
+        mvc.perform(patch("/api/v1/admin/users/"+staffId).header("Authorization",admin).contentType(MediaType.APPLICATION_JSON).content(landline))
+            .andExpect(status().isBadRequest());
+        String request=json.writeValueAsString(Map.of("emergencyContact","示例联系人","emergencyPhone","13800007812","address","示例地址","role","FOUNDER"));
         mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(request))
             .andExpect(status().isOk()).andExpect(jsonPath("$.displayName").value("示例姓名"))
-            .andExpect(jsonPath("$.emergencyPhone").value("010-12345678"))
+            .andExpect(jsonPath("$.emergencyPhone").value("13800007812"))
             .andExpect(jsonPath("$.role").value("STAFF")).andExpect(jsonPath("$.managerName").value("张予安"));
         mvc.perform(get("/api/v1/users/me").header("Authorization",staff))
             .andExpect(status().isOk()).andExpect(jsonPath("$.phone").value("13800007654"));
