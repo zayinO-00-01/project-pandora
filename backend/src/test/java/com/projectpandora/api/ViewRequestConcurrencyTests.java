@@ -32,7 +32,7 @@ class ViewRequestConcurrencyTests {
     String token(JsonNode user) {return "Bearer "+user.get("token").asText();}
     Map<String,Object> account(String name, long managerId) {
         int serial = sequence.incrementAndGet();
-        return Map.of("username", name, "password", "demo1234", "role", "STAFF", "displayName", name.trim(),
+        return Map.of("username", name, "password", "demo1234", "role", "STAFF", "displayName", "并发" + (char)(0x4E00 + serial),
             "managerId", managerId, "phone", "139" + String.format("%08d", serial), "idCard", TestIdentity.card(500 + serial % 400));
     }
     JsonNode newStaff(JsonNode admin,JsonNode manager) throws Exception {
@@ -95,5 +95,20 @@ class ViewRequestConcurrencyTests {
         Callable<Integer> second=()->mvc.perform(post("/api/v1/admin/users").header("Authorization",token(admin)).contentType(MediaType.APPLICATION_JSON)
             .content(json.writeValueAsString(account(" "+name+" ",manager)))).andReturn().getResponse().getStatus();
         assertThat(race(first,second)).containsExactlyInAnyOrder(201,400);
+    }
+    @Test void concurrentCaseVariantsCannotCreateTwoAccounts() throws Exception {
+        var admin=login("admin");long manager=login("team_lead").get("userId").asLong();
+        assertThat(race(()->createAccount(admin,account("case_unique",manager)),
+            ()->createAccount(admin,account("CASE_UNIQUE",manager)))).containsExactlyInAnyOrder(201,400);
+    }
+    @Test void concurrentAccountsCannotClaimTheSameDisplayName() throws Exception {
+        var admin=login("admin");long manager=login("team_lead").get("userId").asLong();
+        var first=new HashMap<>(account("name_unique_first",manager));first.put("displayName","林若安");
+        var second=new HashMap<>(account("name_unique_second",manager));second.put("displayName","林若安");
+        assertThat(race(()->createAccount(admin,first),()->createAccount(admin,second))).containsExactlyInAnyOrder(201,400);
+    }
+    private int createAccount(JsonNode admin,Map<String,Object> data) throws Exception {
+        return mvc.perform(post("/api/v1/admin/users").header("Authorization",token(admin)).contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(data))).andReturn().getResponse().getStatus();
     }
 }

@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.util.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,12 +33,14 @@ public class AdminUserController {
         access.assertAdmin();return users.findAll().stream().sorted(Comparator.comparing(UserEntity::getId)).map(AdminUserResponse::from).toList();
     }
     @PostMapping
-    @Transactional
+    @Transactional(isolation=Isolation.READ_COMMITTED)
     public ResponseEntity<AdminUserResponse> create(@Valid @RequestBody CreateUserRequest request) {
         access.assertAdmin();organization.lock();access.assertAdmin();
+        // Re-read after waiting for the lock so concurrent inserts are included in uniqueness checks.
+        var currentUsers=users.findAll();
         String username=request.username().trim();
-        if(username.length()<3 || username.length()>64) throw new ApiException(400,"用户名须为3至64字");
-        if(users.findByUsername(username).isPresent()) throw new ApiException(400,"用户名已存在");
+        if(!username.matches("[A-Za-z0-9_]{3,64}")) throw new ApiException(400,"账号须为3至64位字母、数字或下划线");
+        if(currentUsers.stream().anyMatch(user->username.equalsIgnoreCase(user.getUsername()))) throw new ApiException(400,"账号已存在");
         String phone=ProfileRules.normalizePhone(request.phone());
         if(users.findByPhone(phone).isPresent()) throw new ApiException(400,"手机号已被使用");
         String idCard=ProfileRules.normalizeIdCard(request.idCard());
@@ -45,22 +48,24 @@ public class AdminUserController {
         assertRequiredManager(request.role(),request.managerId());
         assertAssignableManager(request.managerId());
         UserEntity user=new UserEntity();user.setUsername(username);user.setPasswordHash(passwords.encode(request.password()));
-        user.setRole(request.role());user.setDisplayName(requiredName(request.displayName()));
+        user.setRole(request.role());user.setDisplayName(availableName(request.displayName(),currentUsers,null));
         user.setManagerId(request.managerId());user.setDisabled(Boolean.TRUE.equals(request.disabled()));user.setCreatedAt(Instant.now());
         if(request.role()==Role.DEPT_HEAD)user.setDepartmentName(trimToNull(request.departmentName()));
         applyProfile(user,phone,idCard,ProfileRules.birthDateFromId(idCard),request.gender(),request.hireDate(),
             request.emergencyContact(),request.emergencyPhone(),request.address());
-        var all=new ArrayList<>(users.findAll());all.add(user);validateHierarchy(all);
+        var all=new ArrayList<>(currentUsers);all.add(user);validateHierarchy(all);
         return ResponseEntity.status(201).body(AdminUserResponse.from(users.saveAndFlush(user)));
     }
     @PatchMapping("/{id}")
-    @Transactional
+    @Transactional(isolation=Isolation.READ_COMMITTED)
     public AdminUserResponse update(@PathVariable Long id,@Valid @RequestBody UpdateUserRequest request) {
         access.assertAdmin();organization.lock();access.assertAdmin();
+        // Re-read after waiting for the lock so concurrent inserts are included in uniqueness checks.
+        var currentUsers=users.findAll();
         var user=users.findById(id).orElseThrow(()->new ApiException(404,"用户不存在"));
         Role oldRole=user.getRole();Long oldManager=user.getManagerId();boolean oldDisabled=user.isDisabled();
         if(request.role!=null) user.setRole(request.role);
-        if(request.displayName!=null) user.setDisplayName(requiredName(request.displayName));
+        if(request.displayName!=null) user.setDisplayName(availableName(request.displayName,currentUsers,id));
         if(user.getRole()!=Role.DEPT_HEAD)user.setDepartmentName(null);
         else if(request.departmentName!=null)user.setDepartmentName(trimToNull(request.departmentName));
         if(request.managerId!=null || Boolean.TRUE.equals(request.clearManager)) {
@@ -74,7 +79,7 @@ public class AdminUserController {
         if(request.disabled!=null) user.setDisabled(request.disabled);
         if(request.password!=null && !request.password.isBlank()) {user.setPasswordHash(passwords.encode(request.password));user.revokeSessions();}
         applyProfileUpdate(user,request);
-        validateHierarchy(users.findAll());
+        validateHierarchy(currentUsers);
         if(oldRole!=user.getRole() || !Objects.equals(oldManager,user.getManagerId()) || oldDisabled!=user.isDisabled()) {
             for(var r:requests.findByRequesterIdOrTargetIdOrderByUpdatedAtDesc(id,id)) {
                 if("pending".equals(r.status) || "approved".equals(r.status)) {
@@ -84,9 +89,12 @@ public class AdminUserController {
         }
         return AdminUserResponse.from(users.saveAndFlush(user));
     }
-    private static String requiredName(String name) {
+    private static String availableName(String name,List<UserEntity> all,Long id) {
         String value=trimToNull(name);
         if(value==null) throw new ApiException(400,"姓名不能为空");
+        if(!value.matches("[\\p{IsHan}A-Za-z]+(?: [\\p{IsHan}A-Za-z]+)*")) throw new ApiException(400,"姓名只能填写中文或英文字母");
+        if(all.stream().anyMatch(user->!Objects.equals(user.getId(),id) && value.equalsIgnoreCase(trimToNull(user.getDisplayName()))))
+            throw new ApiException(400,"姓名已被使用");
         return value;
     }
     private static void assertRequiredManager(Role role,Long managerId) {

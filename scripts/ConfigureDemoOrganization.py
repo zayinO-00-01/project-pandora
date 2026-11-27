@@ -15,14 +15,21 @@ DEPARTMENTS = {
     'leader': '综合管理部', 'dept_tech': '技术研发部', 'dept_market': '市场销售部', 'dept_ops': '运营服务部',
 }
 TEAMS = {
-    'team_lead': ('综合组组长', 'leader', [('general_1', '周敏'), ('general_2', '郭晓')]),
-    'lead_backend': ('后端组长', 'dept_tech', [('dev_1', '赵强'), ('dev_2', '陈晨'), ('dev_3', '周涛'), ('qa_1', '许宁')]),
-    'lead_frontend': ('前端组长', 'dept_tech', [('fe_1', '林静'), ('fe_2', '何磊'), ('qa_2', '沈琪')]),
-    'lead_sales': ('销售组长', 'dept_market', [('sales_1', '孙悦'), ('sales_2', '郑浩'), ('sales_3', '冯雪'), ('mkt_1', '梁洁')]),
-    'lead_brand': ('品牌组长', 'dept_market', [('brand_1', '许晴'), ('brand_2', '邓超'), ('mkt_2', '孔琳')]),
-    'lead_service': ('客服组长', 'dept_ops', [('cs_1', '曹阳'), ('cs_2', '彭丽'), ('cs_3', '唐磊'), ('ops_1', '罗媛'), ('ops_2', '唐欣')]),
+    'team_lead': ('张予安', 'leader', [('general_1', '周敏'), ('general_2', '郭明晓')]),
+    'lead_backend': ('顾问舟', 'dept_tech', [('dev_1', '赵子强'), ('dev_2', '陈晨'), ('dev_3', '周文韬'), ('qa_1', '许宁')]),
+    'lead_frontend': ('江亦宁', 'dept_tech', [('fe_1', '林静'), ('fe_2', '何嘉磊'), ('qa_2', '沈若琪')]),
+    'lead_sales': ('欧阳景行', 'dept_market', [('sales_1', '孙悦'), ('sales_2', '郑泽浩'), ('sales_3', '冯映雪'), ('mkt_1', '梁洁')]),
+    'lead_brand': ('苏知夏', 'dept_market', [('brand_1', '许晴'), ('brand_2', '邓远超'), ('mkt_2', '孔竹琳')]),
+    'lead_service': ('秦明远', 'dept_ops', [('cs_1', '曹阳'), ('cs_2', '彭佳丽'), ('cs_3', '唐嘉磊'), ('ops_1', '罗媛'), ('ops_2', '唐语欣')]),
 }
-HEADS = {'leader': '部门老总', 'dept_tech': '技术部老总', 'dept_market': '市场部老总', 'dept_ops': '运营部老总'}
+HEADS = {'leader': '周明川', 'dept_tech': '陆文轩', 'dept_market': '韩亦辰', 'dept_ops': '方宁'}
+LEGACY_DEMO = {
+    'admin': ('ADMIN', '叶佳宁'), 'founder': ('FOUNDER', '宋清远'),
+    'staff': ('STAFF', '王若溪'), 'staff_demo2': ('STAFF', '李昕'), 'staff_demo3': ('STAFF', '陈书桐'),
+    'team_lead1': ('TEAM_LEAD', '陈绍平'), 'team_lead2': ('TEAM_LEAD', '林言之'),
+    **{f'staff{i}': ('STAFF', name) for i, name in enumerate(
+        ('李佳恩', '赵岳', '周与宁', '吴云帆', '郑钰', '孙静秋', '徐文清', '何君浩', '上官若晴'), 1)},
+}
 
 
 def plan():
@@ -33,10 +40,30 @@ def plan():
     return rows
 
 
+def clean_names(users, pending):
+    """Build changes only for known demo usernames with the expected role."""
+    roster = {**LEGACY_DEMO, **{username: (role, name) for username, role, name, _ in pending}}
+    changes = {}
+    for username, (role, name) in roster.items():
+        user = users.get(username)
+        if user is None:
+            continue
+        if user['role'] != role:
+            raise SystemExit(f'Unexpected role for {username}; no demo names were changed.')
+        if user.get('displayName') != name:
+            changes[username] = name
+    current = {username: (user.get('displayName') or '').strip().casefold() for username, user in users.items()}
+    for username, name in changes.items():
+        if any(other != username and value == name.casefold() for other, value in current.items()):
+            raise SystemExit(f'Name conflict for {username}; no demo names were changed.')
+    return changes
+
+
 def main():
     parser = ArgumentParser(description=__doc__)
     parser.add_argument('--server', default='http://127.0.0.1:8080')
     parser.add_argument('--apply', action='store_true', help='write changes; default is a read-only preview')
+    parser.add_argument('--clean-names', action='store_true', help='only rename known existing demo accounts')
     parser.add_argument('--identities', type=Path, help='local JSON mapping new usernames to their 18-character identity numbers')
     args = parser.parse_args()
     server = urlsplit(args.server)
@@ -60,6 +87,16 @@ def main():
     admin_password = os.environ.get('PANDORA_ORG_ADMIN_PASSWORD') or getpass('Administrator password: ')
     token = api('auth/login', {'username': 'admin', 'password': admin_password})['token']
     users = {u['username']: u for u in api('admin/users', token=token)}
+    if args.clean_names:
+        changes = clean_names(users, plan())
+        for username, name in changes.items():
+            print(f'{username}: {name}')
+            if args.apply:
+                saved = api(f'admin/users/{users[username]["id"]}', {'displayName': name}, 'PATCH', token)
+                if saved['displayName'] != name:
+                    raise SystemExit(f'Demo name for {username} did not save.')
+        print(f'{"Renamed" if args.apply else "Would rename"} {len(changes)} demo account(s).')
+        return
     if not users.get('founder') or users['founder']['disabled'] or users['founder']['role'] != 'FOUNDER':
         raise SystemExit('An active founder demo account is required.')
     pending = plan()

@@ -53,7 +53,7 @@ class DirectoryDepartmentTests {
         String file = "/api/v1/directory";
         mvc.perform(get(file).header("Authorization",token("staff"))).andExpect(status().isOk())
             .andExpect(jsonPath("$[*].username", containsInAnyOrder("team_lead","local_peer","other_team_peer")))
-            .andExpect(jsonPath("$[?(@.username == 'local_peer')].managerName", contains("团队长")))
+            .andExpect(jsonPath("$[?(@.username == 'local_peer')].managerName", contains("张予安")))
             .andExpect(jsonPath("$[?(@.username == 'other_team_peer')].managerName", not(hasItem("local_other_team"))));
         String leadToken = token("team_lead");
         mvc.perform(get(file).header("Authorization",leadToken)).andExpect(status().isOk())

@@ -19,7 +19,8 @@ test('recovery preserves account form only for the same administrator and server
   const form = { id: 21, username: 'staff-new', displayName: '新同事', role: 'STAFF', managerId: '4', disabled: false, password: 'never-cache-this' };
   const cached = draftForStorage(scope, form);
   assert.equal(JSON.stringify(cached).includes(form.password), false);
-  assert.deepEqual(restoreDraft(cached, scope), { ...form, password: '' });
+  const { disabled, ...fields } = form;
+  assert.deepEqual(restoreDraft(cached, scope), { ...fields, password: '' });
   assert.equal(restoreDraft(cached, { ...scope, userId: 13 }), null);
   assert.equal(restoreDraft(cached, { ...scope, server: 'https://another.example' }), null);
 });

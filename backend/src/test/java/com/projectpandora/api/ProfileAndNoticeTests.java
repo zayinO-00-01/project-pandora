@@ -91,6 +91,39 @@ class ProfileAndNoticeTests {
             .content(staffAccount("dup_phone_user", "13800001234").put("idCard", TestIdentity.card(411)).toString())).andExpect(status().isBadRequest());
     }
 
+    @Test void adminEnforcesNameAndUsernameRulesEvenForDisabledAccounts() throws Exception {
+        String admin = token(login("admin"));
+        String users = "/api/v1/admin/users";
+        var first = staffAccount("Roster_One", "13700003410").put("displayName", "Lin Ming")
+            .put("idCard", TestIdentity.card(414)).put("disabled", true);
+        var second = staffAccount("Roster_Two", "13700003411").put("displayName", "欧阳明远")
+            .put("idCard", TestIdentity.card(415));
+        for (var invalid : java.util.List.of(second.deepCopy().put("username", "Roster-One"),
+                second.deepCopy().put("displayName", "陆明!"))) {
+            mvc.perform(post(users).header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+                .content(invalid.toString())).andExpect(status().isBadRequest());
+        }
+        mvc.perform(post(users).header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+            .content(first.toString())).andExpect(status().isCreated());
+        for (var duplicate : java.util.List.of(second.deepCopy().put("username", "roster_one"),
+                second.deepCopy().put("displayName", "lin ming"), second.deepCopy().put("phone", "13700003410"),
+                second.deepCopy().put("idCard", TestIdentity.card(414)))) {
+            mvc.perform(post(users).header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+                .content(duplicate.toString())).andExpect(status().isBadRequest());
+        }
+        var response = mvc.perform(post(users).header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+            .content(second.toString())).andExpect(status().isCreated()).andReturn().getResponse();
+        String path = users + "/" + json.readTree(response.getContentAsByteArray()).path("id").asLong();
+        mvc.perform(patch(path).header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+            .content(json.createObjectNode().put("displayName", "Lin Ming").toString())).andExpect(status().isBadRequest());
+        mvc.perform(patch(path).header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+            .content(json.createObjectNode().put("displayName", "欧阳明远").toString())).andExpect(status().isOk());
+        mvc.perform(patch(path).header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"disabled\":true}")).andExpect(status().isOk()).andExpect(jsonPath("$.disabled").value(true));
+        mvc.perform(patch(path).header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"disabled\":false}")).andExpect(status().isOk()).andExpect(jsonPath("$.disabled").value(false));
+    }
+
     @Test void adminPatchDistinguishesOmittedDatesFromExplicitlyClearedDates() throws Exception {
         String admin=token(login("admin"));
         db.update("update users set id_card=null, birth_date=DATE '1990-05-01', hire_date=DATE '2025-01-01' where username='staff'");
