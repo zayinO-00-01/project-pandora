@@ -7,11 +7,12 @@ context: |
   技术栈：Java 17、Spring Boot 3、本地H2（另留MySQL配置），业务时区 Asia/Shanghai、Flyway、JWT + BCrypt。
   Android：Kotlin、Jetpack Compose，最低 Android 8，包名 com.projectpandora.app。
   Web：Vue 3、Vite。
-  API 前缀：/api/v1。当前本地一键演示，云部署暂缓，不要硬编码服务IP。
+  API 前缀：/api/v1。支持本地一键演示，客户端服务地址可配置，不要硬编码服务IP。
   CI 测试不得使用云端数据库。
-  一期排除：AI 地图、MBTI、跨公司匹配、分层审批、图表。
-  本分支后端基于 zayin，角色为 ADMIN、LEADER、STAFF。
-  安卓设计按 main 2026-10-09 文档接受 STAFF、TEAM_LEAD、DEPT_HEAD、FOUNDER，并兼容旧 LEADER；ADMIN 仅 Web。
+  一期基线：main 2fa2104，Android 0.10.25 (88)，Flyway 到 V29。
+  FOUNDER、DEPT_HEAD、TEAM_LEAD、STAFF 使用 Android；ADMIN 使用 Web 维护账号、组织和公司事项。
+  业务权限按实际直属上级关系及业务规则判定；任务创建和变更按对应的直属上级审批规则执行。
+  二期 CRM 不属于一期已实现能力。
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.

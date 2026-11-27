@@ -6,8 +6,8 @@ Provide local priority planning, readable calendar summaries and scoped member s
 ## Requirements
 ### Requirement: Synchronized priorities
 The app SHALL show full read-only company content from ADMIN Web publications and persist private notes through the existing company-notices API. Personal priorities SHALL support create, edit, delete and reorder up to ten items with backend persistence. Ownership SHALL come from the authenticated identity. Unsent drafts SHALL persist locally by server and user; old local snapshots SHALL remain available for explicit import.
-#### Scenario: Cross-device personal planning
-- **WHEN** a user saves and synchronizes a personal list then signs in on another device
+#### Scenario: Restore saved personal planning
+- **WHEN** a user saves and synchronizes a personal list, then signs in again
 - **THEN** the same server items, IDs and order are returned
 #### Scenario: Concurrent editing
 - **WHEN** the server revision differs from an open editor or pending local draft
@@ -27,7 +27,7 @@ The organization list SHALL filter its loaded authorized members by display name
 - **THEN** only matching members from the authorized company list remain selectable, without expanding permissions
 
 ### Requirement: Focused overview and role-based duties
-The overview SHALL use a two-by-two grid: company priorities top-left, company dispatch top-right, personal priorities bottom-left and personal logs bottom-right. It SHALL preserve the current theme and readable compact previews. Four bottom tabs SHALL be ordered 总览、日志、视图、我的. Task and organization operations SHALL remain reachable from overview and the task workbench. Duties SHALL emphasize dispatch and authored tasks for leaders and own pending tasks for staff, with a smaller organization/manager area. Existing dispatch forms and authorization SHALL be reused. Task and organization subpages SHALL select duties and return to duties without deleting drafts.
+The Android bottom tabs SHALL be ordered 首页、公司、日志、我的. Task and organization operations SHALL remain reachable without creating another session or deleting drafts. The company area SHALL provide the task calendar and related company tools.
 #### Scenario: Leader duties
 - **WHEN** a department head opens duties
 - **THEN** task dispatch is the primary content, members are reachable from a smaller section, and name search is inside the member list
@@ -36,7 +36,7 @@ The overview SHALL use a two-by-two grid: company priorities top-left, company d
 - **THEN** their pending tasks are primary, task creation is available, and manager access is secondary
 #### Scenario: Overview separation
 - **WHEN** any business role opens overview
-- **THEN** the four preview panels have equal column widths and matching row heights, with full-page entry actions; task and organization operations remain available in duties
+- **THEN** the user can open company tools, logs and profile from the four bottom tabs
 
 ### Requirement: Harmonious safe-area headers
 Authenticated page headers SHALL place title and actions below the device safe area with 12dp additional top space and 6dp bottom space, consistently across overview, duties, logs, calendar, profile and subpages.
@@ -106,20 +106,14 @@ Debug Android SHALL offer ten local company card examples through development en
 - **THEN** the labelled examples appear locally and returning to actual data restores the server state
 
 
-### Requirement: Consecutive multi-day logs
-A work log SHALL support an inclusive start/end date range with one shared description. Both endpoints SHALL remain within Shanghai today minus three days through today; reversed or future ranges SHALL be rejected. Existing single-day clients and data SHALL remain compatible. Authors MAY edit or submit records during the half-open interval from createdAt through createdAt plus 24 hours, including historical and multi-day drafts. Updates SHALL NOT extend this interval. Drafts SHALL remain private until submission. Future createdAt values SHALL NOT grant editing. Created date ranges SHALL remain immutable.
-#### Scenario: Three days of sick leave
-- **WHEN** an author submits a log from two days ago through today with one leave description
-- **THEN** one record covers all three days in the log list with a shared description; the independent log list shows the range; the task calendar SHALL NOT include it
-#### Scenario: Weekly details
-- **WHEN** a multi-day record intersects the displayed week
-- **THEN** it remains one log record, in the independent log list, without appearing as calendar tasks
-#### Scenario: Old backend or failed save
-- **WHEN** the server does not advertise date-range support or saving fails
-- **THEN** no unsupported multi-day POST is made and the full local date range and content are retained
-#### Scenario: Historic migration
-- **WHEN** the database upgrades
-- **THEN** old records receive an end date equal to their start date without losing content
+### Requirement: Scheduled personal daily items
+Personal daily items SHALL be private to their owner and MAY have a start and end time spanning multiple dates. The app SHALL continue to accept items without a schedule. A scheduled item SHALL appear on the dates it covers. Moving it to another date SHALL shift the entire span together, preserving duration and labels. A retried create with the same owner and request identifier SHALL not make a second item. A supplied stale base snapshot SHALL allow independent field changes to merge but reject conflicting changes to the same field.
+#### Scenario: Drag a cross-day item
+- **WHEN** the owner moves an item covering two dates to another day
+- **THEN** both start and end move by the same day offset and the labels remain unchanged
+#### Scenario: Uncertain create result
+- **WHEN** a create response is lost and the owner retries using the same request identifier
+- **THEN** the existing item is returned and there is no duplicate
 
 ### Requirement: Self tasks, company-wide creation and separate reviews
 All active business members SHALL create tasks assigned to any active business member, including self. All non-founder creation SHALL require the creator's current valid direct manager to approve before execution; founder creation SHALL take effect directly. Pending creation SHALL be visible only to the applicant and current valid reviewer. Creation approval SHALL preserve its existing endpoints and audit timestamps. Scope expansion SHALL NOT expand log or member-profile visibility.
@@ -130,7 +124,7 @@ All active business members SHALL create tasks assigned to any active business m
 - **WHEN** the applicant's direct manager changes
 - **THEN** the former manager immediately loses approval rights and the current valid manager can handle pending work
 ### Requirement: Reviewed progress with actor-based founder exemption
-Only the assignee SHALL submit task progress. Non-founder assignees SHALL request approval from their own current valid direct manager for todo, doing and done updates. A pending PROGRESS review SHALL preserve effective status and note. Approval applies the proposed values, rejection or applicant withdrawal preserves effective content. Founder assignees MAY update directly. A founder creator SHALL NOT exempt another assignee from progress review. Approved progress SHALL NOT require a second acceptance stage.
+Only an assignee SHALL submit task progress. On shared tasks, the review SHALL follow the submitting assignee's current valid direct manager and any approved change applies to the one shared record. A pending PROGRESS review SHALL preserve effective status and note. Rejection or applicant withdrawal SHALL preserve effective content. Founder assignees MAY update directly. A founder creator SHALL NOT exempt another assignee from progress review. Approved progress SHALL NOT require a second acceptance stage.
 #### Scenario: Founder dispatches to staff
 - **WHEN** staff submits progress for founder-created work
 - **THEN** staff's direct manager reviews it and the previous effective progress remains until approval
@@ -149,7 +143,7 @@ Creators and assignees SHALL add keywords to approved tasks. Authors MAY directl
 - **THEN** the original text remains effective until the applicant's direct manager approves
 ### Requirement: Shared brand labels
 Only founders SHALL maintain label names and colors. All business members SHALL select labels for tasks and logs. Task cards and calendar summaries SHALL use the same label color. Disabling a label SHALL retain historical associations.
-The system SHALL return all applied labels for a task to members who can read its detail, including current reviewers. Read permission alone SHALL NOT allow changing labels. Task creators, assignees with read access, and founders with access to an approved task SHALL be able to update its labels without review. A log author SHALL be able to update its classification independently of the body edit window; authorized readers of other members' logs SHALL only see labels on submitted logs.
+Task label edits SHALL follow [Task dispatch](../task-dispatch/spec.md). The standalone log-label API SHALL allow log owners to change labels independently of the body edit window. The Android read-only log editor SHALL not offer this action. Authorized readers of other members' logs SHALL only see labels on submitted logs.
 #### Scenario: Brand color updated
 - **WHEN** a founder changes a label color and a member refreshes
 - **THEN** associated task cards and task calendar summaries use the updated color
@@ -157,23 +151,39 @@ The system SHALL return all applied labels for a task to members who can read it
 - **WHEN** the current reviewer opens a task they can read only for review
 - **THEN** both labels are visible and the reviewer cannot change them
 ### Requirement: Personal account settings and notifications
-Business members SHALL change their own avatar and password. Password changes SHALL verify the current password and invalidate prior sessions. Avatar data SHALL be validated for actual image type, dimensions and size. App notifications SHALL persist per recipient, expose unread state, and provide review/task navigation. Members SHALL not read or alter another recipient's notifications.
+Business members SHALL be able to change their own avatar and password. Password changes SHALL verify the current password and invalidate prior sessions. App notifications SHALL persist per recipient, expose unread state, and provide review/task navigation. Members SHALL not read or alter another recipient's notifications. The signed-in Android app SHALL check for messages while in the foreground and MAY show a system notification for new unread work messages when device permissions allow. This polling SHALL NOT be described as offline or background push.
 #### Scenario: Change password
 - **WHEN** an authenticated member successfully changes their password
 - **THEN** previous tokens are rejected and the app requests login with the new password
+#### Scenario: New work message in foreground
+- **WHEN** a new work message arrives while the recipient's App is active and system notifications are allowed
+- **THEN** the App updates the unread state and can show a system notification that returns to the message area
 
 ### Requirement: Task calendar and preserved year selection
-Month/week/day calendar SHALL show approved tasks by deadline, with label colors and shared selected date. Logs SHALL remain in their independent list. The direct year/month chooser SHALL preserve view mode and clamp invalid month-end days, alongside Today and period arrows.
+The company month/week/day calendar SHALL present approved tasks separately from work logs, use label colors and retain the selected date. Day mode SHALL group scheduled work by time. Android's log month view SHALL allow selecting a date to see relevant logs and task entries. The direct year/month chooser SHALL retain view mode and clamp invalid month-end days. Returning from task detail SHALL return to its original entry page, such as the company calendar or inbox.
 #### Scenario: Leap-year navigation
 - **WHEN** a user chooses another year and month from a selected month-end day
 - **THEN** the date clamps to the valid last day without losing the selected calendar mode
+#### Scenario: Return from task detail
+- **WHEN** a user opens a task from the company calendar or inbox and goes back
+- **THEN** the user returns to the originating page rather than the default task list
 
 
-## Task private notes and reliable notification handling (0.8.2)
+### Requirement: Private task notes and temporary review access
 Each authenticated business viewer with normal access to an approved, nondeleted task SHALL read and write only their own private note, up to 2000 characters. A blank save SHALL clear it. Notes SHALL persist across sessions and client failures SHALL retain unsent input under the original server/user/task identity. Temporary access as an application reviewer SHALL NOT grant note access.
 
 A task's current valid reviewer SHALL read its single-task detail while their review is pending. Approval, rejection, cancellation and organization changes SHALL revoke temporary access when no independent permission remains, without expanding normal task lists or log access.
 
+#### Scenario: Temporary reviewer opens the task
+- **WHEN** a reviewer has access only to decide the pending application
+- **THEN** the task can be read during the review but private notes remain inaccessible
+
+### Requirement: Reliable notification and session handling
+
 View-request notifications SHALL preserve a separate referenceId and open the organization application; old messages without an ID SHALL open the application list. Task notifications SHALL continue using taskId. Failed read/mark-all actions SHALL retain unread state and show a retry action; stale account responses SHALL NOT update the new session.
 
 Web company-notice reads and writes SHALL bind results and loading/error state to their originating session/request. Out-of-order lists and expired authorization responses SHALL NOT replace a newer form or log out a newly authenticated user. Saving a private note SHALL prevent switching away and losing its input.
+
+#### Scenario: Mark read fails
+- **WHEN** the server does not confirm a mark-read request
+- **THEN** the unread state is retained and the user can retry

@@ -8,10 +8,10 @@
 openspec/
 ├── specs/                    # 当前已归档的能力规格（系统「现在」的行为）
 │   ├── auth/
-│   ├── work-log/
-│   ├── task/
-│   ├── panel/
-│   └── calendar-view/
+│   ├── log-demo/
+│   ├── task-dispatch/
+│   ├── organization-directory/
+│   └── workspace-planning/
 ├── changes/                  # 进行中的变更
 │   └── <change-id>/
 │       ├── proposal.md
@@ -31,4 +31,4 @@ openspec/
 2. 按 tasks 实现并勾选；勾选不等于合格，要有测试记录
 3. 归档：把 delta 合并进 `specs/`，change 移到 `changes/archive/`
 
-当前变更：`changes/sprint-0-baseline/`。
+一期现行规格及核对范围见 [能力索引](specs/README.md)。`changes/` 中的早期提案、增量和归档记录保留当时的设计口径，不用来覆盖现行规格。

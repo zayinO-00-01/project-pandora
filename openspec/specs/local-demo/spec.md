@@ -11,10 +11,10 @@ Windows startup SHALL build Web/backend, serve one configurable port, report mis
 - **THEN** Web and /api/v1/health are reachable and LAN addresses are printed
 
 ### Requirement: Safe database upgrades
-Fresh databases and main V3 SHALL migrate through canonical V3roles/V4tasks/V5requests. Known legacy zayin V3tasks SHALL be upgraded with backups and content checks, without deletion or broad repair. Conversion SHALL rehearse on a copy, reacquire exclusive original access, compare all original data/history and upgrade in place. Unknown histories SHALL be rejected.
+Fresh databases SHALL run the canonical Flyway migration chain. Supported existing databases SHALL retain their applied migrations and business data; V27 adds shared assignees, V28 adds personal item scheduling and V29 adds department names. Upgrade preparation SHALL use backups and a rehearsal on a copy. Unknown histories SHALL be investigated rather than deleted or broadly repaired.
 #### Scenario: Concurrent original writes
 - **WHEN** original data changes during rehearsal
-- **THEN** upgrade refuses to mutate the original and retains the new writes
+- **THEN** the changed database SHALL be checked again before applying the upgrade to it
 
 ### Requirement: Demonstration guide
 A short guide SHALL cover ADMIN account configuration, Android logs/dispatch/feedback, upward read approval/revocation, local network setup and explicit manual phone checks.

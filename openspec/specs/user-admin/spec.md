@@ -6,7 +6,7 @@ Five-role authentication and account administration.
 ## Requirements
 
 ### Requirement: Admin manages user accounts
-The system SHALL allow an authenticated ADMIN to create users with App roles (STAFF, TEAM_LEAD, DEPT_HEAD, FOUNDER) or ADMIN, change roles, set manager_id, and soft-disable users. Non-ADMIN callers SHALL receive 403.
+The system SHALL allow an authenticated ADMIN to create users with App roles (STAFF, TEAM_LEAD, DEPT_HEAD, FOUNDER) or ADMIN, change roles, set manager_id, and soft-disable users. A newly created department head, team lead or staff account SHALL have a valid enabled higher-rank business manager. ADMIN and FOUNDER SHALL NOT have a manager. The hierarchy SHALL NOT contain cycles. Non-ADMIN callers SHALL receive 403.
 
 #### Scenario: Admin creates a staff under a team lead
 - **WHEN** an ADMIN creates a STAFF user with manager_id pointing to a TEAM_LEAD

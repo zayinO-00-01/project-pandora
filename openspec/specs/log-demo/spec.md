@@ -1,31 +1,34 @@
 # Log workflow
 
 ## Purpose
-Define the authenticated draft, submission, author editing and manager visibility workflow for the first log MVP.
+Define the work log creation, editing and read rules for Phase 1.
 ## Requirements
-### Requirement: Editable draft and submitted logs
-The API SHALL accept draft/submitted logs (default submitted). Only authors SHALL edit/submit; edits SHALL preserve submitted status. Content MUST be nonblank and at most 5000 characters. Creation SHALL allow Shanghai today minus three days through today inclusive. Updates and submission SHALL require the original log date to be today; update target SHALL also be today. Date changes SHALL NOT unlock historical records. Authorized reads SHALL have no age limit.
+### Requirement: Single-day creation
+A business user SHALL create at most one draft or submitted log for each of Shanghai today, yesterday and the day before yesterday. A new log SHALL cover only the selected day and have nonblank content of at most 5000 characters. Existing multi-day records SHALL retain their original range and be returned for dates they cover.
 #### Scenario: Creation bounds
-- **WHEN** a date is between three days ago and today inclusive
-- **THEN** creation succeeds with valid content, while earlier and future dates return 400
-#### Scenario: Current edit
-- **WHEN** the author updates or submits today's log
-- **THEN** the operation succeeds, preserving submitted status and ownership rules
-#### Scenario: Historical record
-- **WHEN** an author updates, submits, or moves yesterday's log to today
-- **THEN** the operation returns 403 without mutation, and authorized history reads still succeed
+- **WHEN** a user creates a single-day log dated the day before yesterday
+- **THEN** a valid first record returns 201; earlier, future or multi-day submissions return 400
+#### Scenario: Draft already exists for the day
+- **WHEN** a user creates another log for a date already covered by their draft or submitted record
+- **THEN** the API returns 409 and retains the existing record
 
 ### Requirement: Drafts and submitted edits
-Business authors SHALL save draft or submitted logs, submit the same record and edit submitted records without changing ID or reverting to draft. Omitted POST status SHALL default submitted; omitted PUT status SHALL retain state. Content SHALL be nonblank and at most5000 characters. Other viewers SHALL see submitted records only.
+Business authors SHALL save draft or submitted logs and submit the same record without changing its ID. Editing a submitted log SHALL NOT revert it to draft. Omitted POST status SHALL default to submitted; omitted PUT status SHALL retain state. Other viewers SHALL see submitted records only.
 #### Scenario: Draft privacy
 - **WHEN** an employee saves a draft then submits it
 - **THEN** authorized leaders see it only after submission with the same ID
 
 ### Requirement: Shanghai edit window
-Creation SHALL allow Shanghai today minus three days through today inclusive. Updates and submission SHALL require both the original and proposed log dates to be today. Historical reads SHALL remain available; historical update/submit SHALL return403, and invalid creation/proposed dates400.
-#### Scenario: Move expired record to today
-- **WHEN** an author changes an expired record date to today
-- **THEN** the update returns403 without changing the record
+Only authors SHALL update or submit, during the interval starting at creation and ending just before 24 hours have elapsed. Editing SHALL NOT extend the window or change the saved date range. Authorized historical reads SHALL have no age limit. An update with a stale supplied revision SHALL be rejected without overwriting stored content.
+#### Scenario: Edit a backfilled record
+- **WHEN** the author saves yesterday's log less than 24 hours after creating it without changing its date
+- **THEN** the update may succeed under the same content and state validation as today's log
+#### Scenario: Window ends
+- **WHEN** the author tries to update or submit at or after 24 hours from creation
+- **THEN** the API returns 403 and the log remains readable
+#### Scenario: Stale update
+- **WHEN** the author sends an outdated revision while the edit window remains open
+- **THEN** the API returns 409 and the newer content remains stored
 
 ### Requirement: Five-role read scope
 ADMIN SHALL have no business access. FOUNDER SHALL read active business accounts company-wide. DEPT_HEAD/TEAM_LEAD SHALL read actual downward manager trees, STAFF self. Direct-manager approved grants SHALL allow read-only submitted logs/tasks, never drafts or writes. Member summaries SHALL contain only public fields.
