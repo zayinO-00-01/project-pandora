@@ -58,11 +58,11 @@ class OwnProfileAndDemoAccountsTests {
         mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON).content(request))
             .andExpect(status().isOk()).andExpect(jsonPath("$.displayName").value("示例姓名"))
             .andExpect(jsonPath("$.emergencyPhone").value("010-12345678"))
-            .andExpect(jsonPath("$.role").value("STAFF")).andExpect(jsonPath("$.managerName").value("团队长"));
+            .andExpect(jsonPath("$.role").value("STAFF")).andExpect(jsonPath("$.managerName").value("张予安"));
         mvc.perform(get("/api/v1/users/me").header("Authorization",staff))
             .andExpect(status().isOk()).andExpect(jsonPath("$.phone").value("13800007654"));
         mvc.perform(get("/api/v1/users/me").header("Authorization",colleague))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.displayName").value("演示员工小陈"));
+            .andExpect(status().isOk()).andExpect(jsonPath("$.displayName").value("陈书桐"));
         long colleagueId=json.readTree(mvc.perform(get("/api/v1/users/me").header("Authorization",colleague))
             .andReturn().getResponse().getContentAsString()).get("id").asLong();
         mvc.perform(patch("/api/v1/admin/users/"+colleagueId).header("Authorization",admin).contentType(MediaType.APPLICATION_JSON)
@@ -70,7 +70,7 @@ class OwnProfileAndDemoAccountsTests {
         mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON)
             .content(json.writeValueAsString(Map.of("newPhone"," 13900007654 ","managerId",colleagueId))))
             .andExpect(status().isOk()).andExpect(jsonPath("$.phone").value("13900007654"))
-            .andExpect(jsonPath("$.managerName").value("团队长")).andExpect(jsonPath("$.idCard").doesNotHaveJsonPath());
+            .andExpect(jsonPath("$.managerName").value("张予安")).andExpect(jsonPath("$.idCard").doesNotHaveJsonPath());
         mvc.perform(put("/api/v1/users/me").header("Authorization",staff).contentType(MediaType.APPLICATION_JSON)
             .content(json.writeValueAsString(Map.of("displayName","示例姓名","phone","13800007654"))))
             .andExpect(status().isForbidden());
