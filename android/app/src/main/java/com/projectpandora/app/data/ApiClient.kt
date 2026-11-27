@@ -53,6 +53,36 @@ object TaskValidation {
 class ApiClient(address: String) {
     val server=ServerAddress.normalize(address)
     private val json=GsonBuilder().serializeNulls().create()
+    private inline fun <reified T> crmList(session: Session, path: String): List<T> =
+        request("/crm$path", "GET", null, session, object : TypeToken<List<T>>() {}.type)
+    internal fun crmMembers(session: Session): List<CrmMember> = crmList(session, "/members")
+    internal fun crmCustomers(session: Session): List<CrmCustomer> = crmList(session, "/customers")
+    internal fun crmServices(session: Session): List<CrmService> = crmList(session, "/services")
+    internal fun crmOrders(session: Session, id: Long): List<CrmOrder> = crmList(session, "/customers/$id/orders")
+    internal fun crmCustomer(session: Session, id: Long): CrmCustomerDetail =
+        request("/crm/customers/$id", "GET", null, session, CrmCustomerDetail::class.java)
+    internal fun crmService(session: Session, id: Long): CrmServiceDetail =
+        request("/crm/services/$id", "GET", null, session, CrmServiceDetail::class.java)
+    internal fun saveCrmCustomer(session: Session, id: Long?, input: CrmCustomerInput): CrmCustomer =
+        request("/crm/customers" + (id?.let { "/$it" } ?: ""), if (id == null) "POST" else "PUT", input, session, CrmCustomer::class.java)
+    internal fun saveCrmService(session: Session, id: Long?, input: CrmServiceInput): CrmServiceDetail =
+        request("/crm/services" + (id?.let { "/$it" } ?: ""), if (id == null) "POST" else "PUT", input, session, CrmServiceDetail::class.java)
+    internal fun crmServiceStatus(session: Session, id: Long, status: String, actualAt: String?): CrmServiceDetail =
+        request("/crm/services/$id/status", "PUT", mapOf("status" to status, "actualAt" to actualAt), session, CrmServiceDetail::class.java)
+    internal fun crmTransfer(session: Session, id: Long, ownerId: Long, reason: String): ActionResult =
+        request("/crm/services/$id/transfer", "POST", mapOf("ownerId" to ownerId, "reason" to reason), session, ActionResult::class.java)
+    internal fun crmFollowUp(session: Session, id: Long, text: String): CrmServiceDetail =
+        request("/crm/services/$id/notes", "POST", mapOf("text" to text), session, CrmServiceDetail::class.java)
+    internal fun crmLinkTask(session: Session, id: Long, taskId: Long): CrmServiceDetail =
+        request("/crm/services/$id/tasks", "POST", mapOf("taskId" to taskId), session, CrmServiceDetail::class.java)
+    internal fun crmCorrect(session: Session, id: Long, customerId: Long, ownerId: Long, actualAt: String, description: String, reason: String): ActionResult =
+        request("/crm/services/$id/corrections", "POST",
+            mapOf("customerId" to customerId, "ownerId" to ownerId, "actualAt" to actualAt, "description" to description, "reason" to reason),
+            session, ActionResult::class.java)
+    internal fun crmUseCard(session: Session, orderId: Long, serviceId: Long): CrmOrder =
+        request("/crm/orders/$orderId/uses", "POST", mapOf("serviceId" to serviceId), session, CrmOrder::class.java)
+    internal fun crmReverseCard(session: Session, orderId: Long, useId: Long, reason: String): CrmOrder =
+        request("/crm/orders/$orderId/uses/$useId/reverse", "POST", mapOf("reason" to reason), session, CrmOrder::class.java)
     fun todos(session: Session): List<DailyTodo> = request("/personal-todos","GET",null,session,object:TypeToken<List<DailyTodo>>(){}.type)
     fun saveTodo(session: Session,todo: DailyTodo,creating: Boolean,original: DailyTodo?=null): DailyTodo {
         val body=mutableMapOf<String,Any?>("title" to todo.title,"date" to todo.date,"completed" to todo.completed,

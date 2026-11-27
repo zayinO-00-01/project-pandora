@@ -15,6 +15,10 @@ public class NotificationService {
     public void notifyUser(Long userId,String type,String title,String body,Long taskId) {
         notifyUser(userId,type,title,body,taskId,null);
     }
+    @Transactional
+    public void notifyReference(Long userId,String type,String title,String body,Long referenceId) {
+        notifyUser(userId,type,title,body,null,referenceId);
+    }
     private void notifyUser(Long userId,String type,String title,String body,Long taskId,Long referenceId) {
         if(userId==null) return;
         String safeTitle=title.length()>200 ? title.substring(0,200) : title;

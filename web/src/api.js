@@ -1,15 +1,17 @@
-export async function api(path, { token, method = 'GET', body, signal } = {}) {
+export async function api(path, { token, method = 'GET', body, signal, raw = false } = {}) {
   let response;
+  const multipart = body instanceof FormData;
   try {
     response = await fetch(`/api/v1${path}`, {
       method, signal,
-      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body ? { 'Content-Type': 'application/json' } : {}) },
-      ...(body ? { body: JSON.stringify(body) } : {}),
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body && !multipart ? { 'Content-Type': 'application/json' } : {}) },
+      ...(body ? { body: multipart ? body : JSON.stringify(body) } : {}),
     });
   } catch (error) {
     if (error.name === 'AbortError') throw error;
     throw new Error('连接失败，请检查服务或网络后重试。');
   }
+  if (response.ok && raw) return response;
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     const message = response.status === 401 && path !== '/auth/login'
