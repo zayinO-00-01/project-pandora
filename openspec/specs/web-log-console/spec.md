@@ -5,7 +5,7 @@ Provide ADMIN account management; business users use Android.
 
 ## Requirements
 ### Requirement: Admin workspace
-Web SHALL provide ADMIN login, account list/search/create/edit, role/manager/password changes and disable/enable through real /admin/users APIs. Other roles SHALL receive App guidance. Public registration SHALL be closed.
+Web SHALL provide ADMIN login, account list/search/create/edit, role/manager/password changes and disable/enable through the `/admin/users` APIs. Web SHALL also provide company-item administration, department filtering and organization views. Other roles SHALL receive App guidance. Public registration SHALL be closed.
 #### Scenario: Business user enters Web
 - **WHEN** a business account logs in
 - **THEN** App guidance is shown without account management or business workbench

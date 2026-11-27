@@ -11,7 +11,7 @@ The system SHALL authenticate credentials, issue JWT for enabled accounts only, 
 - **THEN** protected requests using that token return401
 
 ### Requirement: Business role separation
-ADMIN SHALL use account administration only and SHALL NOT access logs/tasks/panels/organization/view requests. FOUNDER SHALL read active business accounts company-wide; DEPT_HEAD/TEAM_LEAD actual downward manager trees; STAFF self unless a current direct-manager read grant applies. Read grants SHALL not extend write or dispatch authority.
+ADMIN SHALL use the Web account, organization and company-item administration functions and SHALL NOT access business logs, tasks, panels, business organization or view requests. Organization-based work reads SHALL allow FOUNDER access to active business accounts company-wide, DEPT_HEAD and TEAM_LEAD to their actual descendants, and STAFF to their own work. Direct-manager read grants SHALL NOT confer write authority. Task participation and dispatch SHALL follow [Task dispatch](../task-dispatch/spec.md).
 #### Scenario: Approved upward read
 - **WHEN** a current direct manager approves the employee's request
 - **THEN** employee may read that manager's submitted logs and assigned tasks until revoked or invalidated

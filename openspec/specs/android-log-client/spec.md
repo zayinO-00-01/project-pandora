@@ -11,26 +11,26 @@ Android SHALL support configurable server origin, real JWT login/restore for FOU
 - **THEN** /users includes the caller and latest role is used; disabled sessions fail
 
 ### Requirement: Editable personal logs
-Android SHALL create logs dated today or up to three days earlier inclusive in Shanghai. Existing logs SHALL be editable/submittable only when their original date is today; update target date SHALL remain today. Historical logs SHALL remain fully readable. Date rules SHALL be rechecked after restore and day changes, retaining failed input.
+Android SHALL follow the single-day creation and 24-hour editing rules in [Log workflow](../log-demo/spec.md). In the read-only editor it SHALL hide the label selector and prevent body changes. It SHALL retain failed input and re-evaluate eligibility after restoring an editor.
 #### Scenario: Backfill
-- **WHEN** an author creates a log dated exactly three days ago
-- **THEN** creation is allowed and the resulting historical record is read-only
+- **WHEN** an author opens the creation date selector
+- **THEN** the choices cover Shanghai today, yesterday and the day before yesterday, without creating a second record for an occupied day
 #### Scenario: Historical edit
-- **WHEN** an author opens yesterday's log or changes an old buffer date to today
-- **THEN** no save or submit action can modify that record
+- **WHEN** an author opens a log created 24 hours ago or earlier
+- **THEN** the body is read-only and the label edit and submit controls are unavailable
 
 #### Scenario: Save fails or session expires
 - **WHEN** a save fails or returns 401
 - **THEN** input is retained, no success is shown, and same-server same-author login restores unsaved input without exposing it to another user
 
 ### Requirement: Four panels and day view
-Android SHALL show a focused overview with company priorities, company dispatch and personal priorities in descending emphasis, sourced from the real panel API with explicitly labelled local personal snapshots. Own logs SHALL be available through logs/calendar rather than another overview module. Role-based task operations and organization lookup SHALL be available from duties. Day selection SHALL filter the same user's logs by Shanghai date. Empty and failed loading SHALL be distinct.
+Android SHALL show its current overview, company calendar, logs and profile navigation. The logs screen SHALL offer a list and month calendar; choosing a day in the month calendar SHALL show relevant task and log entries. Empty and failed loading SHALL be distinct.
 #### Scenario: Browse a saved record
 - **WHEN** a log is saved and the user opens logs or selects its date in calendar
 - **THEN** that same log is readable, editable only under the current date rules, and other dates show only their corresponding records
 
 ### Requirement: Installable local demo
-The repository SHALL include native source, Gradle build entry, a signed Debug APK and concise real-device demo instructions.
+The repository SHALL include native source, a Gradle build entry and device demo instructions. The local build SHALL export an installable debug APK separately from source control.
 #### Scenario: LAN demonstration
 - **WHEN** the user installs the APK and supplies the PC address on the same LAN
 - **THEN** the login/log/panel/day/Web flow can be demonstrated against the local backend
