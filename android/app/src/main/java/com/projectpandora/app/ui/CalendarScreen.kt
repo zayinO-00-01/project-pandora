@@ -51,7 +51,15 @@ private data class CalendarScheduleRequest(val task: DispatchTask,val target: Lo
         else moveRequest=CalendarScheduleRequest(task,target)
     }
     var expanded by rememberSaveable {mutableStateOf(false)}
-    LaunchedEffect(mode,expanded) {listState.scrollToItem(0)}
+    val layoutKey="$mode:$expanded"
+    var previousLayout by rememberSaveable {mutableStateOf(layoutKey)}
+    LaunchedEffect(layoutKey) {
+        // Reopen the same view at its saved position; only a layout change returns to the top.
+        if(previousLayout!=layoutKey) {
+            listState.scrollToItem(0)
+            previousLayout=layoutKey
+        }
+    }
     val tasksByDay=remember(state.tasks) {
         orderedTasks(state.tasks.filter {taskIsApproved(it) && !it.deleted}).groupBy {taskDate(it)}
     }

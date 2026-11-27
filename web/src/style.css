@@ -47,3 +47,5 @@
 .organization-views button[aria-pressed="true"] { color: #fffefa; background: var(--green); }
 .account-editor-actions { flex-wrap: wrap; }
 .account-editor-actions > span { margin-right: auto; }
+.main-content.crm-standalone { width: min(100%, 1100px); margin: 0 auto; }
+.crm-session { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; margin-bottom: 16px; }

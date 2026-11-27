@@ -4,6 +4,7 @@ import { api, timeLabel } from './api';
 import { roles, eligibleManagers, departmentFor, draftForStorage, restoreDraft, editableProfile, profileForSave, profileInputError, phoneError, inspectIdCard, requiresManager, emergencyPhoneError, organizationGroups, organizationTree, accountInputError, departmentLabel } from './admin-state';
 import { createNoticeNoteEditor } from './notice-note';
 import OrganizationTree from './OrganizationTree.vue';
+import CrmAdmin from './CrmAdmin.vue';
 
 const session = ref(null), booting = ref(true), loginBusy = ref(false);
 const username = ref(''), password = ref(''), loginError = ref('');
@@ -16,6 +17,9 @@ const form = reactive(emptyForm());
 const baseline = ref(JSON.stringify(form));
 const dirty = computed(() => JSON.stringify(form) !== baseline.value);
 const isAdmin = computed(() => session.value?.role === 'ADMIN');
+const crmAccess = ref(null), crmAccessError = ref('');
+const hasCrmWeb = computed(() => crmAccess.value?.revenue ||
+  crmAccess.value?.permissions.some(code => ['SHOP_IMPORT', 'FINANCE', 'CONTRACTS', 'CUSTOMER_REVIEW'].includes(code)));
 const activeTab = ref('accounts');
 const notices = ref([]), noticeLoading = ref(false), noticeSaving = ref(false), noticeError = ref(''), noticeSuccess = ref('');
 const emptyNotice = () => ({ id: null, title: '', content: '', sortOrder: 0, enabled: true });
@@ -234,6 +238,7 @@ function endSession(message = '', preserve = false) {
   removeCache('pandora-admin-session'); removeCache('pandora-session');
   closeStatusDialog();
   session.value = null; users.value = []; loading.value = false;
+  crmAccess.value = null; crmAccessError.value = '';
   resetNotices();
   resetForm(); success.value = ''; loadError.value = ''; loginError.value = message;
 }
@@ -272,8 +277,9 @@ async function loadUsers() {
 async function establish(user) {
   session.value = user; resetForm(); search.value = ''; orgSearch.value = ''; orgView.value = 'list'; roleFilter.value = ''; statusFilter.value = ''; departmentFilter.value = '';
   activeTab.value = 'accounts'; resetNotices();
+  crmAccess.value = null; crmAccessError.value = '';
   writeCache('pandora-admin-session', user);
-  if (user.role !== 'ADMIN') return;
+  if (user.role !== 'ADMIN') { await loadCrmAccess(); return; }
   const recovered = restoreDraft(readCache(draftKey(user)), scope(user));
   if (recovered) {
     Object.assign(form, recovered, editableProfile(recovered));
@@ -282,6 +288,23 @@ async function establish(user) {
   }
   memoryRecovery = null;
   await loadUsers();
+}
+async function loadCrmAccess() {
+  const token = session.value?.token;
+  if (!token) return;
+  crmAccessError.value = '';
+  try {
+    const result = await api('/crm/capabilities', { token });
+    if (session.value?.token === token) crmAccess.value = result;
+  } catch (error) {
+    if (session.value?.token !== token) return;
+    if (error.status === 401) endSession(error.message);
+    else crmAccessError.value = error.status === 404 ? '' : error.message;
+  }
+}
+function expireCrm(error) {
+  if (isAdmin.value) expire(error);
+  else endSession(error.message);
 }
 async function login() {
   if (loginBusy.value) return;
@@ -401,14 +424,20 @@ onBeforeUnmount(() => { loadController?.abort(); resetNotices(); window.removeEv
       </div>
       <div class="story-foot">账号管理 · 组织架构 · 公司事项</div>
     </section>
-    <section class="login-side"><div class="login-card"><h2>管理员登录</h2>
+    <section class="login-side"><div class="login-card"><h2>工作台登录</h2>
       <form @submit.prevent="login"><label for="username">账号</label><input id="username" v-model="username" autocomplete="username" required maxlength="64" :disabled="loginBusy"><label for="password">密码</label><input id="password" v-model="password" type="password" autocomplete="current-password" required :disabled="loginBusy"><p v-if="loginError" class="error" role="alert">{{ loginError }}</p><button class="button primary login-button" :disabled="loginBusy">{{ loginBusy ? '正在登录…' : '登录' }}</button></form>
     </div></section>
   </main>
-  <main v-else-if="!isAdmin" class="app-guidance"><section class="panel guidance-card"><div class="brand"><span class="brand-mark">P</span><span>潘多拉</span></div><h1>请前往 Android App</h1><p>{{ session.displayName || username }}，你当前的角色是「{{ roleName(session.role) }}」。</p><p>请用同一账号登录 App。</p><button class="button primary" @click="logout">返回登录</button></section></main>
+  <main v-else-if="!isAdmin && hasCrmWeb" class="main-content crm-standalone">
+    <header class="crm-session"><div class="brand"><span class="brand-mark">P</span><span>{{ session.displayName || '潘多拉' }}</span></div><button class="button secondary" @click="logout">退出登录</button></header>
+    <CrmAdmin :key="session.token" :session="session" :capabilities="crmAccess" :users="[]" @expired="expireCrm" />
+  </main>
+  <main v-else-if="!isAdmin" class="app-guidance"><section class="panel guidance-card"><div class="brand"><span class="brand-mark">P</span><span>潘多拉</span></div><h1>请前往 Android App</h1><p>{{ session.displayName || username }}，你当前的角色是「{{ roleName(session.role) }}」。</p><p>请用同一账号登录 App。若刚获得 Web 权限，可重新检查。</p><p v-if="crmAccessError" class="error" role="alert">{{ crmAccessError }}</p><button class="button secondary" @click="loadCrmAccess">检查 Web 权限</button> <button class="button primary" @click="logout">返回登录</button></section></main>
   <div v-else class="workspace">
-    <aside class="sidebar"><div class="brand"><span class="brand-mark">P</span><span>潘多拉</span></div><nav aria-label="管理导航"><button type="button" class="nav-item" :class="{ 'active-nav': activeTab === 'accounts' }" @click="switchTab('accounts')">▦ <strong>账号管理</strong></button><button type="button" class="nav-item" :class="{ 'active-nav': activeTab === 'organization' }" @click="switchTab('organization')">⌘ <strong>组织架构</strong></button><button type="button" class="nav-item" :class="{ 'active-nav': activeTab === 'notices' }" @click="switchTab('notices')">★ <strong>公司十大事项</strong></button></nav><div class="profile"><div class="avatar" aria-hidden="true">管</div><div><strong>管理员</strong></div><button @click="logout" :disabled="saving || noticeSaving || noteState.saving" title="退出登录" aria-label="退出登录">↪</button></div></aside>
-    <main class="main-content"><template v-if="activeTab === 'accounts'">
+    <aside class="sidebar"><div class="brand"><span class="brand-mark">P</span><span>潘多拉</span></div><nav aria-label="管理导航"><button type="button" class="nav-item" :class="{ 'active-nav': activeTab === 'accounts' }" @click="switchTab('accounts')">▦ <strong>账号管理</strong></button><button type="button" class="nav-item" :class="{ 'active-nav': activeTab === 'organization' }" @click="switchTab('organization')">⌘ <strong>组织架构</strong></button><button type="button" class="nav-item" :class="{ 'active-nav': activeTab === 'notices' }" @click="switchTab('notices')">★ <strong>公司十大事项</strong></button><button type="button" class="nav-item" :class="{ 'active-nav': activeTab === 'crm' }" @click="switchTab('crm')">◎ <strong>二期授权</strong></button></nav><div class="profile"><div class="avatar" aria-hidden="true">管</div><div><strong>管理员</strong></div><button @click="logout" :disabled="saving || noticeSaving || noteState.saving" title="退出登录" aria-label="退出登录">↪</button></div></aside>
+    <main class="main-content">
+      <CrmAdmin v-if="activeTab === 'crm'" :key="session.token" :session="session" :capabilities="{ administrator: true, permissions: [] }" :users="users" @expired="expireCrm" />
+      <template v-if="activeTab === 'accounts'">
       <header class="page-header"><div><h1>账号管理</h1></div><div class="account-total"><strong>{{ users.length }}</strong><span>个账号 · {{ enabledCount }} 个启用</span></div></header>
       <section class="toolbar panel" aria-label="筛选账号"><div class="filter-fields"><div class="search-field"><label for="search">搜索账号</label><input id="search" v-model="search" placeholder="账号或姓名" type="search"></div><div><label for="role-filter">角色</label><select id="role-filter" v-model="roleFilter"><option value="">全部角色</option><option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option></select></div><div><label for="department-filter">部门</label><select id="department-filter" v-model="departmentFilter"><option value="">全部部门</option><option v-for="department in departments" :key="department.id" :value="String(department.id)">{{ departmentLabel(department) }}</option></select></div><div><label for="status-filter">状态</label><select id="status-filter" v-model="statusFilter"><option value="">全部状态</option><option value="enabled">启用</option><option value="disabled">停用</option></select></div></div><button class="button secondary" @click="loadUsers" :disabled="loading || saving">{{ loading ? '刷新中…' : '↻ 刷新' }}</button></section>
       <p v-if="success" class="success" role="status">✓ {{ success }}</p><p v-if="loadError" class="error" role="alert">{{ loadError }} <button class="text-button" @click="loadUsers" :disabled="loading || saving">重新加载</button></p>

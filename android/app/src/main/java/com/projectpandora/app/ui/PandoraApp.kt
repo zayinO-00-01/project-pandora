@@ -64,6 +64,7 @@ import java.time.format.DateTimeFormatter
     var syncDetails by remember {mutableStateOf(false)}
     val pageState=rememberSaveableStateHolder()
     var showLogCalendar by rememberSaveable(state.session.server,state.session.userId) {mutableStateOf(false)}
+    var showCompanyBusiness by rememberSaveable(state.session.server,state.session.userId) {mutableStateOf(false)}
     val readFailures=listOfNotNull(state.panelError?.let {"总览：$it"},state.taskError?.let {"任务：$it"},state.logError?.let {"日志：$it"})
     val retained=state.tasks.isNotEmpty() || state.logs.isNotEmpty() || state.panels!=null
     if(syncDetails)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={syncDetails=false},title={Text("同步失败")},text={Text(readFailures.joinToString("\n\n")+if(retained)"\n\n正在显示上次成功读取的内容。" else "\n\n暂时无法读取工作内容。")},confirmButton={ControlTextButton(onClick={syncDetails=false;model.refresh()},enabled=!state.loading) {Text("重试")}},dismissButton={ControlTextButton(onClick={syncDetails=false}) {Text("关闭")}})
@@ -72,6 +73,7 @@ import java.time.format.DateTimeFormatter
     BackHandler(enabled=state.editor==null && state.selectedTaskId==null && state.screen!="home" && !state.dispatchOpen) {
         if(!state.saving)when {
             state.screen=="logs" && showLogCalendar -> showLogCalendar=false
+            state.screen=="day" && showCompanyBusiness -> showCompanyBusiness=false
             state.screen=="labels" -> model.screen("profile")
             state.screen in listOf("tasks","organization","inbox","directory") -> model.screen("day")
             else -> model.screen("home")
@@ -112,7 +114,7 @@ import java.time.format.DateTimeFormatter
         if(homeHeader && readFailures.isNotEmpty())Text("同步失败 · ${if(retained)"上次内容" else "查看原因"} ›",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.error,maxLines=2)
         if(state.developmentPreview)Text("本地预览",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }},actions={
-        if(state.screen=="day" && state.selectedTaskId==null && !state.dispatchOpen)Row(Modifier.padding(end=12.dp),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+        if(state.screen=="day" && !showCompanyBusiness && state.editor==null && state.selectedTaskId==null && !state.dispatchOpen)Row(Modifier.padding(end=12.dp),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
             listOf("tasks" to "全部任务","directory" to "通讯录").forEach {(destination,label)->
                 BackdropTextButton(onClick={model.screen(destination)},modifier=Modifier.size(width=76.dp,height=40.dp),
                     enabled=!state.saving,contentPadding=PaddingValues(horizontal=4.dp,vertical=4.dp)) {
@@ -157,7 +159,9 @@ import java.time.format.DateTimeFormatter
                 LogsScreen(page,model,allDates=!showLogCalendar,onToggleDates={showLogCalendar=!showLogCalendar})
             }
             "tasks" -> TaskScreen(page,model)
-            "day" -> CalendarScreen(page,model)
+            "day" -> pageState.SaveableStateProvider("company:${page.session?.server}:${page.session?.userId}") {
+                CompanyScreen(page,model,showCompanyBusiness) {showCompanyBusiness=it}
+            }
             "ai" -> HomeScreen(page,model)
             "profile" -> ProfileScreen(page,model)
             "inbox" -> InboxScreen(page,model)
