@@ -23,7 +23,7 @@ public class DemoOrgBootstrap implements ApplicationRunner {
         if(!initialize && !extraAccounts) return;
         String hash=passwords.encode("demo1234");
         if(initialize) {
-            users.findByUsername("admin").filter(user->"管理员".equals(user.getDisplayName())).ifPresent(user->user.setDisplayName("叶佳宁"));
+            users.findByUsername("admin").filter(user->user.getRole()==Role.ADMIN).ifPresent(user->user.setDisplayName("管理员"));
             var founder=ensure("founder",hash,Role.FOUNDER,"宋清远",null);
             var department=ensure("leader",hash,Role.DEPT_HEAD,"周明川",founder.getId());
             department.setRole(Role.DEPT_HEAD);department.setManagerId(founder.getId());

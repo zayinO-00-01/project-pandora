@@ -17,13 +17,23 @@ test('department follows the selected reporting line and changes when the direct
   assert.equal(accounts.departmentFor(users, { role: 'STAFF', managerId: '1' }), null);
 });
 
-test('missing or disabled managers and a cycle cannot assign a department', () => {
+test('missing managers and a cycle cannot assign a department', () => {
   const users = [
     { id: 2, role: 'DEPT_HEAD', disabled: true },
     { id: 4, role: 'TEAM_LEAD', managerId: 5 },
     { id: 5, role: 'TEAM_LEAD', managerId: 4 },
   ];
-  for (const managerId of [0, 2, 4, 99]) {
+  for (const managerId of [0, 4, 99]) {
     assert.equal(accounts.departmentFor(users, { role: 'STAFF', managerId }), null);
   }
+});
+
+test('account status does not erase the stored department from the directory', () => {
+  const users = [
+    { id: 2, role: 'DEPT_HEAD', departmentName: '技术研发部', disabled: true },
+    { id: 3, role: 'TEAM_LEAD', managerId: 2 },
+    { id: 4, role: 'STAFF', managerId: 3, disabled: true },
+  ];
+  assert.equal(accounts.departmentFor(users, users[2])?.id, 2);
+  assert.ok(!accounts.eligibleManagers(users, 'STAFF', 4).some(user => user.id === 2));
 });

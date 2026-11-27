@@ -24,7 +24,7 @@ TEAMS = {
 }
 HEADS = {'leader': '周明川', 'dept_tech': '陆文轩', 'dept_market': '韩亦辰', 'dept_ops': '方宁'}
 LEGACY_DEMO = {
-    'admin': ('ADMIN', '叶佳宁'), 'founder': ('FOUNDER', '宋清远'),
+    'admin': ('ADMIN', '管理员'), 'founder': ('FOUNDER', '宋清远'),
     'staff': ('STAFF', '王若溪'), 'staff_demo2': ('STAFF', '李昕'), 'staff_demo3': ('STAFF', '陈书桐'),
     'team_lead1': ('TEAM_LEAD', '陈绍平'), 'team_lead2': ('TEAM_LEAD', '林言之'),
     **{f'staff{i}': ('STAFF', name) for i, name in enumerate(

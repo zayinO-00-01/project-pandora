@@ -15,9 +15,8 @@ export function departmentFor(users, person) {
   const byId = users instanceof Map ? users : new Map(users.map(user => [String(user.id), user]));
   const seen = new Set();
   let current = person;
-  if (current?.disabled) return null;
   while (current && rank[current.role] !== undefined) {
-    if (current.role === 'DEPT_HEAD' && !current.disabled) return current;
+    if (current.role === 'DEPT_HEAD') return current;
     if (!current.managerId || seen.has(String(current.managerId))) return null;
     seen.add(String(current.managerId));
     current = byId.get(String(current.managerId));
@@ -85,6 +84,41 @@ export function organizationTree(users, query = '') {
   return roots.map(filter).filter(Boolean);
 }
 
+export function organizationGroups(users, query = '') {
+  const byId = new Map(users.map(user => [String(user.id), user]));
+  const groups = new Map();
+  const term = query.trim().toLowerCase();
+  for (const user of users) {
+    if (user.role === 'ADMIN') continue;
+    const department = departmentFor(byId, user);
+    const id = department?.id ?? (user.role === 'FOUNDER' ? 'company' : 'unassigned');
+    if (!groups.has(id)) groups.set(id, { id, label: department ? departmentLabel(department) : id === 'company' ? '公司管理' : '未分配部门', members: [] });
+    groups.get(id).members.push(user);
+  }
+  const order = id => id === 'company' ? 0 : id === 'unassigned' ? 2 : 1;
+  return [...groups.values()].sort((a,b) => order(a.id) - order(b.id) || a.label.localeCompare(b.label,'zh-CN')).map(({members,...group}) => {
+    const ids = new Set(members.map(u => String(u.id)));
+    const children = new Map();
+    for (const user of members) {
+      const parent = ids.has(String(user.managerId)) ? String(user.managerId) : null;
+      if (!children.has(parent)) children.set(parent,[]);
+      children.get(parent).push(user);
+    }
+    const seen = new Set(), rows = [];
+    function visit(user,depth) {
+      if (seen.has(user.id)) return;
+      seen.add(user.id); rows.push({ user,depth });
+      for (const child of children.get(String(user.id)) ?? []) visit(child,depth+1);
+    }
+    for (const root of children.get(null) ?? []) visit(root,0);
+    for (const user of members) visit(user,0);
+    const visible = !term || group.label.toLowerCase().includes(term) ? rows : rows.filter(({ user }) =>
+      [user.displayName, user.username, roles.find(role => role.value === user.role)?.label]
+        .some(value => value?.toLowerCase().includes(term)));
+    return { ...group, rows: visible };
+  }).filter(group => group.rows.length);
+}
+
 export const accountNamePattern = /^[A-Za-z0-9_]{3,64}$/;
 export const personalNamePattern = /^[\p{Script=Han}A-Za-z]+(?: [\p{Script=Han}A-Za-z]+)*$/u;
 export function accountInputError(form, users) {
@@ -92,10 +126,12 @@ export function accountInputError(form, users) {
   const original = users.find(user => user.id === form.id);
   const others = users.filter(user => user.id !== form.id);
   if (!form.id && !accountNamePattern.test(username)) return '账号须为 3–64 位字母、数字或下划线。';
-  if (!name) return '请填写姓名。';
-  if (!personalNamePattern.test(name) && (!original || name !== original.displayName)) return '姓名只能填写中文或英文字母。';
   if (!form.id && others.some(user => user.username.toLowerCase() === username.toLowerCase())) return '账号已存在。';
-  if ((!original || name !== original.displayName) && others.some(user => user.displayName?.trim().toLowerCase() === name.toLowerCase())) return '姓名已被使用。';
+  if (form.role !== 'ADMIN') {
+    if (!name) return '请填写姓名。';
+    if (!personalNamePattern.test(name) && (!original || name !== original.displayName)) return '姓名只能填写中文或英文字母。';
+    if ((!original || name !== original.displayName) && others.some(user => user.displayName?.trim().toLowerCase() === name.toLowerCase())) return '姓名已被使用。';
+  }
   const phone = (form.phone ?? '').trim(), idCard = (form.idCard ?? '').trim().toUpperCase();
   if (phone && others.some(user => user.phone === phone)) return '手机号已被使用。';
   if (idCard && others.some(user => user.idCard?.toUpperCase() === idCard)) return '身份证号已被使用。';
@@ -128,7 +164,7 @@ export function emergencyPhoneError(form, original) {
     ? '紧急联系电话请输入有效的 11 位手机号或带区号的座机。' : '';
 }
 export function profileInputError(form, original) {
-  if (!(form.displayName ?? '').trim()) return '请填写姓名。';
+  if (form.role !== 'ADMIN' && !(form.displayName ?? '').trim()) return '请填写姓名。';
   if (!(form.phone ?? '').trim()) return '请填写账号手机号。';
   const phone = phoneError({ phone: form.phone });
   if (phone) return phone;
