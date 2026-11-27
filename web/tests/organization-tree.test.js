@@ -34,3 +34,17 @@ test('account validation rejects special characters and duplicate names but excl
   assert.equal(accounts.accountInputError({id:3, username:'lead_backend', displayName:'陆文轩'}, users), '');
   assert.equal(accounts.accountInputError({username:'Sam_1', displayName:'Sam'}, users), '');
 });
+
+
+test('department list opens with all members, and uses the actual department for search', () => {
+  const groups = accounts.organizationGroups(users);
+  assert.deepEqual(groups.map(g => g.label), ['公司管理', '技术研发部', '未分配部门']);
+  assert.deepEqual(groups[1].rows.map(r => [r.user.id, r.depth]), [[2,0],[3,1],[4,2],[5,1]]);
+  assert.deepEqual(accounts.organizationGroups(users, '研发部').map(g => g.rows.length), [4]);
+  assert.deepEqual(accounts.organizationGroups(users, 'DEV_1')[0].rows.map(r => r.user.id), [4]);
+});
+
+test('a system administrator account does not require a personal name', () => {
+  assert.equal(accounts.accountInputError({username:'sys_admin', role:'ADMIN', displayName:''}, users), '');
+  assert.match(accounts.accountInputError({username:'Bad#', role:'ADMIN', displayName:''}, users), /账号/);
+});

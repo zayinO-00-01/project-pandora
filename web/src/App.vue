@@ -1,7 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { api, timeLabel } from './api';
-import { roles, eligibleManagers, departmentFor, draftForStorage, restoreDraft, editableProfile, profileForSave, profileInputError, phoneError, inspectIdCard, requiresManager, emergencyPhoneError, organizationTree, accountInputError, departmentLabel } from './admin-state';
+import { roles, eligibleManagers, departmentFor, draftForStorage, restoreDraft, editableProfile, profileForSave, profileInputError, phoneError, inspectIdCard, requiresManager, emergencyPhoneError, organizationGroups, organizationTree, accountInputError, departmentLabel } from './admin-state';
 import { createNoticeNoteEditor } from './notice-note';
 import OrganizationTree from './OrganizationTree.vue';
 
@@ -113,13 +113,14 @@ const managers = computed(() => eligibleManagers(users.value, form.role, form.id
 const canHaveManager = computed(() => requiresManager(form.role));
 const selectedManagerValid = computed(() => !form.managerId || managers.value.some(user => String(user.id) === String(form.managerId)));
 const roleName = value => roles.find(role => role.value === value)?.label || value;
-const displayName = user => user.displayName || user.username;
+const displayName = user => user.role === 'ADMIN' ? '管理员' : user.displayName || user.username;
 const managerName = id => users.value.find(user => String(user.id) === String(id))?.displayName || users.value.find(user => String(user.id) === String(id))?.username || (id ? `账号 #${id}` : '未设置');
 const usersById = computed(() => new Map(users.value.map(user => [String(user.id), user])));
-const departments = computed(() => users.value.filter(user => user.role === 'DEPT_HEAD' && !user.disabled));
+const departments = computed(() => users.value.filter(user => user.role === 'DEPT_HEAD'));
 const formDepartment = computed(() => departmentFor(usersById.value, form));
 const departmentOf = user => user.role === 'FOUNDER' || user.role === 'ADMIN' ? '—' : departmentLabel(departmentFor(usersById.value, user));
-const orgSearch = ref('');
+const orgSearch = ref(''), orgView = ref('list');
+const rosterGroups = computed(() => organizationGroups(users.value, orgSearch.value));
 const organization = computed(() => organizationTree(users.value, orgSearch.value));
 const statusDialog = ref(null), statusTarget = ref(null), statusError = ref('');
 let statusTrigger;
@@ -192,7 +193,7 @@ function editRosterAccount(user) {
 }
 const filteredUsers = computed(() => {
   const query = search.value.trim().toLowerCase();
-  return users.value.filter(user => (!query || `${user.username} ${user.displayName || ''}`.toLowerCase().includes(query))
+  return users.value.filter(user => (!query || `${user.username} ${displayName(user)}`.toLowerCase().includes(query))
     && (!roleFilter.value || user.role === roleFilter.value)
     && (!departmentFilter.value || String(departmentFor(usersById.value, user)?.id) === departmentFilter.value)
     && (!statusFilter.value || (statusFilter.value === 'disabled') === user.disabled));
@@ -209,7 +210,7 @@ function resetForm(user = null) {
   numberInputErrors.phone = '';
   numberInputErrors.idCard = '';
   textInputErrors.username = ''; textInputErrors.displayName = '';
-  Object.assign(form, emptyForm(), user ? { id: user.id, username: user.username, role: user.role, ...editableProfile(user), departmentName: user.departmentName ?? '', managerId: user.managerId == null ? '' : String(user.managerId) } : {});
+  Object.assign(form, emptyForm(), user ? { id: user.id, username: user.username, role: user.role, ...editableProfile(user), displayName: user.role === 'ADMIN' ? '' : user.displayName ?? '', departmentName: user.departmentName ?? '', managerId: user.managerId == null ? '' : String(user.managerId) } : {});
   baseline.value = JSON.stringify(form);
   formError.value = ''; notice.value = '';
 }
@@ -238,10 +239,10 @@ function logout() { if (discardNote()) endSession(); }
 function expire(error) {
   endSession(`${error.message} 未保存的账号信息会在同一管理员重新登录后恢复。`, true);
 }
-function chooseUser(user = null) {
+function chooseUser(user = null, discardPrompt = '当前表单有未保存的修改，是否放弃并切换？') {
   if (saving.value) return false;
   if (user && form.id === user.id) return true;
-  if (dirty.value && !window.confirm('当前表单有未保存的修改，是否放弃并切换？')) return false;
+  if (dirty.value && !window.confirm(discardPrompt)) return false;
   if (session.value) removeCache(draftKey(session.value));
   memoryRecovery = null; resetForm(user); success.value = '';
 }
@@ -267,7 +268,7 @@ async function loadUsers() {
   } finally { if (version === loadVersion) loading.value = false; }
 }
 async function establish(user) {
-  session.value = user; resetForm(); search.value = ''; orgSearch.value = ''; roleFilter.value = ''; statusFilter.value = ''; departmentFilter.value = '';
+  session.value = user; resetForm(); search.value = ''; orgSearch.value = ''; orgView.value = 'list'; roleFilter.value = ''; statusFilter.value = ''; departmentFilter.value = '';
   activeTab.value = 'accounts'; resetNotices();
   writeCache('pandora-admin-session', user);
   if (user.role !== 'ADMIN') return;
@@ -303,7 +304,7 @@ async function saveUser() {
   const profile = profileForSave(form, original);
   delete profile.birthDate;
   const payload = { ...profile };
-  for (const [field, value] of Object.entries({ role: form.role, displayName: form.displayName.trim() })) {
+  for (const [field, value] of Object.entries(form.role === 'ADMIN' ? { role: form.role } : { role: form.role, displayName: form.displayName.trim() })) {
     if (!original || original[field] !== value) payload[field] = value;
   }
   if (form.role === 'DEPT_HEAD' && (original?.departmentName ?? '') !== form.departmentName.trim()) payload.departmentName = form.departmentName.trim();
@@ -390,35 +391,61 @@ onBeforeUnmount(() => { loadController?.abort(); resetNotices(); window.removeEv
   <div v-if="booting" class="boot" role="status">正在打开潘多拉…</div>
   <main v-else-if="!session" class="login-layout">
     <section class="login-story">
-      <div class="brand"><span class="brand-mark">P</span><span>潘多拉</span></div>
-      <div class="story-content"><h1>智能掌上日志系统</h1><div class="org-art" aria-hidden="true"><span>创始人</span><i></i><span>部门 · 团队</span><i></i><span>员工</span></div></div>
-
+      <div class="brand"><span class="brand-mark">P</span><span>潘多拉<span class="brand-en">PANDORA</span></span></div>
+      <div class="story-content">
+        <h1>让每一位同事，<br>各就其位。</h1>
+        <p>潘多拉智能掌上日志系统</p>
+        <div class="org-art" aria-hidden="true"><span>创始人</span><i></i><span>部门 · 团队</span><i></i><span>每一位同事</span></div>
+      </div>
+      <div class="story-foot">账号管理 · 组织架构 · 公司事项</div>
     </section>
     <section class="login-side"><div class="login-card"><h2>管理员登录</h2>
       <form @submit.prevent="login"><label for="username">账号</label><input id="username" v-model="username" autocomplete="username" required maxlength="64" :disabled="loginBusy"><label for="password">密码</label><input id="password" v-model="password" type="password" autocomplete="current-password" required :disabled="loginBusy"><p v-if="loginError" class="error" role="alert">{{ loginError }}</p><button class="button primary login-button" :disabled="loginBusy">{{ loginBusy ? '正在登录…' : '登录' }}</button></form>
-      <p class="login-help">忘记密码请联系管理员。</p>
     </div></section>
   </main>
   <main v-else-if="!isAdmin" class="app-guidance"><section class="panel guidance-card"><div class="brand"><span class="brand-mark">P</span><span>潘多拉</span></div><h1>请前往 Android App</h1><p>{{ session.displayName || username }}，你当前的角色是「{{ roleName(session.role) }}」。</p><p>请用同一账号登录 App。</p><button class="button primary" @click="logout">返回登录</button></section></main>
   <div v-else class="workspace">
-    <aside class="sidebar"><div class="brand"><span class="brand-mark">P</span><span>潘多拉</span></div><nav aria-label="管理导航"><button type="button" class="nav-item" :class="{ 'active-nav': activeTab === 'accounts' }" @click="switchTab('accounts')">▦ <strong>账号管理</strong></button><button type="button" class="nav-item" :class="{ 'active-nav': activeTab === 'organization' }" @click="switchTab('organization')">⌘ <strong>组织架构</strong></button><button type="button" class="nav-item" :class="{ 'active-nav': activeTab === 'notices' }" @click="switchTab('notices')">★ <strong>公司十大事项</strong></button></nav><div class="profile"><div class="avatar">{{ (session.displayName || '管').slice(0, 1) }}</div><div><strong>{{ session.displayName || '管理员' }}</strong><small>管理员</small></div><button @click="logout" :disabled="saving || noticeSaving || noteState.saving" title="退出登录" aria-label="退出登录">↪</button></div></aside>
+    <aside class="sidebar"><div class="brand"><span class="brand-mark">P</span><span>潘多拉</span></div><nav aria-label="管理导航"><button type="button" class="nav-item" :class="{ 'active-nav': activeTab === 'accounts' }" @click="switchTab('accounts')">▦ <strong>账号管理</strong></button><button type="button" class="nav-item" :class="{ 'active-nav': activeTab === 'organization' }" @click="switchTab('organization')">⌘ <strong>组织架构</strong></button><button type="button" class="nav-item" :class="{ 'active-nav': activeTab === 'notices' }" @click="switchTab('notices')">★ <strong>公司十大事项</strong></button></nav><div class="profile"><div class="avatar" aria-hidden="true">管</div><div><strong>管理员</strong></div><button @click="logout" :disabled="saving || noticeSaving || noteState.saving" title="退出登录" aria-label="退出登录">↪</button></div></aside>
     <main class="main-content"><template v-if="activeTab === 'accounts'">
       <header class="page-header"><div><h1>账号管理</h1></div><div class="account-total"><strong>{{ users.length }}</strong><span>个账号 · {{ enabledCount }} 个启用</span></div></header>
       <section class="toolbar panel" aria-label="筛选账号"><div class="filter-fields"><div class="search-field"><label for="search">搜索账号</label><input id="search" v-model="search" placeholder="账号或姓名" type="search"></div><div><label for="role-filter">角色</label><select id="role-filter" v-model="roleFilter"><option value="">全部角色</option><option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option></select></div><div><label for="department-filter">部门</label><select id="department-filter" v-model="departmentFilter"><option value="">全部部门</option><option v-for="department in departments" :key="department.id" :value="String(department.id)">{{ departmentLabel(department) }}</option></select></div><div><label for="status-filter">状态</label><select id="status-filter" v-model="statusFilter"><option value="">全部状态</option><option value="enabled">启用</option><option value="disabled">停用</option></select></div></div><button class="button secondary" @click="loadUsers" :disabled="loading || saving">{{ loading ? '刷新中…' : '↻ 刷新' }}</button></section>
       <p v-if="success" class="success" role="status">✓ {{ success }}</p><p v-if="loadError" class="error" role="alert">{{ loadError }} <button class="text-button" @click="loadUsers" :disabled="loading || saving">重新加载</button></p>
-      <div class="account-grid account-management-grid"><section class="panel directory"><div class="section-heading"><h2>全部账号 <span>{{ filteredUsers.length }}</span></h2><span v-if="refreshedAt">刷新于 {{ timeLabel(refreshedAt) }}</span></div><p v-if="loading && !users.length" class="empty-state" role="status">正在读取账号…</p><p v-else-if="!filteredUsers.length" class="empty-state">{{ loadError ? '账号列表暂不可用，请重试。' : users.length ? '没有符合筛选条件的账号。' : '暂无账号。' }}</p><div v-else class="table-scroll"><table><thead><tr><th scope="col">账号 / 姓名</th><th scope="col">角色 / 直属上级</th><th scope="col">状态</th><th scope="col"><span class="sr-only">操作</span></th></tr></thead><tbody><tr v-for="user in filteredUsers" :key="user.id" :class="{ selected: form.id === user.id }"><td><strong>{{ displayName(user) }} <small v-if="user.id === session.userId">我</small></strong><span class="account-username">{{ user.username }}</span></td><td>{{ roleName(user.role) }}<span class="account-manager">{{ managerName(user.managerId) }}</span><span class="account-department">{{ departmentOf(user) }}</span></td><td><span class="badge" :class="{ disabled: user.disabled }">{{ user.disabled ? '停用' : '启用' }}</span></td><td class="account-row-actions"><button type="button" class="text-button" :aria-label="`编辑${user.username}`" :disabled="saving" @click="chooseUser(user)">编辑</button><button type="button" class="text-button status-action" :class="{ 'danger-text': !user.disabled }" :aria-label="`${user.disabled ? '启用' : '停用'}${user.username}`" :disabled="saving || loading" @click="openStatusDialog(user, $event)">{{ user.disabled ? '启用' : '停用' }}</button></td></tr></tbody></table></div></section>
+      <div class="account-grid account-management-grid"><section class="panel directory"><div class="section-heading"><h2>全部账号 <span>{{ filteredUsers.length }}</span></h2><span v-if="refreshedAt">刷新于 {{ timeLabel(refreshedAt) }}</span></div><p v-if="loading && !users.length" class="empty-state" role="status">正在读取账号…</p><p v-else-if="!filteredUsers.length" class="empty-state">{{ loadError ? '账号列表暂不可用，请重试。' : users.length ? '没有符合筛选条件的账号。' : '暂无账号。' }}</p><div v-else class="table-scroll"><table><thead><tr><th scope="col">账号 / 姓名</th><th scope="col">角色 / 直属上级 / 部门</th><th scope="col">状态</th><th scope="col"><span class="sr-only">操作</span></th></tr></thead><tbody><tr v-for="user in filteredUsers" :key="user.id" :class="{ selected: form.id === user.id }"><td><strong>{{ displayName(user) }} <small v-if="user.id === session.userId">我</small></strong><span class="account-username">{{ user.username }}</span></td><td>{{ roleName(user.role) }}<span class="account-manager">{{ managerName(user.managerId) }}</span><span class="account-department">{{ departmentOf(user) }}</span></td><td><span class="badge" :class="{ disabled: user.disabled }">{{ user.disabled ? '停用' : '启用' }}</span></td><td class="account-row-actions"><button type="button" class="text-button" :aria-label="`编辑${user.username}`" :disabled="saving" @click="chooseUser(user)">编辑</button><button type="button" class="text-button status-action" :class="{ 'danger-text': !user.disabled }" :aria-label="`${user.disabled ? '启用' : '停用'}${user.username}`" :disabled="saving || loading" @click="openStatusDialog(user, $event)">{{ user.disabled ? '启用' : '停用' }}</button></td></tr></tbody></table></div></section>
         <section class="panel account-editor"><div class="editor-heading"><div><h2>{{ form.id ? '编辑账号' : '新建账号' }}</h2></div><button v-if="form.id" class="button secondary small" @click="chooseUser()" :disabled="saving">＋ 新建</button></div><p v-if="notice" class="notice" role="status">{{ notice }}</p>
-          <form novalidate @submit.prevent="saveUser"><fieldset :disabled="saving"><section class="form-section" aria-labelledby="account-basic-title"><h3 id="account-basic-title">账号与组织</h3><label for="account-username">账号 <span v-if="!form.id">必填</span></label><input id="account-username" :value="form.username" @input="editAccountText('username', $event)" @paste="guardAccountTextPaste('username', $event)" :aria-invalid="!!textInputErrors.username" placeholder="字母、数字或下划线" autocomplete="off" :readonly="form.id !== null" required minlength="3" maxlength="64"><p v-if="textInputErrors.username" class="field-help field-invalid" role="status">{{ textInputErrors.username }}</p><label for="display-name">姓名 <span>必填</span></label><input id="display-name" :value="form.displayName" @input="editAccountText('displayName', $event)" @compositionend="editAccountText('displayName', $event)" @paste="guardAccountTextPaste('displayName', $event)" :aria-invalid="!!textInputErrors.displayName" autocomplete="off" required maxlength="64" placeholder="请输入姓名"><p v-if="textInputErrors.displayName" class="field-help field-invalid" role="status">{{ textInputErrors.displayName }}</p><label for="account-role">角色</label><select id="account-role" v-model="form.role"><option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option></select><template v-if="form.role === 'DEPT_HEAD'"><label for="department-name">部门名称</label><input id="department-name" v-model="form.departmentName" maxlength="64" placeholder="例如：技术研发部"></template><label for="account-manager">直属上级 <span>{{ canHaveManager ? '必填' : '无需设置' }}</span></label><select id="account-manager" v-model="form.managerId" :disabled="!canHaveManager" :required="canHaveManager"><option value="">{{ canHaveManager ? '请选择直属上级' : '无需设置' }}</option><option v-if="!selectedManagerValid" :value="form.managerId" disabled>{{ managerName(form.managerId) }}（请重新选择）</option><option v-for="manager in managers" :key="manager.id" :value="String(manager.id)">{{ displayName(manager) }} · {{ roleName(manager.role) }}</option></select><p v-if="canHaveManager" class="department-preview"><span>所属部门</span><strong>{{ formDepartment === form ? form.departmentName.trim() || '尚未填写部门名称' : departmentLabel(formDepartment) }}</strong></p></section><section class="form-section" aria-labelledby="account-profile-title"><h3 id="account-profile-title">员工档案</h3><label for="account-phone">账号手机号 <span>必填</span></label><input id="account-phone" :value="form.phone" @input="editNumber('phone', $event)" @paste="guardNumberPaste('phone', $event)" type="tel" inputmode="numeric" autocomplete="off" required maxlength="11" placeholder="11 位手机号" :aria-invalid="!!accountPhoneError" aria-describedby="account-phone-help"><p v-show="accountPhoneError" id="account-phone-help" class="field-help field-invalid" aria-live="polite">{{ accountPhoneError }}</p><label for="account-idcard">身份证号 <span>必填</span></label><input id="account-idcard" :value="form.idCard" @input="editNumber('idCard', $event)" @paste="guardNumberPaste('idCard', $event)" autocomplete="off" required maxlength="18" placeholder="18 位，末位可为 X" :aria-invalid="!!idCardError" aria-describedby="id-card-help"><p v-show="idCardError" id="id-card-help" class="field-help field-invalid" aria-live="polite">{{ idCardError }}</p><div class="form-pair"><div><label for="account-birth">出生日期 <span>身份证自动填写</span></label><input id="account-birth" :value="accountBirthday" type="date" readonly></div><div><label for="account-gender">性别 <span>选填</span></label><select id="account-gender" v-model="form.gender"><option value="">未填写</option><option value="MALE">男</option><option value="FEMALE">女</option><option value="UNSPECIFIED">不透露</option></select></div></div><div class="form-pair"><div><label for="account-hire">入职日期 <span>选填</span></label><input id="account-hire" v-model="form.hireDate" type="date"></div><div><label for="account-ec">紧急联系人 <span>选填</span></label><input id="account-ec" v-model="form.emergencyContact" maxlength="64" autocomplete="off"></div></div><label for="account-ep">紧急联系电话 <span>选填</span></label><input id="account-ep" v-model="form.emergencyPhone" maxlength="20" autocomplete="off" type="tel" :aria-invalid="!!emergencyError" aria-describedby="emergency-phone-help"><p id="emergency-phone-help" class="field-help" :class="{ 'field-invalid': emergencyError }" aria-live="polite">{{ emergencyError || '11 位手机号，或区号加座机号。' }}</p><label for="account-address">住址 <span>选填</span></label><input id="account-address" v-model="form.address" maxlength="255" autocomplete="off"></section><section class="form-section" aria-labelledby="account-password-title"><h3 id="account-password-title">登录设置</h3><label for="account-password">{{ form.id ? '重置密码' : '初始密码' }} <span>{{ form.id ? '选填' : '6–72 个字符' }}</span></label><input id="account-password" v-model="form.password" type="password" autocomplete="new-password" :required="!form.id" minlength="6" maxlength="72" :placeholder="form.id ? '留空则不修改' : '设置初始密码'"></section><p v-if="form.id === session.userId" class="field-help">修改自己的角色或密码后，需要重新登录。</p><p v-if="formError" class="error" role="alert">{{ formError }}</p><div class="editor-actions"><span v-if="dirty">有未保存的修改</span><button class="button primary" :disabled="saving || loading || Boolean(loadError)">{{ saving ? '正在保存…' : form.id ? '保存修改' : '创建账号' }}</button></div></fieldset></form>
+          <form novalidate @submit.prevent="saveUser"><fieldset :disabled="saving"><section class="form-section" aria-labelledby="account-basic-title"><h3 id="account-basic-title">账号与组织</h3><label for="account-username">账号 <span v-if="!form.id">必填</span></label><input id="account-username" :value="form.username" @input="editAccountText('username', $event)" @paste="guardAccountTextPaste('username', $event)" :aria-invalid="!!textInputErrors.username" placeholder="字母、数字或下划线" autocomplete="off" :readonly="form.id !== null" required minlength="3" maxlength="64"><p v-if="textInputErrors.username" class="field-help field-invalid" role="status">{{ textInputErrors.username }}</p><template v-if="form.role !== 'ADMIN'"><label for="display-name">姓名 <span>必填</span></label><input id="display-name" :value="form.displayName" @input="editAccountText('displayName', $event)" @compositionend="editAccountText('displayName', $event)" @paste="guardAccountTextPaste('displayName', $event)" :aria-invalid="!!textInputErrors.displayName" autocomplete="off" required maxlength="64" placeholder="请输入姓名"><p v-if="textInputErrors.displayName" class="field-help field-invalid" role="status">{{ textInputErrors.displayName }}</p></template><label for="account-role">角色</label><select id="account-role" v-model="form.role"><option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option></select><template v-if="form.role === 'DEPT_HEAD'"><label for="department-name">部门名称</label><input id="department-name" v-model="form.departmentName" maxlength="64" placeholder="例如：技术研发部"></template><label for="account-manager">直属上级 <span>{{ canHaveManager ? '必填' : '无需设置' }}</span></label><select id="account-manager" v-model="form.managerId" :disabled="!canHaveManager" :required="canHaveManager"><option value="">{{ canHaveManager ? '请选择直属上级' : '无需设置' }}</option><option v-if="!selectedManagerValid" :value="form.managerId" disabled>{{ managerName(form.managerId) }}（请重新选择）</option><option v-for="manager in managers" :key="manager.id" :value="String(manager.id)">{{ displayName(manager) }} · {{ roleName(manager.role) }}</option></select><p v-if="canHaveManager" class="department-preview"><span>所属部门</span><strong>{{ formDepartment === form ? form.departmentName.trim() || '尚未填写部门名称' : departmentLabel(formDepartment) }}</strong></p></section><section class="form-section" aria-labelledby="account-profile-title"><h3 id="account-profile-title">员工档案</h3><label for="account-phone">账号手机号 <span>必填</span></label><input id="account-phone" :value="form.phone" @input="editNumber('phone', $event)" @paste="guardNumberPaste('phone', $event)" type="tel" inputmode="numeric" autocomplete="off" required maxlength="11" placeholder="11 位手机号" :aria-invalid="!!accountPhoneError" aria-describedby="account-phone-help"><p v-show="accountPhoneError" id="account-phone-help" class="field-help field-invalid" aria-live="polite">{{ accountPhoneError }}</p><label for="account-idcard">身份证号 <span>必填</span></label><input id="account-idcard" :value="form.idCard" @input="editNumber('idCard', $event)" @paste="guardNumberPaste('idCard', $event)" autocomplete="off" required maxlength="18" placeholder="18 位，末位可为 X" :aria-invalid="!!idCardError" aria-describedby="id-card-help"><p v-show="idCardError" id="id-card-help" class="field-help field-invalid" aria-live="polite">{{ idCardError }}</p><div class="form-pair"><div><label for="account-birth">出生日期 <span>身份证自动填写</span></label><input id="account-birth" :value="accountBirthday" type="date" readonly></div><div><label for="account-gender">性别 <span>选填</span></label><select id="account-gender" v-model="form.gender"><option value="">未填写</option><option value="MALE">男</option><option value="FEMALE">女</option><option value="UNSPECIFIED">不透露</option></select></div></div><div class="form-pair"><div><label for="account-hire">入职日期 <span>选填</span></label><input id="account-hire" v-model="form.hireDate" type="date"></div><div><label for="account-ec">紧急联系人 <span>选填</span></label><input id="account-ec" v-model="form.emergencyContact" maxlength="64" autocomplete="off"></div></div><label for="account-ep">紧急联系电话 <span>选填</span></label><input id="account-ep" v-model="form.emergencyPhone" maxlength="20" autocomplete="off" type="tel" :aria-invalid="!!emergencyError" aria-describedby="emergency-phone-help"><p id="emergency-phone-help" class="field-help" :class="{ 'field-invalid': emergencyError }" aria-live="polite">{{ emergencyError || '11 位手机号，或区号加座机号。' }}</p><label for="account-address">住址 <span>选填</span></label><input id="account-address" v-model="form.address" maxlength="255" autocomplete="off"></section><section class="form-section" aria-labelledby="account-password-title"><h3 id="account-password-title">登录设置</h3><label for="account-password">{{ form.id ? '重置密码' : '初始密码' }} <span>{{ form.id ? '选填' : '6–72 个字符' }}</span></label><input id="account-password" v-model="form.password" type="password" autocomplete="new-password" :required="!form.id" minlength="6" maxlength="72" :placeholder="form.id ? '留空则不修改' : '设置初始密码'"></section><p v-if="form.id === session.userId" class="field-help">修改自己的角色或密码后，需要重新登录。</p><p v-if="formError" class="error" role="alert">{{ formError }}</p><div class="editor-actions account-editor-actions"><span v-if="dirty">有未保存的修改</span><button type="button" class="button secondary" @click="chooseUser(null, form.id ? '是否放弃未保存的修改？' : '是否清空已填写的内容？')">{{ form.id ? '取消' : '清空表单' }}</button><button type="submit" class="button primary" :disabled="saving || loading || Boolean(loadError)">{{ saving ? '正在保存…' : form.id ? '保存修改' : '创建账号' }}</button></div></fieldset></form>
         </section></div></template>
       <template v-if="activeTab === 'organization'">
         <header class="page-header"><h1>组织架构</h1><button type="button" class="button secondary" @click="loadUsers" :disabled="loading || saving">刷新</button></header>
-        <section class="panel organization-panel" aria-label="业务组织架构">
-          <div class="organization-search"><label for="org-search">搜索组织架构</label><input id="org-search" v-model="orgSearch" type="search" placeholder="姓名、账号、部门或角色"></div>
-          <p v-if="loading && !users.length" class="empty-state" role="status">正在读取组织架构…</p>
-          <p v-else-if="loadError" class="error" role="alert">{{ loadError }}</p>
-          <p v-else-if="!organization.length" class="empty-state">{{ orgSearch.trim() ? '没有匹配的成员或部门。' : '暂无业务成员。' }}</p>
-          <OrganizationTree v-else :nodes="organization" :searching="!!orgSearch.trim()" root @edit="editRosterAccount" />
-        </section>
+        <div class="panel organization-toolbar" aria-label="组织架构筛选和查看方式">
+          <div class="organization-search">
+            <label for="org-search">搜索组织架构</label>
+            <input id="org-search" v-model="orgSearch" type="search" placeholder="姓名、账号、部门或角色">
+          </div>
+          <div class="organization-views" role="group" aria-label="查看方式">
+            <button type="button" :aria-pressed="orgView === 'list'" @click="orgView = 'list'">列表查看</button>
+            <button type="button" :aria-pressed="orgView === 'tree'" @click="orgView = 'tree'">树状图查看</button>
+          </div>
+        </div>
+        <p v-if="loading && !users.length" class="panel empty-state" role="status">正在读取组织架构…</p>
+        <p v-else-if="loadError" class="error" role="alert">{{ loadError }}</p>
+        <p v-else-if="!(orgView === 'list' ? rosterGroups.length : organization.length)" class="panel empty-state">{{ orgSearch.trim() ? '没有匹配的成员或部门。' : '暂无业务成员。' }}</p>
+        <template v-else-if="orgView === 'list'">
+          <section v-for="group in rosterGroups" :key="group.id" class="panel org-roster">
+            <div class="section-heading"><h2>{{ group.label }} <span>{{ group.rows.length }} 人</span></h2></div>
+            <ul class="org-list">
+              <li v-for="row in group.rows" :key="row.user.id" class="org-row" :style="{ '--report-depth': row.depth }">
+                <div class="org-member">
+                  <span v-if="row.depth" class="org-branch" aria-hidden="true">↳</span>
+                  <button type="button" class="text-button" @click="editRosterAccount(row.user)">{{ displayName(row.user) }}</button>
+                  <span class="org-role">{{ roleName(row.user.role) }}</span>
+                  <span v-if="row.user.disabled" class="badge disabled">停用</span>
+                </div>
+                <span v-if="row.user.managerId" class="org-manager">直属上级：{{ managerName(row.user.managerId) }}</span>
+              </li>
+            </ul>
+          </section>
+        </template>
+        <OrganizationTree v-else :nodes="organization" :department-ids="departments.map(department => department.id)" @edit="editRosterAccount" />
       </template><template v-if="activeTab === 'notices'">
       <header class="page-header"><div><h1>公司十大重要事项</h1></div><div class="account-total"><strong>{{ enabledNoticeCount }}</strong><span>条启用 · 上限 10</span></div></header>
       <p v-if="noticeSuccess" class="success" role="status">✓ {{ noticeSuccess }}</p><p v-if="noticeError" class="error" role="alert">{{ noticeError }}</p>

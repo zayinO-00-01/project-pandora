@@ -38,6 +38,19 @@ class ProfileAndNoticeTests {
             .put("managerId", db.queryForObject("select id from users where username='team_lead'", Long.class));
     }
 
+    @Test void adminAccountUsesTheRoleTitleInsteadOfAPersonalName() throws Exception {
+        var auth=token(login("admin"));
+        var input=staffAccount("sys_admin", "13800003600").put("role", "ADMIN");
+        input.remove(java.util.List.of("displayName", "managerId"));
+        var created=mvc.perform(post("/api/v1/admin/users").header("Authorization",auth).contentType(MediaType.APPLICATION_JSON)
+            .content(input.toString())).andExpect(status().isCreated())
+            .andExpect(jsonPath("$.displayName").value("管理员")).andReturn();
+        long id=json.readTree(created.getResponse().getContentAsString()).path("id").asLong();
+        mvc.perform(patch("/api/v1/admin/users/"+id).header("Authorization",auth).contentType(MediaType.APPLICATION_JSON)
+            .content(json.createObjectNode().put("displayName", "另一个名字").toString()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.displayName").value("管理员"));
+    }
+
     @Test void ownerCanChangePasswordWithCurrentPassword() throws Exception {
         var staff=login("staff");var auth=token(staff);
         mvc.perform(put("/api/v1/users/me/password").header("Authorization",auth).contentType(MediaType.APPLICATION_JSON)

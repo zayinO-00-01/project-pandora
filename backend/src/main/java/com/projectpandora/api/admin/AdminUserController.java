@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/admin/users")
 public class AdminUserController {
+    private static final String ADMIN_TITLE="管理员";
     private final UserRepository users;
     private final PasswordEncoder passwords;
     private final AccessService access;
@@ -48,7 +49,7 @@ public class AdminUserController {
         assertRequiredManager(request.role(),request.managerId());
         assertAssignableManager(request.managerId());
         UserEntity user=new UserEntity();user.setUsername(username);user.setPasswordHash(passwords.encode(request.password()));
-        user.setRole(request.role());user.setDisplayName(availableName(request.displayName(),currentUsers,null));
+        user.setRole(request.role());user.setDisplayName(request.role()==Role.ADMIN ? ADMIN_TITLE : availableName(request.displayName(),currentUsers,null));
         user.setManagerId(request.managerId());user.setDisabled(Boolean.TRUE.equals(request.disabled()));user.setCreatedAt(Instant.now());
         if(request.role()==Role.DEPT_HEAD)user.setDepartmentName(trimToNull(request.departmentName()));
         applyProfile(user,phone,idCard,ProfileRules.birthDateFromId(idCard),request.gender(),request.hireDate(),
@@ -65,7 +66,8 @@ public class AdminUserController {
         var user=users.findById(id).orElseThrow(()->new ApiException(404,"用户不存在"));
         Role oldRole=user.getRole();Long oldManager=user.getManagerId();boolean oldDisabled=user.isDisabled();
         if(request.role!=null) user.setRole(request.role);
-        if(request.displayName!=null) user.setDisplayName(availableName(request.displayName,currentUsers,id));
+        if(user.getRole()==Role.ADMIN) user.setDisplayName(ADMIN_TITLE);
+        else if(request.displayName!=null || oldRole==Role.ADMIN) user.setDisplayName(availableName(request.displayName,currentUsers,id));
         if(user.getRole()!=Role.DEPT_HEAD)user.setDepartmentName(null);
         else if(request.departmentName!=null)user.setDepartmentName(trimToNull(request.departmentName));
         if(request.managerId!=null || Boolean.TRUE.equals(request.clearManager)) {
