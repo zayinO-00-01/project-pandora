@@ -71,7 +71,9 @@ import java.time.format.DateTimeFormatter
     LazyColumn(Modifier.fillMaxSize().imePadding().padding(horizontal=20.dp),
         verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=28.dp)) {
         item {Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
-            BackdropTextButton(onClick=model::closeTask,enabled=!state.saving) {Text(when(state.screen) {"day"->"← 返回公司";"home","ai"->"← 返回首页";"logs"->"← 返回日志";"inbox"->"← 返回通知与审核";"directory"->"← 返回通讯录";"organization"->"← 返回组织";else->"← 返回任务列表"})}
+            BackdropTextButton(onClick=model::closeTask,enabled=!state.saving) {
+                Text(when(state.screen) {"directory"->"← 返回联系人";"logs"->"← 返回日志";else->"← 返回公司"})
+            }
             ScreenHeading("任务详情","查看责任、时间节点与最新进度。")
             if(state.taskLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
             state.taskError?.let {Hint("任务读取失败：$it\n请刷新；已显示的任务可能是上次读取的内容。",true)}
@@ -104,7 +106,7 @@ import java.time.format.DateTimeFormatter
                 Text(task.detail.ifBlank {"暂无任务说明"},style=MaterialTheme.typography.bodyLarge)
                 HorizontalDivider()
                 Text("创建人：${task.creatorName}\n责任人：${task.assigneeName}\n开始时间：${task.startAt?.let {dueLabel(it)} ?: "未指定"}\n截止时间：${dueLabel(task.dueAt)}",style=MaterialTheme.typography.bodyMedium)
-                CalendarLabelNames(contentTags(state,"task",task.id,task.label))
+                CompactLabelRow(contentTags(state,"task",task.id,task.label),onClick=if(state.saving)null else model::openTaskLabel)
             }}}
             if(!task.deleted && !pendingReview && (task.createdBy==mine || task.isResponsible(mine) || isFounder))item {
                 var chosen by remember(task.id,state.contentLabels) {mutableStateOf(contentTags(state,"task",task.id,task.label).map {it.id})}
@@ -114,7 +116,6 @@ import java.time.format.DateTimeFormatter
                     state.workspaceError?.let {Hint(it,true)}
                 }
             }
-            if(!task.keywords.isNullOrEmpty())item {TaskKeywords(task)}
             if(taskIsApproved(task) && !task.deleted && state.taskNote.taskId==task.id)item {PrivateTaskNote(state,model)}
             if(!taskIsApproved(task))item {Hint(if(task.approvalStatus=="pending")"等待创建人当前直属上级审核，批准后才能开始反馈进度。" else "此任务未获批准，请根据审核意见重新安排。")}
             if(!task.approvalNote.isNullOrBlank())item {Hint("审核意见：${task.approvalNote}")}
@@ -240,8 +241,11 @@ internal fun dueLabel(value: String?): String = if(value==null)"未设置" else 
             if(draft.taskId==null)Text("多位责任人共同处理一条任务，共用状态和进度。",style=MaterialTheme.typography.bodySmall)
             if(state.dispatchLoading)LinearProgressIndicator(Modifier.fillMaxWidth())
             ControlOutlinedButton(onClick={assigneesExpanded=true},enabled=enabled && draft.taskId==null && !state.dispatchLoading,modifier=Modifier.fillMaxWidth()) {
-                Text(if(selectedIds.isEmpty())"选择责任人" else if(draft.taskId!=null)state.selectedTaskDetail?.assigneeName ?: selected?.displayName ?: selected?.username.orEmpty() else "已选 ${selectedIds.size} 人 · "+state.dispatchMembers.filter {it.id in selectedIds}.joinToString("、") {it.displayName ?: it.username},maxLines=2,overflow=TextOverflow.Ellipsis)
+                Text(if(draft.taskId==null)"选择责任人" else state.selectedTaskDetail?.assigneeName ?: selected?.displayName ?: selected?.username.orEmpty(),maxLines=2,overflow=TextOverflow.Ellipsis)
             }
+            val names=selectedIds.mapNotNull {id->state.dispatchMembers.firstOrNull {it.id==id}?.let {it.displayName ?: it.username}}
+            if(draft.taskId==null && names.isNotEmpty())Text("已选 ${names.size} 人：${names.joinToString("、")}",
+                style=MaterialTheme.typography.bodySmall,maxLines=3,overflow=TextOverflow.Ellipsis)
             if(!state.dispatchLoading && state.dispatchMembers.isEmpty())Text("人员列表尚未加载，请刷新或检查网络。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             BackdropTextButton(onClick=model::loadDispatchMembers,enabled=enabled && !state.dispatchLoading) {Text("刷新通讯录")}
         }}
@@ -266,7 +270,7 @@ internal fun dueLabel(value: String?): String = if(value==null)"未设置" else 
         item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             BackdropTextButton(onClick={discard=true},enabled=enabled) {Text("放弃填写")}
             ControlButton(onClick=model::createTask,enabled=enabled && !state.dispatchLoading && selected!=null &&
-                (!isNew || (!draft.startDate.isNullOrBlank() && draft.dueDate.isNotBlank())),modifier=Modifier.weight(1f)) {Text(if(state.saving)"提交中…" else if(!isNew)"提交修改" else if(needsApproval)"提交审核" else "创建任务")}
+                (!isNew || (!draft.startDate.isNullOrBlank() && draft.dueDate.isNotBlank())),modifier=Modifier.weight(1f)) {Text(if(state.saving)"提交中…" else if(!isNew)"提交修改" else if(needsApproval)"提交审核" else if(selectedIds.any {it!=state.session?.userId})"派发任务" else "创建任务")}
         }}
     }
 }

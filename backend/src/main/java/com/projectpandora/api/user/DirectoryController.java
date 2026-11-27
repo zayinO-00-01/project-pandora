@@ -13,7 +13,7 @@ public class DirectoryController {
     private final AccessService access;
     public DirectoryController(UserRepository users,AccessService access) {this.users=users;this.access=access;}
     public record Contact(Long id,String username,String displayName,String role,Long managerId,String managerName,String phone,
-                          String avatar,String avatarData,Long departmentId,String departmentName,boolean canViewWork) {}
+                          String avatar,String avatarData,Long departmentId,String departmentName,boolean canViewWork,boolean hasManager) {}
 
     private UserEntity departmentOf(UserEntity person,Map<Long,UserEntity> byId) {
         var visited=new HashSet<Long>();
@@ -57,7 +57,7 @@ public class DirectoryController {
             var department=departments.get(person.getId());
             return new Contact(person.getId(),person.getUsername(),person.getDisplayName(),person.getRole().name(),
                 manager==null?null:manager.getId(),manager==null?null:nameOf(manager),person.getPhone(),person.getAvatar(),person.getAvatarData(),
-                department==null?null:department.getId(),department==null?null:departmentName(department),workIds.contains(person.getId()));
+                department==null?null:department.getId(),department==null?null:departmentName(department),workIds.contains(person.getId()),managerId!=null);
         }).toList();
     }
 }

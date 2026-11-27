@@ -1,14 +1,13 @@
 package com.projectpandora.app.ui
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import com.projectpandora.app.AppState
 import com.projectpandora.app.PandoraViewModel
 import com.projectpandora.app.data.*
@@ -23,41 +22,17 @@ import java.time.LocalDate
 
 @Composable internal fun LogCalendar(state: AppState,model: PandoraViewModel) {
     val selected=LocalDate.parse(state.selectedDate)
-    var jump by remember {mutableStateOf(false)}
-    LoadHolidaySchedules(setOf(selected.year, selected.year+1))
-    val first=selected.withDayOfMonth(1)
-    val offset=first.dayOfWeek.value%7
-    Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-        Row(verticalAlignment=Alignment.CenterVertically) {
-            ControlTextButton(onClick={jump=true},modifier=Modifier.weight(1f)) {Text("${selected.year} 年 ${selected.monthValue} 月 ▾")}
-            ControlTextButton(onClick={model.selectDate(selected.minusMonths(1).toString())}) {Text("‹")}
-            ControlTextButton(onClick={model.selectDate(today().toString())}) {Text("今天")}
-            ControlTextButton(onClick={model.selectDate(selected.plusMonths(1).toString())}) {Text("›")}
-        }
-        Row {listOf("日","一","二","三","四","五","六").forEach {Text(it,Modifier.weight(1f),textAlign=TextAlign.Center)}}
-        val cells=(offset+selected.lengthOfMonth()+6)/7*7
-        (0 until cells).chunked(7).forEach {week->
-            Row {
-                week.forEach {index->
-                    val day=index-offset+1
-                    if(day !in 1..selected.lengthOfMonth())Spacer(Modifier.weight(1f))
-                    else {
-                        val date=first.withDayOfMonth(day)
-                        val content=logCalendarContent(date,state.session?.userId,state.logs,state.tasks,state.contentLabels)
-                        ControlTextButton(onClick={model.selectDate(date.toString())},modifier=Modifier.weight(1f).height(96.dp).semantics {contentDescription="${date}，${content.logs.size}篇日志，${content.tasks.size}项任务，${content.labels.joinToString {it.name}}"},
-                            contentPadding=PaddingValues(0.dp),colors=ButtonDefaults.textButtonColors(containerColor=if(date==selected)MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)) {
-                            Column(horizontalAlignment=Alignment.CenterHorizontally) {
-                                Row {Text(day.toString());HolidayBadge(date)}
-                                festivalName(date)?.let {Text(it,style=MaterialTheme.typography.labelSmall,maxLines=1)}
-                                if(content.logs.isNotEmpty())Text("${content.logs.size}日志",style=MaterialTheme.typography.labelSmall,maxLines=1)
-                                if(content.tasks.isNotEmpty())Text("${content.tasks.size}任务",style=MaterialTheme.typography.labelSmall,maxLines=1)
-                                LabelLines(content.labels.take(4))
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    val logs=remember(state.logs,state.session?.userId) {
+        state.logs.filter {it.userId==state.session?.userId}.sortedByDescending {it.updatedAt}
     }
-    if(jump)CalendarJumpDialog(selected,{jump=false}) {model.selectDate(it.toString());jump=false}
+    WorkspaceCalendar(selected,onDate={model.selectDate(it.toString())}) {date->
+        val entries=logs.filter {it.covers(date.toString())}
+        val shown=if(entries.size>2)1 else 2
+        entries.take(shown).forEach {log->
+            val title=log.content.lineSequence().firstOrNull {it.isNotBlank()} ?: "工作日志"
+            CalendarItemChip(title,contentTags(state,"log",log.id,log.label),
+                Modifier.clickable(onClickLabel="查看当天日志") {model.selectDate(date.toString())})
+        }
+        if(entries.size>shown)CalendarOverflow(entries.size-shown) {model.selectDate(date.toString())}
+    }
 }

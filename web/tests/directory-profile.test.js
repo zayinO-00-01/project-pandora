@@ -23,5 +23,5 @@ test('profile save requires complete account data and preserves an unchanged leg
   assert.ok(!('emergencyPhone' in state.profileForSave(form, original)));
   assert.ok(state.profileInputError({ ...form, emergencyPhone: '12012345678' }, original));
   assert.equal(state.profileInputError({ ...form, emergencyPhone: '13812345678' }, original), '');
-  assert.equal(state.profileInputError({ ...form, emergencyPhone: '010-12345678' }, original), '');
+  assert.match(state.profileInputError({ ...form, emergencyPhone: '010-12345678' }, original), /11 位/);
 });

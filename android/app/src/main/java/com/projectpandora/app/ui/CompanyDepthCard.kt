@@ -29,8 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.projectpandora.app.data.PanelItem
 
 /** Native depth treatment: observe pointer position without consuming list scroll gestures. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable fun CompanyDepthCard(entry: PanelItem,position: Int,modifier: Modifier=Modifier,compact: Boolean=false,labels: List<com.projectpandora.app.data.WorkLabel> = emptyList(),onLabels: (()->Unit)? = null,onClick: ()->Unit) {
+@Composable fun CompanyDepthCard(entry: PanelItem,position: Int,modifier: Modifier=Modifier,compact: Boolean=false,labels: List<com.projectpandora.app.data.WorkLabel> = emptyList(),onLabels: (()->Unit)? = null,onLabelClick: ((com.projectpandora.app.data.WorkLabel)->Unit)?=null,onClick: ()->Unit) {
     val interaction=remember {MutableInteractionSource()}
     val pressed by interaction.collectIsPressedAsState()
     var pointer by remember {mutableStateOf(Offset.Zero)}
@@ -75,7 +74,7 @@ import com.projectpandora.app.data.PanelItem
                 color=colors.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)
             Spacer(Modifier.weight(1f))
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
-                FlowRow(Modifier.weight(1f),horizontalArrangement=Arrangement.spacedBy(4.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {labels.forEach {label->Box(Modifier.size(width=18.dp,height=3.dp).background(labelColor(label),MaterialTheme.shapes.small))}}
+                CompactLabelRow(labels,Modifier.weight(1f),compact=true,scrollable=true,onClick=onLabelClick)
                 if(onLabels!=null)androidx.compose.material3.IconButton(onClick=onLabels,modifier=Modifier.size(28.dp)) {Text("≡",modifier=Modifier.semantics {contentDescription="设置事项标签"},color=colors.onSurfaceVariant)}
             }
             if(!compact)Text("查看事项 ↗",style=MaterialTheme.typography.labelSmall,color=colors.secondary)

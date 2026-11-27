@@ -14,7 +14,7 @@ public final class ProfileRules {
 
     private static final Pattern PHONE = Pattern.compile("1[3-9]\\d{9}");
     private static final Pattern ID_CARD = Pattern.compile("[0-9]{17}[0-9X]");
-    private static final Pattern LANDLINE = Pattern.compile("0[1-9]\\d{1,2}[- ]?[1-9]\\d{6,7}");
+    private static final Pattern PERSONAL_NAME = Pattern.compile("[\\p{IsHan}A-Za-z]+(?: [\\p{IsHan}A-Za-z]+)*");
     private static final int[] ID_WEIGHTS = {7,9,10,5,8,4,2,1,6,3,7,9,10,5,8,4,2};
     private static final String ID_CHECKSUMS = "10X98765432";
     private static final Set<String> GENDERS = Set.of("MALE", "FEMALE", "UNSPECIFIED");
@@ -62,9 +62,16 @@ public final class ProfileRules {
     public static String normalizeEmergencyPhone(String supplied,String previous) {
         String phone=supplied==null || supplied.isBlank() ? null : supplied.trim();
         if (phone==null || Objects.equals(phone, previous==null?null:previous.trim())) return phone;
-        if (!PHONE.matcher(phone).matches() && !LANDLINE.matcher(phone).matches())
-            throw new ApiException(400,"紧急联系电话请输入有效的 11 位手机号或带区号的座机");
+        if (!PHONE.matcher(phone).matches())
+            throw new ApiException(400,"紧急联系电话请输入有效的 11 位手机号");
         return phone;
+    }
+
+    public static String normalizeEmergencyContact(String supplied,String previous) {
+        String contact=supplied==null || supplied.isBlank() ? null : supplied.trim();
+        if(contact!=null && !Objects.equals(contact,previous==null?null:previous.trim()) && !PERSONAL_NAME.matcher(contact).matches())
+            throw new ApiException(400,"紧急联系人只能填写中文或英文字母");
+        return contact;
     }
 
     public static String normalizeGender(String gender) {

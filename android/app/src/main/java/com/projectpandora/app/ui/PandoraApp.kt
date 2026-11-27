@@ -31,6 +31,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -61,12 +62,21 @@ import java.time.format.DateTimeFormatter
     val feedback=LocalControlFeedback.current
     val homeHeader=state.editor==null && state.selectedTaskId==null && state.screen in listOf("home","ai")
     var syncDetails by remember {mutableStateOf(false)}
+    val pageState=rememberSaveableStateHolder()
+    var showLogCalendar by rememberSaveable(state.session.server,state.session.userId) {mutableStateOf(false)}
     val readFailures=listOfNotNull(state.panelError?.let {"总览：$it"},state.taskError?.let {"任务：$it"},state.logError?.let {"日志：$it"})
     val retained=state.tasks.isNotEmpty() || state.logs.isNotEmpty() || state.panels!=null
     if(syncDetails)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={syncDetails=false},title={Text("同步失败")},text={Text(readFailures.joinToString("\n\n")+if(retained)"\n\n正在显示上次成功读取的内容。" else "\n\n暂时无法读取工作内容。")},confirmButton={ControlTextButton(onClick={syncDetails=false;model.refresh()},enabled=!state.loading) {Text("重试")}},dismissButton={ControlTextButton(onClick={syncDetails=false}) {Text("关闭")}})
     val showFloating=state.editor==null && state.selectedTaskId==null && !state.dispatchOpen && state.screen in listOf("home","ai","logs")
     val headerHeight=(if(homeHeader && (readFailures.isNotEmpty() || state.developmentPreview))96.dp else if(homeHeader)72.dp else if(state.developmentPreview)64.dp else 48.dp) * maxOf(1f,LocalDensity.current.fontScale)
-    BackHandler(enabled=state.editor==null && state.selectedTaskId==null && state.screen!="home" && !state.dispatchOpen) {if(!state.saving)model.screen(if(state.screen=="labels")"profile" else if(state.screen in listOf("tasks","organization","inbox","directory"))"day" else "home")}
+    BackHandler(enabled=state.editor==null && state.selectedTaskId==null && state.screen!="home" && !state.dispatchOpen) {
+        if(!state.saving)when {
+            state.screen=="logs" && showLogCalendar -> showLogCalendar=false
+            state.screen=="labels" -> model.screen("profile")
+            state.screen in listOf("tasks","organization","inbox","directory") -> model.screen("day")
+            else -> model.screen("home")
+        }
+    }
     val pageTitle=when {
         state.editor!=null -> "潘多拉"
         state.screen=="home" || state.screen=="ai" -> "首页"
@@ -143,7 +153,9 @@ import java.time.format.DateTimeFormatter
         else if(page.selectedTaskId!=null || page.dispatchOpen)TaskScreen(page,model)
         else when(page.screen) {
             "home" -> HomeScreen(page,model)
-            "logs" -> LogsScreen(page,model)
+            "logs" -> pageState.SaveableStateProvider("logs:${page.session?.server}:${page.session?.userId}") {
+                LogsScreen(page,model,allDates=!showLogCalendar,onToggleDates={showLogCalendar=!showLogCalendar})
+            }
             "tasks" -> TaskScreen(page,model)
             "day" -> CalendarScreen(page,model)
             "ai" -> HomeScreen(page,model)
@@ -151,7 +163,9 @@ import java.time.format.DateTimeFormatter
             "inbox" -> InboxScreen(page,model)
             "labels" -> LabelsScreen(page,model)
             "organization" -> OrganizationScreen(page,model)
-            "directory" -> DirectoryScreen(page,model)
+            "directory" -> pageState.SaveableStateProvider("directory:${page.session?.server}:${page.session?.userId}") {
+                DirectoryScreen(page,model)
+            }
         }
         }
     }}}
@@ -236,9 +250,9 @@ import java.time.format.DateTimeFormatter
         state.profileError?.let {Hint(it,true,onRetry=model::refresh)}
         if(showProfileDetails)state.profile?.let {profile->
             listOf("姓名" to profile.displayName,"账号手机号" to profile.phone,
-                "出生日期" to profile.birthDate,"性别" to profile.gender,"入职日期" to profile.hireDate,
-                "紧急联系人" to profile.emergencyContact,"紧急联系电话" to profile.emergencyPhone,"联系地址" to profile.address,
-                "直属上级编号" to profile.managerId?.toString(),"直属上级姓名" to (profile.managerName?.takeIf {it.isNotBlank()} ?: "未设置")).forEach {(label,value)->
+                "出生日期" to profile.birthDate,"性别" to profileGenderLabel(profile.gender),"入职日期" to profile.hireDate,
+                "紧急联系人" to profileContactName(profile.emergencyContact),"紧急联系电话" to profile.emergencyPhone,"联系地址" to profileAddress(profile.address),
+                "直属上级" to (profile.managerName?.takeIf {it.isNotBlank()} ?: if(me.role=="FOUNDER")"无直属上级" else "未设置")).forEach {(label,value)->
                 Row(Modifier.fillMaxWidth().padding(vertical=6.dp),horizontalArrangement=Arrangement.spacedBy(16.dp)) {
                     Text(label,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.width(100.dp))
                     Text(value?.takeIf {it.isNotBlank()} ?: "未填写",style=MaterialTheme.typography.bodyMedium,modifier=Modifier.weight(1f))
