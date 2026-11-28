@@ -25,36 +25,84 @@ import com.projectpandora.app.AppState
 import com.projectpandora.app.PandoraViewModel
 import com.projectpandora.app.canRescheduleTask
 import com.projectpandora.app.data.*
+import kotlinx.coroutines.CancellationException
 import java.time.LocalDate
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 
 private val scheduleFormat=DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm")
-private data class CalendarScheduleRequest(val task: DispatchTask,val target: LocalDate?)
+private data class CalendarScheduleRequest(val task: CalendarTaskPreview,val target: LocalDate?)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun CalendarScreen(state: AppState,model: PandoraViewModel) {
-    var overflowDay by rememberSaveable(state.session?.userId) {mutableStateOf<String?>(null)}
+    val session=state.session ?: return
+    var overflowDay by rememberSaveable(session.server,session.userId) {mutableStateOf<String?>(null)}
     var showHelp by remember {mutableStateOf(false)}
     val selected=LocalDate.parse(state.selectedDate)
     val mode=state.calendarMode
     val feedback=LocalControlFeedback.current
     val listState=rememberLazyListState()
     val itemDrag=remember {CalendarItemDrag()}
-    var moveRequest by remember(state.session?.userId) {mutableStateOf<CalendarScheduleRequest?>(null)}
-    fun move(task: DispatchTask,target: LocalDate) {
+    var moveRequest by remember(session) {mutableStateOf<CalendarScheduleRequest?>(null)}
+    fun move(task: CalendarTaskPreview,target: LocalDate) {
         val start=task.startAt?.let(Instant::parse)
-        val targetTime=Instant.parse(task.dueAt ?: return).atZone(TaskDispatchValidation.zone).toLocalTime()
+        val targetTime=Instant.parse(task.dueAt).atZone(TaskDispatchValidation.zone).toLocalTime()
         val due=target.atTime(targetTime).atZone(TaskDispatchValidation.zone).toInstant()
         if(start!=null && due>=start && due>=Instant.now())
-            model.moveTaskDate(task,due.toString())
+            model.moveCalendarTask(task.id,due.toString())
         else moveRequest=CalendarScheduleRequest(task,target)
     }
     var expanded by rememberSaveable {mutableStateOf(false)}
     LaunchedEffect(mode,expanded) {listState.scrollToItem(0)}
-    val tasksByDay=remember(state.tasks) {
-        orderedTasks(state.tasks.filter {taskIsApproved(it) && !it.deleted}).groupBy {taskDate(it)}
+    val revision=state.calendarRevision
+    val dates=companyCalendarDates(selected,mode)
+    val from=dates.first()
+    val to=dates.last()
+    val previewTasks=if(state.developmentPreview)remember(state.tasks) {
+        orderedTasks(state.tasks.filter {taskIsApproved(it) && !it.deleted && taskDate(it)!=null}).groupBy {taskDate(it)}
+    } else emptyMap()
+    fun preview(task: DispatchTask)=CalendarTaskPreview(task.id,task.title,requireNotNull(task.dueAt),task.startAt,
+        canRescheduleTask(state,task),contentTags(state,"task",task.id,task.label))
+    var summaries by remember(session,from,to,revision) {mutableStateOf<Map<String,CalendarDaySummary>?>(null)}
+    var summaryError by remember(session,from,to,revision) {mutableStateOf<String?>(null)}
+    LaunchedEffect(session,from,to,revision,mode=="day",state.developmentPreview) {
+        if(mode=="day" || state.developmentPreview)return@LaunchedEffect
+        try {summaries=model.calendarSummary(session,from,to).associateBy {it.date}}
+        catch(e:CancellationException) {throw e}
+        catch(e:Exception) {summaryError=e.message ?: "暂时无法读取日历摘要"}
     }
+    var agenda by remember(session,selected,revision) {mutableStateOf<CalendarAgendaPage?>(null)}
+    var agendaError by remember(session,selected,revision) {mutableStateOf<String?>(null)}
+    var agendaLoading by remember(session,selected,revision) {mutableStateOf(!state.developmentPreview)}
+    var page by remember(session,selected,revision) {mutableIntStateOf(0)}
+    var retry by remember(session,selected,revision) {mutableIntStateOf(0)}
+    LaunchedEffect(session,selected,revision,page,retry,state.developmentPreview) {
+        if(state.developmentPreview)return@LaunchedEffect
+        try {
+            val result=model.calendarAgenda(session,selected,page)
+            agenda=if(page==0)result else agenda?.append(result) ?: result
+        } catch(e:CancellationException) {throw e}
+          catch(e:Exception) {agendaError=e.message ?: "暂时无法读取当天任务"}
+        finally {agendaLoading=false}
+    }
+    fun nextPage() {
+        if(agendaLoading)return
+        val next=agenda?.nextPage ?: return
+        agendaError=null
+        agendaLoading=true
+        page=next
+    }
+    fun retryAgenda() {
+        if(agendaLoading)return
+        agendaError=null
+        agendaLoading=true
+        retry++
+    }
+    val demoAgenda=previewTasks[selected].orEmpty().map {task->
+        CalendarAgendaItem(task,canRescheduleTask(state,task),contentTags(state,"task",task.id,task.label))
+    }
+    val agendaItems=if(state.developmentPreview)demoAgenda else agenda?.items.orEmpty()
+    val agendaTotal=if(state.developmentPreview)demoAgenda.size.toLong() else agenda?.total
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val density=LocalDensity.current.density
         val weekHeight=84f
@@ -119,94 +167,105 @@ private data class CalendarScheduleRequest(val task: DispatchTask,val target: Lo
                 WorkspaceCalendar(selected,onDate={model.selectDate(it.toString())},mode=mode,
                     onMode={expanded=false;model.calendarMode(it)},gridHeight=height.dp,
                     onResizeToggle={applySize(if(currentSize=="normal")"week" else "normal")},drag=itemDrag) {date->
-                    val tasks=tasksByDay[date].orEmpty()
-                    tasks.take(if(tasks.size>2)1 else 2).forEach {task->
-                        val canMove=canRescheduleTask(state,task)
-                        CalendarItemChip(task.title,contentTags(state,"task",task.id,task.label),
+                    val summary=if(state.developmentPreview) {
+                        val tasks=previewTasks[date].orEmpty()
+                        CalendarDaySummary(date.toString(),tasks.size.toLong(),tasks.take(2).map(::preview))
+                    } else summaries?.get(date.toString())
+                    summary?.shown.orEmpty().forEach {task->
+                        val canMove=task.canReschedule && !state.saving
+                        CalendarItemChip(task.title,task.labels,
                             Modifier.calendarDrag(itemDrag,task.title,date,if(canMove){{target->move(task,target)}} else null)
                                 .clickable(enabled=!state.saving) {feedback();model.selectDate(date.toString());model.openTask(task.id)})
                     }
-                    if(tasks.size>2)CalendarOverflow(tasks.size-1) {
+                    val more=summary?.remaining ?: 0L
+                    if(more>0)CalendarOverflow(more) {
                         feedback()
                         model.selectDate(date.toString())
                         overflowDay=date.toString()
                     }
                 }
             }
-        state.workspaceError?.let {item {Hint(it,true)}}
+        if(!state.developmentPreview && mode!="day" && summaries==null && summaryError==null)item {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+        }
+        summaryError?.let {item {Hint("日历摘要：$it",true,onRetry=model::refreshCalendar)}}
         item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             ControlButton(onClick=model::openDispatch,enabled=!state.saving,modifier=Modifier.weight(1f)) {Text("创建任务")}
+            if(!state.developmentPreview)ControlTextButton(onClick=model::refreshCalendar,enabled=!state.saving) {Text("刷新日历")}
         }}
         item {HorizontalDivider(Modifier.padding(top=12.dp),color=MaterialTheme.colorScheme.outlineVariant)}
-        if(state.loading)item {LinearProgressIndicator(Modifier.fillMaxWidth())}
-        state.taskError?.let {item {Hint("任务读取失败：$it。请同步后重试。",true)}}
-        val agendaDates=listOf(selected)
-        agendaDates.forEach {agendaDate->
-            val tasks=tasksByDay[agendaDate].orEmpty()
+        val agendaDate=selected
             item {Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface.copy(alpha=0.96f),MaterialTheme.shapes.medium).panelOutline().padding(12.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("${agendaDate.monthValue} 月 ${agendaDate.dayOfMonth} 日 · 周${listOf("一","二","三","四","五","六","日")[agendaDate.dayOfWeek.value-1]}",style=MaterialTheme.typography.titleMedium)
                     holidayLabel(agendaDate)?.let {Text(it,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.secondary)}
-                    Text("${tasks.size} 项任务",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(agendaTotal?.let {"$it 项任务"} ?: if(agendaLoading)"正在读取任务…" else "任务暂不可用",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 ControlTextButton(onClick={showHelp=true}) {Text("说明",style=MaterialTheme.typography.labelMedium)}
             }}
-            if(tasks.isEmpty() && !state.taskLoading && state.taskError==null)item {
+            if(agendaTotal==0L && !agendaLoading && agendaError==null)item {
                 if(mode=="week")Text("暂无安排",modifier=Modifier.padding(horizontal=12.dp,vertical=8.dp),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 else Column(Modifier.fillMaxWidth().padding(vertical=24.dp)) {
                     Text("这一天暂无任务",style=MaterialTheme.typography.titleLarge.copy(fontWeight=androidx.compose.ui.text.font.FontWeight.Medium))
                     Spacer(Modifier.height(8.dp))
                 }
             }
-            tasks.forEach {task->
-                item(key="${agendaDate}-task-${task.id}") {
-                    val canMove=canRescheduleTask(state,task)
-                    AgendaEntry(task,state,!state.saving,
-                        Modifier.calendarDrag(itemDrag,task.title,agendaDate,if(canMove){{target->move(task,target)}} else null,fromAgenda=true),
-                        onMove=if(canMove) {{moveRequest=CalendarScheduleRequest(task,null)}} else null,onLabel=model::openTaskLabel
-                    ) {feedback();model.openTask(task.id)}
-                }
+            items(agendaItems,key={"${agendaDate}-task-${it.task.id}"}) {entry->
+                val task=entry.task
+                val canMove=entry.canReschedule && !state.saving
+                val schedule=CalendarTaskPreview(task.id,task.title,requireNotNull(task.dueAt),task.startAt,canMove,entry.labels)
+                AgendaEntry(task,entry.labels,!state.saving,
+                    Modifier.calendarDrag(itemDrag,task.title,agendaDate,if(canMove){{target->move(schedule,target)}} else null,fromAgenda=true),
+                    onMove=if(canMove) {{moveRequest=CalendarScheduleRequest(schedule,null)}} else null,onLabel=model::openTaskLabel
+                ) {feedback();model.openTask(task.id)}
             }
+        item(key="calendar-agenda-status") {
+            CalendarPageStatus(agendaLoading,agendaError,agenda?.nextPage!=null,::retryAgenda,::nextPage)
         }
         item {CompanyWorkLinks(state,model)}
     }
     }
     }
-    overflowDay?.let { value ->
+    overflowDay?.takeIf {it==selected.toString()}?.let { value ->
         val date=LocalDate.parse(value)
-        val tasks=tasksByDay[date].orEmpty()
         ModalBottomSheet(onDismissRequest={overflowDay=null},
             sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),
             containerColor=MaterialTheme.colorScheme.surface) {
             Row(Modifier.fillMaxWidth().padding(start=16.dp,end=8.dp),
                 verticalAlignment=Alignment.CenterVertically) {
-                Text("${date.monthValue} 月 ${date.dayOfMonth} 日 · ${tasks.size} 项任务",
+                Text("${date.monthValue} 月 ${date.dayOfMonth} 日" + (agendaTotal?.let {" · $it 项任务"} ?: ""),
                     modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
                 IconButton(onClick={overflowDay=null}) {Icon(Icons.Default.Close,"关闭当天任务")}
             }
             LazyColumn(Modifier.fillMaxWidth().heightIn(max=440.dp),
                 contentPadding=PaddingValues(start=16.dp,end=16.dp,bottom=16.dp),
                 verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                items(tasks,key={it.id}) { task ->
-                    AgendaEntry(task,state,!state.saving,onLabel={label->
+                items(agendaItems,key={it.task.id}) { entry ->
+                    AgendaEntry(entry.task,entry.labels,!state.saving,onLabel={label->
                         overflowDay=null
                         model.openTaskLabel(label)
                     }) {
                         feedback()
                         overflowDay=null
-                        model.openTask(task.id)
+                        model.openTask(entry.task.id)
                     }
                 }
+                item {CalendarPageStatus(agendaLoading,agendaError,agenda?.nextPage!=null,::retryAgenda,::nextPage)}
             }
         }
     }
     moveRequest?.let { request ->
         TaskScheduleDialog(request,{moveRequest=null}) { due,start ->
             moveRequest=null
-            model.moveTaskDate(request.task,due,start)
+            model.moveCalendarTask(request.task.id,due,start)
         }
     }
-    if(showHelp)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={showHelp=false},title={Text("日历怎么用")},text={Text("点日期可在日历下方查看当天任务，点「+数字」可直接展开当天全部任务，点击任务卡上的标签可筛选任务，日视图只列出当天的任务卡片。点年月可直接跳转。长按任务标签或下方的任务卡片可拖到新日期，也可以点“改期”。创建人和责任人可申请改期，由本人直属上级审核；创始人改期直接生效。")},confirmButton={ControlTextButton(onClick={showHelp=false}) {Text("关闭")}})
+    if(showHelp)AlertDialog(modifier=Modifier.panelOutline(MaterialTheme.shapes.extraLarge),onDismissRequest={showHelp=false},title={Text("日历怎么用")},text={Text("点日期可在日历下方查看当天任务，点「+数字」可展开当天列表，点「加载更多」继续查看。点击任务卡上的标签可筛选任务。点年月可直接跳转。长按任务标签或下方的任务卡片可拖到新日期，也可以点“改期”。创建人和责任人可申请改期，由本人直属上级审核；创始人改期直接生效。")},confirmButton={ControlTextButton(onClick={showHelp=false}) {Text("关闭")}})
+}
+@Composable private fun CalendarPageStatus(loading: Boolean,error: String?,hasMore: Boolean,retry: ()->Unit,next: ()->Unit) {
+    if(loading)LinearProgressIndicator(Modifier.fillMaxWidth())
+    else if(error!=null)Hint("当天任务：$error",true,onRetry=retry)
+    else if(hasMore)ControlTextButton(onClick=next,modifier=Modifier.fillMaxWidth()) {Text("加载更多")}
 }
 @Composable private fun TaskScheduleDialog(request: CalendarScheduleRequest,onDismiss: ()->Unit,onConfirm: (String,String?)->Unit) {
     val task=request.task
@@ -235,7 +294,7 @@ private data class CalendarScheduleRequest(val task: DispatchTask,val target: Lo
     }){Text("确认改期")}},dismissButton={ControlTextButton(onClick=onDismiss){Text("取消")}})
 }
 
-@Composable private fun AgendaEntry(task: DispatchTask,state: AppState,enabled: Boolean,modifier: Modifier=Modifier,onMove: (() -> Unit)?=null,onLabel: (WorkLabel)->Unit,onClick: ()->Unit) {
+@Composable private fun AgendaEntry(task: DispatchTask,labels: List<WorkLabel>,enabled: Boolean,modifier: Modifier=Modifier,onMove: (() -> Unit)?=null,onLabel: (WorkLabel)->Unit,onClick: ()->Unit) {
     val background=MaterialTheme.colorScheme.surface.copy(alpha=0.96f)
     val foreground=MaterialTheme.colorScheme.onSurface
     Surface(color=background,contentColor=foreground,shape=MaterialTheme.shapes.medium,modifier=modifier.fillMaxWidth().panelOutline()) {
@@ -250,7 +309,7 @@ private data class CalendarScheduleRequest(val task: DispatchTask,val target: Lo
                 TaskPriorityText(task.priority,onLabel=false)
                 if(task.detail.isNotBlank())Text(task.detail,style=MaterialTheme.typography.bodyMedium)
                 if(task.progressNote.isNotBlank())Text("进度：${task.progressNote}",style=MaterialTheme.typography.bodySmall)
-                CompactLabelRow(contentTags(state,"task",task.id,task.label),onClick=onLabel.takeIf {enabled})
+                CompactLabelRow(labels,onClick=onLabel.takeIf {enabled})
             }
             if(onMove!=null)ControlTextButton(onClick=onMove,enabled=enabled) {Text("改期")}
         }

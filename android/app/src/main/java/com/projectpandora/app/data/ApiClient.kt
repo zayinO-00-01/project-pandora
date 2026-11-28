@@ -110,6 +110,10 @@ class ApiClient(address: String) {
         return request("/tasks/$id/note","PUT",mapOf("content" to content),session,TaskNote::class.java)
     }
     fun tasks(session: Session): List<DispatchTask> = request("/tasks","GET",null,session,object:TypeToken<List<DispatchTask>>(){}.type)
+    internal fun calendarSummary(session: Session, from: java.time.LocalDate, to: java.time.LocalDate): List<CalendarDaySummary> =
+        request("/tasks/calendar?from=$from&to=$to","GET",null,session,object:TypeToken<List<CalendarDaySummary>>(){}.type)
+    internal fun calendarAgenda(session: Session, date: java.time.LocalDate, page: Int): CalendarAgendaPage =
+        request("/tasks/calendar/day?date=$date&page=$page","GET",null,session,CalendarAgendaPage::class.java)
     fun createTasks(session: Session,inputs: List<TaskCreateInput>): List<DispatchTask> {
         if(!AppRoles.canCreateTask(session.role))throw ApiException(403,"仅业务成员可创建任务")
         require(inputs.isNotEmpty() && inputs.size<=100 && inputs.map {it.assigneeId}.distinct().size==inputs.size)

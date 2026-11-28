@@ -432,6 +432,95 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ViewDecision'
+  /tasks/calendar:
+    get:
+      summary: 公司日历日期摘要
+      description: 按北京时间截止日期取摘要。仅包含当前账号创建或负责的已批准、未删除任务；空日期不返回。每日最多两条预览。
+      security:
+      - bearer: []
+      parameters:
+      - in: query
+        name: from
+        required: true
+        schema: {type: string, format: date}
+      - in: query
+        name: to
+        required: true
+        description: 含结束日期，总区间最长 42 天。
+        schema: {type: string, format: date}
+      responses:
+        '200':
+          description: 日期摘要
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [date, total, previews]
+                  properties:
+                    date: {type: string, format: date}
+                    total: {type: integer, format: int64}
+                    previews:
+                      type: array
+                      maxItems: 2
+                      items:
+                        type: object
+                        required: [id, title, dueAt, canReschedule, labels]
+                        properties:
+                          id: {type: integer, format: int64}
+                          title: {type: string}
+                          dueAt: {type: string, format: date-time}
+                          startAt: {type: string, format: date-time, nullable: true}
+                          canReschedule: {type: boolean}
+                          labels: {$ref: '#/components/schemas/CalendarLabels'}
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+  /tasks/calendar/day:
+    get:
+      summary: 分页读取公司日历的当天任务
+      description: 使用与日期摘要相同的权限和排序。每页最多 30 条。
+      security:
+      - bearer: []
+      parameters:
+      - in: query
+        name: date
+        required: true
+        schema: {type: string, format: date}
+      - in: query
+        name: page
+        schema: {type: integer, minimum: 0, default: 0}
+      responses:
+        '200':
+          description: 当天任务。没有下一页时 nextPage 为 null。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total, items, nextPage]
+                properties:
+                  total: {type: integer, format: int64}
+                  nextPage: {type: integer, nullable: true}
+                  items:
+                    type: array
+                    maxItems: 30
+                    items:
+                      type: object
+                      required: [task, canReschedule, labels]
+                      properties:
+                        task: {$ref: '#/components/schemas/Task'}
+                        canReschedule: {type: boolean}
+                        labels: {$ref: '#/components/schemas/CalendarLabels'}
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
   /tasks:
     get:
       summary: 授权范围任务
@@ -2350,6 +2439,16 @@ components:
       required:
       - title
       - assigneeId
+    CalendarLabels:
+      type: array
+      items:
+        type: object
+        required: [id, name, color, active]
+        properties:
+          id: {type: integer, format: int64}
+          name: {type: string}
+          color: {type: string}
+          active: {type: boolean}
     Task:
       type: object
       properties:

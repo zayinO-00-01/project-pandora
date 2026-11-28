@@ -43,6 +43,7 @@ data class AppState(
     val logError: String? = null, val logsLoaded: Boolean = false,val panelError: String? = null, val authError: String? = null,
     val editor: EditBuffer? = null, val editorError: String? = null,
     val screen: String = "home", val selectedDate: String = today().toString(), val calendarMode: String = "month",
+    val calendarRevision: Int = 0,
     val checkingIntegrity: Boolean = false, val integrityDate: String? = null, val integrityError: String? = null,
     val notice: String? = null
 )
@@ -386,15 +387,15 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
     fun archiveLabel(id: Long)=workspaceAction({api(it).archiveLabel(it,id);Unit},"标签已停用，历史记录保留原标签")
     fun readNotification(message: AppNotification)=confirmNotificationsRead(setOf(message.id),false)
 
-    fun moveTaskDate(task: DispatchTask, dueAt: String, supplementalStart: String? = null) {
-        if(!canRescheduleTask(state.value,task))return
+    internal fun moveCalendarTask(taskId: Long, dueAt: String, supplementalStart: String? = null) {
+        if(state.value.saving)return
         val date=java.time.Instant.parse(dueAt).atZone(TaskDispatchValidation.zone).toLocalDate()
         if(state.value.developmentPreview) {
-            mutable.update {s->s.copy(tasks=s.tasks.map {if(it.id==task.id)it.copy(dueAt=dueAt,startAt=it.startAt ?: supplementalStart) else it},selectedDate=date.toString())}
+            mutable.update {s->s.copy(tasks=s.tasks.map {if(it.id==taskId)it.copy(dueAt=dueAt,startAt=it.startAt ?: supplementalStart) else it},selectedDate=date.toString())}
             return
         }
         val founder=state.value.session?.role=="FOUNDER"
-        workspaceAction({api(it).rescheduleTask(it,task.id,dueAt,supplementalStart);Unit},if(founder)"任务已改期" else "改期申请已提交，审批后生效") {
+        workspaceAction({api(it).rescheduleTask(it,taskId,dueAt,supplementalStart);Unit},if(founder)"任务已改期" else "改期申请已提交，审批后生效") {
             if(founder)selectDate(date.toString())
         }
     }
@@ -644,6 +645,7 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
         if(state.value.saving)return
         taskSelectionGeneration++;taskDetailJob?.cancel();taskNoteJob?.cancel()
         mutable.update {it.copy(screen=when(it.screen) {"directory","logs"->it.screen;else->"day"},taskLabelFilter=null,selectedTaskId=null,selectedTaskDetail=null,taskDetailLoading=false,taskDetailError=null,taskNote=TaskNoteState(),taskEditorError=null)}
+        if(state.value.screen=="day")refreshCalendar()
     }
     fun loadSelectedTaskDetail() {
         val me=state.value.session ?: return
@@ -1037,7 +1039,29 @@ class PandoraViewModel(app: Application): AndroidViewModel(app) {
             } catch(e: Exception) {if(gen==generation)failure(e,false)}
         }
     }
+    internal suspend fun calendarSummary(me: Session, from: java.time.LocalDate, to: java.time.LocalDate) =
+        calendarRead(me) { it.calendarSummary(me,from,to) }
+    internal suspend fun calendarAgenda(me: Session, date: java.time.LocalDate, page: Int) =
+        calendarRead(me) { it.calendarAgenda(me,date,page) }
+    private suspend fun <T> calendarRead(me: Session, read: (ApiClient)->T): T {
+        val gen=generation
+        try { return withContext(Dispatchers.IO) { read(api(me)) } }
+        catch(e:ApiException) {
+            if(e.status==401 && gen==generation && state.value.session==me)failure(e,false)
+            throw e
+        }
+    }
+    internal fun refreshCalendar() {
+        if(state.value.saving || state.value.developmentPreview)return
+        refreshJob?.cancel()
+        mutable.update {it.copy(calendarRevision=it.calendarRevision+1,loading=false,taskLoading=false,personalLoading=false,profileLoading=false)}
+    }
     fun refresh() {
+        val current=state.value
+        if(current.screen=="day" && current.selectedTaskId==null && !current.dispatchOpen) {
+            refreshCalendar()
+            return
+        }
         loadSelectedTaskDetail()
         loadWorkspaceExtras()
         if(state.value.developmentPreview)return
