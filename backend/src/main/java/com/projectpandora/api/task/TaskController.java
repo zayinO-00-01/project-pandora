@@ -1,7 +1,9 @@
 package com.projectpandora.api.task;
 
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.List;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,7 +19,20 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/tasks")
 public class TaskController {
     private final TaskService tasks;
-    public TaskController(TaskService tasks) { this.tasks = tasks; }
+    private final TaskCalendarService calendar;
+    public TaskController(TaskService tasks,TaskCalendarService calendar) { this.tasks = tasks; this.calendar=calendar; }
+    @GetMapping("/calendar")
+    public List<TaskCalendarService.DaySummary> calendar(
+        @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate from,
+        @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate to) {
+        return calendar.summary(from,to);
+    }
+    @GetMapping("/calendar/day")
+    public TaskCalendarService.Agenda agenda(
+        @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate date,
+        @RequestParam(defaultValue="0") int page) {
+        return calendar.agenda(date,page);
+    }
     @GetMapping("/{id}")
     public TaskResponse detail(@PathVariable Long id) { return tasks.detail(id); }
     @GetMapping("/{id}/note")

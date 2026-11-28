@@ -37,4 +37,23 @@ import com.projectpandora.api.common.ApiException;
   if(table==null)return List.of();
   return db.queryForList("select label_id from "+table+" where id=? and label_id is not null",Long.class,id);
  }
+
+ /** For a bounded set of already authorized task IDs, including explicit empty label sets. */
+ public Map<Long,List<LabelResponse>> taskLabels(Map<Long,Long> legacyLabels) {
+  if(legacyLabels.isEmpty())return Map.of();
+  var perTask=new HashMap<Long,List<Long>>();
+  legacyLabels.forEach((id,label)->perTask.put(id,label==null?List.of():List.of(label)));
+  var named=new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(db);
+  named.query("select content_id,label_ids from content_label_sets where kind='task' and content_id in (:ids)",
+      Map.of("ids",legacyLabels.keySet()),rs->{
+   try {perTask.put(rs.getLong(1),List.of(json.readValue(rs.getString(2),Long[].class)));}
+   catch(com.fasterxml.jackson.core.JsonProcessingException e) {throw new ApiException(500,"标签记录读取失败");}
+  });
+  var values=new HashMap<Long,LabelResponse>();
+  labels.findAllById(perTask.values().stream().flatMap(Collection::stream).distinct().toList())
+      .forEach(label->values.put(label.getId(),LabelResponse.from(label)));
+  var result=new HashMap<Long,List<LabelResponse>>();
+  perTask.forEach((id,ids)->result.put(id,ids.stream().map(values::get).filter(Objects::nonNull).toList()));
+  return result;
+ }
 }

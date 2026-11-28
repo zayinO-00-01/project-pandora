@@ -61,7 +61,9 @@ fun labelTextColor(label: WorkLabel?): Color {
     }
 }
 
-@Composable internal fun CalendarOverflow(count: Int,onClick: ()->Unit) {
+@Composable internal fun CalendarOverflow(count: Int,onClick: ()->Unit) = CalendarOverflow(count.toLong(),onClick)
+
+@Composable internal fun CalendarOverflow(count: Long,onClick: ()->Unit) {
     if(count<=0)return
     Text("+$count",modifier=Modifier.fillMaxWidth().clickable(onClickLabel="查看当天另外 $count 项",onClick=onClick)
         .padding(horizontal=3.dp),color=MaterialTheme.colorScheme.secondary,

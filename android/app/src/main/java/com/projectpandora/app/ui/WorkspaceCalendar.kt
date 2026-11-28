@@ -38,7 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
     dayContent: @Composable (LocalDate)->Unit
 ) {
     var showDateJump by rememberSaveable {mutableStateOf(false)}
-    val dates=if(mode=="week") {val first=selected.minusDays((selected.dayOfWeek.value%7).toLong());(0..6).map {first.plusDays(it.toLong())}} else periodDates(selected,mode)
+    val dates=companyCalendarDates(selected,mode)
     val weekdays=listOf("日","一","二","三","四","五","六")
     val unit=when(mode) {"week"->"周";"day"->"天";else->"月"}
     fun navigate(amount: Long) {
@@ -52,9 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
     val calendarRowHeight=maxOf(baseRowHeight,height/weekCount).dp
     val collapse=((normalHeight-height)/(normalHeight-baseRowHeight)).coerceIn(0f,1f)
     val density=LocalDensity.current
-    val monthDates=periodDates(selected,"month")
-    val gridStart=monthDates.first().minusDays((monthDates.first().dayOfWeek.value%7).toLong())
-    val padded=List(weekCount*7) {gridStart.plusDays(it.toLong())}
+    val padded=companyCalendarDates(selected,"month")
     val selectedRow=padded.indexOf(selected)/7
     LoadHolidaySchedules((padded.map {it.year}+(selected.year+1)).toSet())
     Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(4.dp)) {
